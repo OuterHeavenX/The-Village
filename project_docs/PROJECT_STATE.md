@@ -4,6 +4,14 @@
 **Updated:** 2026-07-28  
 **Runtime status:** All JavaScript syntax validated; the 3D Village verified to initialise and dispose cleanly even with a missing texture and a failed GLB; per-frame localStorage reads eliminated; every referenced asset present.
 
+## Post-V34.1.0 battle-camera recovery
+
+- Fixed an intermittent iOS battle view that could show only a yellow map backdrop while the HUD remained responsive.
+- Root cause was stale touch-pointer state surviving a lost pointer-capture or battle transition, allowing a later single touch to be interpreted as a pinch and displacing the battlefield.
+- Battle startup, browser visibility loss, window blur, and lost pointer capture now clear gesture state.
+- Camera zoom and pan values are validated and safely restored if they become non-finite.
+- Chromium parsing and battle-module initialization validation passed; repeated physical-iPhone regression testing remains recommended.
+
 ## Current implemented systems
 
 - Shadow has five equipable personal familiars: Night Bat, Giant Sword, Demon, Ghost, and Faerie.

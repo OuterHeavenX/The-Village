@@ -1175,6 +1175,7 @@ function beginWaveTransition(){
 
 function freshGame(mode='chapter',chapterId=null){
  const session=resetBattleVisualState('stage initialization');
+ resetBattlePointerGesture();
  AUDIO.unlock();AUDIO.setState('battle',true);
  const chapter=mode==='chapter'?(CHAPTERS.find(c=>c.id===(chapterId||save.campaign.selected))||CHAPTERS[0]):null;
  const chapterNumber=chapter?.number||Math.max(6,Math.floor((save.bestWave||1)/4));
@@ -1579,7 +1580,12 @@ function cameraTransform(){
  return {zoom,worldScale,x:ox+(G?.camera?.panX||0)+(gw*scale*(1-zoom))/2,y:oy+(G?.camera?.panY||0)+(gh*scale*(1-zoom))/2};
 }
 function clampCamera(){
- if(!G?.camera)return;const c=cameraTransform(),worldW=GRID.cols*GRID.tile*c.worldScale,worldH=GRID.rows*GRID.tile*c.worldScale,m=CAMERA_LIMITS.margin;
+ if(!G?.camera)return;
+ if(!Number.isFinite(G.camera.zoom)||!Number.isFinite(G.camera.panX)||!Number.isFinite(G.camera.panY)){
+  G.camera={zoom:1,panX:0,panY:0};
+ }
+ G.camera.zoom=Math.max(CAMERA_LIMITS.minZoom,Math.min(CAMERA_LIMITS.maxZoom,G.camera.zoom));
+ const c=cameraTransform(),worldW=GRID.cols*GRID.tile*c.worldScale,worldH=GRID.rows*GRID.tile*c.worldScale,m=CAMERA_LIMITS.margin;
  const minX=Math.min(m,W-m-worldW),maxX=Math.max(m,W-m-worldW),minY=Math.min(m,H-m-worldH),maxY=Math.max(m,H-m-worldH);
  const nx=Math.max(minX,Math.min(maxX,c.x)),ny=Math.max(minY,Math.min(maxY,c.y));G.camera.panX+=nx-c.x;G.camera.panY+=ny-c.y;
 }
@@ -1653,6 +1659,10 @@ function handleBattleTap(e){
  if(used)finishCardPlacement();
 }
 const activePointers=new Map();let gesture={dragging:false,moved:false,lastX:0,lastY:0,pinchDistance:0,pinchZoom:1};
+function resetBattlePointerGesture(){
+ activePointers.clear();
+ gesture={dragging:false,moved:false,lastX:0,lastY:0,pinchDistance:0,pinchZoom:G?.camera?.zoom||1};
+}
 canvas.style.touchAction='none';
 canvas.addEventListener('pointerdown',e=>{
  if(!G||G.state!=='play')return;canvas.setPointerCapture?.(e.pointerId);const p=pointerCanvasPoint(e);activePointers.set(e.pointerId,p);
@@ -1670,6 +1680,13 @@ function endPointer(e){
  if(shouldTap)handleBattleTap(e);if(activePointers.size===1){const p=[...activePointers.values()][0];gesture.lastX=p.x;gesture.lastY=p.y;gesture.dragging=true;gesture.moved=true;}else if(activePointers.size===0){gesture.dragging=false;gesture.pinchDistance=0;}
 }
 canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
+canvas.addEventListener('lostpointercapture',e=>{
+ if(!activePointers.delete(e.pointerId))return;
+ if(activePointers.size===1){const p=[...activePointers.values()][0];gesture.lastX=p.x;gesture.lastY=p.y;gesture.dragging=true;gesture.moved=true}
+ else if(activePointers.size===0)resetBattlePointerGesture();
+});
+window.addEventListener('blur',resetBattlePointerGesture);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)resetBattlePointerGesture()});
 canvas.addEventListener('wheel',e=>{if(!G||G.state!=='play')return;e.preventDefault();const p=pointerCanvasPoint(e),factor=Math.exp(-e.deltaY*.0015);zoomCameraAt(p,G.camera.zoom*factor);},{passive:false});
 function restoreEssenceCarry(){if(!G||G.essenceCarry<=0)return;const restored=Math.min(G.maxEssence-G.essence,G.essenceCarry);G.essence+=restored;G.essenceCarry-=restored;}
 function finishCardPlacement(){

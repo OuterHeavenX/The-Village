@@ -89,7 +89,7 @@ Do not clear browser storage unless intentionally resetting a save.
 
 ## Known issues
 
-- The Stage 6 visual-state repair has passed parsing and initialization checks, but its full Stage 1 → Stage 6 → Stage 1 visual regression sequence still requires manual release verification.
+- The iOS battle-camera recovery for stale touch pointers has passed Chromium parsing and initialization checks, but still requires repeated manual stage-transition and pinch/drag verification on physical iPhone hardware.
 - The optional Three.js atmosphere renderer loads Three.js from a CDN. Core game systems continue to operate if that optional layer cannot load.
 - Production builds require Node.js/npm; opening `index.html` directly is useful for basic checks but the Vite development server is recommended.
 
