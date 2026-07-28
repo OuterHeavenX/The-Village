@@ -1,0 +1,21 @@
+THE VILLAGE V32.2.2 — BATTLE EXIT + AOE FIX
+
+BATTLE COMPLETION
+- Replaced the raw enemy-array-length victory condition with a living-enemy check.
+- Victory is now evaluated before pause handling, so an Essence draft cannot deadlock the final wave.
+- Victory is also evaluated immediately after dead enemies are removed in the same frame.
+- Added a one-time completion guard to prevent duplicate rewards or duplicate result transitions.
+- Added a recovery result screen if an unexpected completion exception occurs.
+- Pending placement, draft, tower-inspector, and selection states are cleared at victory.
+- Delayed Essence pickups can no longer reopen a draft after completion begins.
+
+TOWER AOE / ATTACK RADIUS
+- All towers now use 50% of their previous effective attack radius.
+- Radius upgrades, synergies, weather, and relic range modifiers scale from the new halved radius.
+- Explicit splash radii were also reduced by 50%:
+  Holy Water Infusion: 1.00 -> 0.50
+  Silver Cannon: 1.10 -> 0.55
+  Garlic Tower splash value: 0.72 -> 0.36
+
+SAVE DATA
+- Existing saves and campaign progress remain compatible.

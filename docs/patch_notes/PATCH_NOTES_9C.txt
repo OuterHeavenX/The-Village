@@ -1,0 +1,8 @@
+RELICS OF THE KINGDOM — MILESTONE 9C
+CARD UNLOCK REPAIR
+
+- Fixed save migration overwriting unlocked cards.
+- Automatically infers completed chapters from campaign progress.
+- Automatically restores missing cards and card copies.
+- Chapter rewards are reconciled on every victory, including replays.
+- Opening Cards & Deck repairs missing progression rewards immediately.

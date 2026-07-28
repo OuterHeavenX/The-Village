@@ -1,0 +1,11 @@
+RELICS OF THE KINGDOM — V15.0.3
+BALANCE, ROAD & RADIUS FIX
+
+- Tower selection radius display reduced by another 60% from V15.0.2.
+- Starting roads now leave the gate as one clean path.
+- Starting-road generation rejects cells that touch older road cells, preventing doubled or parallel strips.
+- Standard enemy health increased substantially.
+- Wave health scaling increased.
+- Elite enemies are tougher and appear slightly more often in later waves.
+- Bosses and summoned enemies received matching durability increases.
+- Deck fixes from V15.0.2 remain unchanged.

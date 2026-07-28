@@ -1,0 +1,9 @@
+RELICS OF THE KINGDOM — MILESTONE 9A
+
+FULL-SCREEN BATTLEFIELD PASS
+- Battlefield atmosphere now fills the entire visible play screen.
+- Tactical grid is anchored closer to the top HUD instead of vertically floating.
+- Empty black space below the grid is replaced by a continuous map backdrop.
+- Cathedral gate has been rebuilt as a larger gothic centerpiece.
+- Mobile battle HUD/deck spacing tightened.
+- Existing boss arrival and combat shake retained.

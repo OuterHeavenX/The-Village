@@ -1,0 +1,49 @@
+THE VILLAGE V29.2 — CRITICAL INIT FIX / CSS CONSOLIDATION
+
+CRITICAL FIX
+- Fixed a fatal null dereference at src/Battle/game.js line 1417.
+  $('#achievementsBtn').onclick was assigned unconditionally, but
+  #achievementsBtn was removed from index.html when Achievements moved to the
+  [data-more-target] navigation handler. The assignment threw a TypeError at
+  top-level module scope, aborting the remaining 315 lines (18.2%) of game.js.
+- The following systems were written but never bound, and now run again:
+    * the entire Village builder (build button, build tray, plot construction,
+      zoom in/out, centre, pan, pinch, wheel)
+    * Cards screen filters: #mergeOnly, #deckTypeFilter, #deckSort
+    * window.__returnToCardsDeck (card inspector return button)
+    * the bindClick helper and all battle HUD pointer/click bindings
+    * syncNativeBattleControls and window.syncNativeBattleControls
+    * the audio panel and every audio setting
+    * setAppHeight resize / orientationchange handling (mobile layout)
+- The hook is now optional-chained, so re-adding an #achievementsBtn element
+  will bind it automatically without reintroducing the crash.
+
+DEAD CODE REMOVED
+- Removed $('#endlessBtn') listener; #endlessBtn does not exist in index.html.
+- Removed $('#collectionScreen') from the openScreen hide-list; the element
+  does not exist in index.html.
+
+STYLES CONSOLIDATION
+- Merged 230 redundant duplicate rule blocks in styles.css.
+- styles.css: 335,091 -> 309,283 bytes; 4,064 -> 2,711 lines.
+- Every merge was verified to leave the final computed value of all 2,079
+  selectors byte-identical to the original. Zero mismatches.
+- 284 further duplicate groups were left untouched because merging them could
+  change cascade order. These need visual confirmation in a browser and are
+  listed in project_docs/AUDIT_V29_1.md.
+- The original stylesheet is preserved as styles.original.css.
+
+NOT CHANGED
+- No gameplay, balance, save schema, card, tower, or progression values were
+  modified. No content IDs were renamed. Save compatibility is unaffected.
+
+VERIFICATION PERFORMED
+- node --check passes on all four JS files.
+- All 23 asset paths referenced in code resolve to files that exist.
+- 181 index.html IDs cross-checked against 137 IDs queried by JS; no remaining
+  unguarded reference to a non-existent element.
+- CSS re-parsed after consolidation and compared declaration-by-declaration.
+
+NOT PERFORMED
+- No in-browser run. Please verify on iPad landscape, iPad portrait, and
+  desktop per the ROADMAP release checklist before building on this.

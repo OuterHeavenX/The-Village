@@ -1,0 +1,47 @@
+THE VILLAGE — V32.4.2
+STABILITY, OPTIMISATION & HOMAGE AUDIT
+
+FIXED
+- Removed 126 lines of unreachable legacy Village controller from the battle
+  module. villageBootstrap.js has been the sole Village owner since V30.1; the
+  old copy's guard clause meant none of it could ever run. This also removed a
+  duplicate clampCamera definition.
+- Fixed a stale stylesheet cache identifier. index.html still asked for
+  styles.css?v=v27-8-shadow-trail-fix, so Safari could pair a V27.8 stylesheet
+  with V32.4 markup after an update. All cache identifiers now move together.
+- Removed applyBooster(), which no card could reach, along with a latent bug
+  inside it that capped gate healing at 30 HP and could reduce health on keeps
+  upgraded past that.
+- Removed the write-only G.gold field.
+- Gate health no longer shows fractions in the HUD after heal traps or the
+  Faerie familiar (it read 18.35 instead of 19).
+- End-of-run chests no longer throw when the eligible card pool is empty.
+- Removed an empty assets/backgrounds folder and corrected package-lock.json,
+  which was still recording version 27.3.0.
+
+FASTER
+- The road path set and enemy route points are now memoised behind a road
+  version counter. The path set was rebuilt on every pointer-move during
+  placement, and route points were rebuilt for every enemy on every frame in
+  both the simulation and the renderer.
+- The tactical grid draws as one batched path instead of 288 separate rectangle
+  strokes per frame.
+- Sprite preloading is split by when you can actually meet a sheet. About
+  0.87 MB of chapter 11+ enemy art no longer competes with first paint; it is
+  warmed once the browser is idle.
+- Removed a dead sprite lookup table that only duplicated existing preloads.
+
+NEW — THREE METAL GEAR SOLID HOMAGES
+- CODEC, FREQUENCY 140.85. Type 14085, or triple-tap the weather readout during
+  a hunt. Four callers, rewritten as advice about roads, tower adjacency and
+  Essence. Your first ever call is answered with "Kept you waiting, huh?".
+- ALERT. When a road guardian first notices you, the "!" rises above it.
+- PSYCHO MANTIS. Five quick taps on the Profile stat grid. He reads your actual
+  save file back to you — your runs, your victories, the card you hoard most,
+  your best wave — then asks you to put your device down, and moves the screen.
+
+KNOWN — NOT CHANGED
+- Soul Reserve, Hunter Tavern and the village Night Market/Tavern starting-soul
+  bonuses currently do nothing; they fed only the removed gold field. Repairing
+  them would meaningfully change early-wave balance, so that is left as a design
+  decision. See project_docs/AUDIT_V32_4_2.md.

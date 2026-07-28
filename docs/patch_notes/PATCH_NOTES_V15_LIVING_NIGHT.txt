@@ -1,0 +1,18 @@
+RELICS OF THE KINGDOM — V15 LIVING NIGHT
+
+ACTUAL CHANGES IN THIS BUILD
+- 20% enemy-health increase plus faster wave spawning and random elite enemies.
+- Every run now begins with a randomized, playable road layout.
+- Combat skills selected between waves are armed instead of wasted when no enemies exist; they trigger when the next enemy enters.
+- New Garlic Tower added and automatically unlocked with two copies.
+- Garlic Tower damages and slows all undead inside its aura.
+- Tap any placed tower to show its real attack radius on the battlefield.
+- Added combo announcements for rapid kills.
+- Added explicit Axe Rain and Grand Cross combat effects.
+- Existing living atmosphere systems retained: weather, fog, rain, blood moon, particles, animated tower art, boss cinematics, relic discoveries, elite tower rewards, critical hits, and reactive cathedral.
+
+TEST NOTES
+1. Begin several hunts to verify the road changes each time.
+2. Select an attack skill between waves; cast it while the field is empty. It should display SKILL ARMED and trigger on the next enemy.
+3. Add Garlic Tower to your six-card deck from Cards & Deck, then place it beside the road.
+4. Tap a placed tower and verify the circular range overlay.

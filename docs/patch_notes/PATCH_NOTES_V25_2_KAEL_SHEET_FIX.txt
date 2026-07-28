@@ -1,0 +1,7 @@
+THE VILLAGE V25.2 — KAEL SHEET FIX
+
+- Corrected Kael sprite sheet detection from 4 columns to 6 columns.
+- Prevented adjacent frames from appearing at the same time.
+- Preserved directional rows: down, up, right, left.
+- Updated both Village CSS animation and battlefield canvas rendering.
+- Kael now renders as one character instead of an overlapping duplicate.

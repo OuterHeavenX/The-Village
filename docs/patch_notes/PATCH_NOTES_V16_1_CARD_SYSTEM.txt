@@ -1,0 +1,10 @@
+RELICS OF THE KINGDOM — V16.1 CARD SYSTEM
+
+Implemented:
+- Redesigned Cards & Deck screen.
+- Six-card battle deck now uses a true 2 × 3 layout.
+- Added two dedicated Hero Ground Defense slots outside the six-card deck.
+- Card silhouettes now use consistent 5:7 poker-card proportions.
+- Deck cards use the same card markup, artwork, rarity frame, and level data as collection cards, scaled down for the loadout.
+- Collection remains vertically scrollable and uses a cleaner five-column desktop / four-column mobile layout.
+- Existing V16.0a Essence Draft and Active Card Cycle gameplay remains unchanged.

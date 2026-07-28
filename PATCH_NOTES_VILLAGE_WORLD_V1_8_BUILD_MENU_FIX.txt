@@ -1,0 +1,9 @@
+THE VILLAGE — VILLAGE WORLD V1.8 BUILD MENU FIX
+
+- Fixed the actual root cause of the oversized construction icons: mobile rules targeted a nonexistent #homeScreen element, while the live Village screen is #menu.
+- Retargeted all construction-menu and Village control overrides to the real #menu container.
+- Hard-limited structure thumbnails to 32x32 px on phones and 36x36 px on tablets.
+- Reduced each structure row to a compact 42–46 px list item.
+- Reduced the drawer to a maximum of 300 px on phones and 330 px on tablets.
+- Preserved vertical scrolling and removed horizontal overflow.
+- No gameplay systems or non-Village mechanics changed.

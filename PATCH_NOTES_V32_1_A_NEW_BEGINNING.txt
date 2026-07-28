@@ -1,0 +1,94 @@
+THE VILLAGE V32.1 — A NEW BEGINNING
+
+Everything below was verified in a real headless browser, on a wiped save, at
+PC 1600x900, iPad 1366x1024 @2x and Phone 430x932 @3x.
+
+=== 1. A GENUINELY FRESH START ===
+A brand new hunter now owns EIGHT cards. Nothing else.
+  Whip Tower · Holy Water Infusion · Dagger Tower        (three defenses)
+  Holy Water Barrage · Cross Storm · Frost Ward          (three skills)
+  Road Spikes · Oil Trap                                 (the two ground slots)
+
+Three separate systems were handing out cards on the very first launch:
+  a) HERO_GROUND_DEFENSES ran "if(item.copies<1)item.copies=1" over ALL NINE
+     traps unconditionally. Seven of them are now withheld.
+  b) garlic was force-granted two copies at load.
+  c) scripture was pushed into save.unlocked unconditionally, and a separate
+     loop grants one copy to everything in save.unlocked — so it arrived on the
+     next launch even after its own grant was gated.
+All three now respect campaign progression.
+
+The withheld cards were not deleted, they were placed on the road:
+  Chapter I   Cemetery   axe · bone · garlic · Bear Trap
+  Chapter II  Forest     rosary · guardian · Frost Rune
+  Chapter III Village    cross · axeRain · Poison Fog
+  Chapter IV  Cathedral  clock · soulPact · scripture
+  Chapter V   Marsh      familiar · sharpen · Holy Banner
+  Chapter VI  Walls      silver · fortify · Watch Bell
+  Chapter VII Temple     summon · moonBlessing · Shadow Mine
+  Chapter VIII Castle    grandCross · Soul Lantern
+Verified: clearing Chapter I grants exactly axe, bone, garlic and Bear Trap,
+and Chapter VI's silver plus Chapter IV's scripture remain locked away.
+
+=== 2. THE ENEMY CURVE NOW ACTUALLY PROGRESSES ===
+This was the biggest hole. Enemy HP was:
+     base * (1 + wave*0.20) * 3.35
+There was NO chapter term at all. A Chapter 20 wave 1 Bone Soldier had exactly
+the same health as a Chapter 1 wave 1 Bone Soldier. The only thing that grew
+across twenty roads was the boss.
+
+Now:
+     base * waveCurve * chapterCurve * 3.05
+     waveCurve    = 1 + (wave-1)^1.08 * 0.19
+     chapterCurve = 1.09^(chapter-1)
+Enemies also hit slightly harder each chapter (+4% per road).
+
+  Bone Soldier effective HP
+              w1     w5    w10    w20    w30
+    ch  1     92    169    278    510    752
+    ch  5    129    239    392    719   1061
+    ch 10    199    367    604   1107   1632
+    ch 20    470    870   1430   2620   3864
+
+The opening battle is 24% gentler than before, which matters when the player
+now starts with three defenses instead of ten. The campaign span went from
+5.8x to 42x. Every constant lives in one DIFFICULTY table above spawnEnemy.
+
+=== 3. OPENING STORY ===
+Four beats on first launch: The Last Safe Haven, The Hunter, The Road Brings
+the Night, Build by Day Hunt by Night. Skippable, paged, and it never replays
+once seen (save.introSeen).
+
+=== 4. A LIVING ROADMAP ===
+The prologue hands off to a six-step checklist that reads real save state, so
+nothing is ticked until it is genuinely earned:
+  1. Assemble your Battle Deck            (deck has six cards)
+  2. Clear Chapter I                      (campaign.completed includes cemetery)
+  3. Claim the Heart of the Golem         (villageProgression.artifacts)
+  4. Shadow awakens to Level II           (shadowAwakeningComplete / shadowLevel)
+  5. Raise your first structure           (a placed village plot)
+  6. Complete your first research project (villageProgression.researched)
+It refreshes every four seconds and on tab focus. A corner button reopens it
+with a live count, and it hides itself once all six are done.
+
+=== 5. SHADOW AT THE CATHEDRAL ===
+The hunter began at (765, 948) — the far southern wall. He now begins at
+(765, 400), on the cathedral steps, already facing the doors. The position was
+checked against the collision mask with the full eight-point body footprint
+before it was committed.
+
+=== VERIFICATION ===
+27 assertions across three device profiles, all passing: prologue opens on a
+wiped save and never replays, four beats, panel fits every viewport, roadmap
+follows with six objectives and one correctly pre-ticked, roadmap button stays
+on screen, exactly eight starter cards with garlic and scripture withheld,
+Shadow at Level I with no chapters or research, hunter on the cathedral steps
+facing up, Chapter I grants exactly its four rewards while later chapters stay
+locked, and zero page errors anywhere.
+
+=== NOTES ===
+- Existing saves keep everything they already earned; the gates only affect
+  what a NEW save is handed. To experience this properly, use Reset progress in
+  the More menu.
+- The difficulty curve is a considered first pass, not playtested to twenty.
+  DIFFICULTY.perChapter is the single dial if the late roads bite too hard.

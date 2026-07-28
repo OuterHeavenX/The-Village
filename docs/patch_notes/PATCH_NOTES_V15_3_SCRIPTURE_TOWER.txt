@@ -1,0 +1,14 @@
+RELICS OF THE KINGDOM — V15.3 SCRIPTURE TOWER
+
+IMPLEMENTED
+- Added the Legendary Tower of the Living Word card.
+- Automatically granted two copies to existing and new saves for immediate testing.
+- 1–5 orbiting Bible nodes, one added per tower level.
+- Every Bible independently attacks enemies inside the tower AOE.
+- Multiple Bibles spread attacks across available enemies and focus a single target when necessary.
+- Level 3+ attacks chain holy lightning to nearby enemies.
+- Custom animated tower art, orbit motion, holy lightning bolts, impact particles, sound, card details, codex entry, and inspector Bible count.
+- Supports Holy Water, Chrono Sigil, and Guardian Ward.
+
+TEST NOTE
+The new tower is unlocked in Cards & Deck. Equip “Tower of the Living Word” into one of the six deck slots, begin a hunt, and select it during a reward draft.

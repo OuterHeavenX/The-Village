@@ -1,0 +1,31 @@
+THE VILLAGE V28.3 — BATTLE SUPPORT, RANDOM ROADS & CARD WORKSHOP
+
+BATTLE UPGRADES
+- Tower upgrades are now card-wide for the current hunt.
+- Upgrading Axe to Level 2 upgrades every deployed Axe Tower.
+- Future Axe Towers placed during that hunt also inherit Level 2.
+- The same rule applies to every exact attack-tower card type.
+- Axe remains the only tower with a purchasable attack-radius upgrade.
+
+SUPPORT TOWERS
+- Fixed support cards not being registered on their target tower.
+- Holy Water Infusion now provides a stronger damage/attack-speed boost and activates burn effects.
+- Chrono Sigil now provides stronger attack-speed, range, and slowing support.
+- Guardian Ward now provides stronger combat support and restores Cathedral health between waves.
+- Support placement now confirms that the link is active.
+
+ROAD GENERATION
+- Replaced predictable edge-to-edge serpentine plans with randomized connected waypoints.
+- Routes now vary in bend direction, run length, reversal timing, overall silhouette, and split-route activation wave.
+- Every generated road remains continuously connected.
+
+CARDS SCREEN
+- Rebuilt the presentation as the Gothic Card Workshop.
+- Cleaner command header and build counter.
+- Stronger separation between the hunter loadout, six-card deck, filters, tools, and collection.
+- Improved gothic hierarchy, spacing, card selection feedback, and responsive mobile/iPad layouts.
+- Updated build identification to V28.3.
+
+COMPATIBILITY
+- Existing save structure remains intact.
+- Battle card-wide upgrades remain run-only and reset after the hunt.

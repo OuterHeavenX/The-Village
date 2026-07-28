@@ -1,0 +1,16 @@
+RELICS OF THE KINGDOM — V18.5 CAMPAIGN REBORN
+
+- Rebuilt Campaign as a connected gothic world-road map.
+- Added persistent 3-star chapter ratings:
+  1 star: clear the road
+  2 stars: finish with at least 80% Cathedral health
+  3 stars: Cathedral takes no damage
+- Added total star count to Campaign progress.
+- Added four new chapters after Vampire Castle:
+  Chapter 9: The Drowned Harbor
+  Chapter 10: The Ashen Monastery
+  Chapter 11: The Underkingdom
+  Chapter 12: The Eclipse Throne
+- Added four new guardians, environments, permanent relics, and 82 additional battle waves.
+- Existing saves migrate automatically. Players who already cleared Chapter 8 retain progression and unlock Chapter 9.
+- Cards screen code and layout were not modified.

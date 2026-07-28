@@ -1,0 +1,54 @@
+THE VILLAGE V29.3 — ENEMY ANIMATION STATES
+
+Visual only. No combat values, balance, save schema, or content IDs changed.
+
+THE PROBLEM
+- The project ships 240 combat sprite sheets. Code referenced 11 of them (4.6%).
+- Every non-boss enemy drew only its Walk or Run sheet. The Attack, Hurt, Death
+  and Idle sheets — 55 Attack, 33 Hurt, 33 Death, 33 Idle — never drew a frame.
+- Enemies never swung, never flinched when shot, and never died on screen; they
+  slid in walk-cycle until they were removed from the array.
+
+WHAT WAS ADDED
+- ENEMY_FAMILY: maps all 15 enemy types to their sprite family, handling the two
+  different filename conventions (orc sheets are lowercase, all others are
+  capitalised).
+- enemyAsset(type, action) resolves any type to any of its 6 action sheets.
+- Per-enemy animation clock (e.animT) and hurt timer (e.hurtT).
+- Action state machine: Attack > Hurt > Idle (frozen) > Walk.
+- Enemies now play their real Attack sheet when striking the cathedral gate.
+- Enemies now flinch on the Hurt sheet for 0.26s when damaged.
+- Frozen enemies now hold on the Idle sheet instead of moonwalking.
+- Death animations: on death a purely visual corpse entity plays the Death sheet
+  through, then fades over 0.9s.
+
+WHY DEATHS ARE A SEPARATE ENTITY
+- Gameplay removal of the enemy is completely unchanged. The corpse is a
+  render-only object in G.corpses. It cannot be hit, cannot block, cannot be
+  targeted, and carries no combat state. This guarantees the death animation
+  cannot alter mechanics or timing.
+- Corpses are capped at 40 and self-expire, so long waves cannot leak memory.
+
+BOSSES
+- Golems already switched sheets and keep doing so. Golem sheets ship only
+  Walk/Idle/Attack/Death, so a golem Hurt request falls back to Walk rather than
+  requesting a file that does not exist.
+
+VERIFICATION PERFORMED
+- node --check passes.
+- All 90 generated enemy paths (15 types x 6 actions) and all 12 golem paths
+  were checked against the shipped files: 0 missing.
+- 20 unit tests on the extracted animation module: state machine priority,
+  frame-bounds clamping across the full hurt curve, sheet-name casing per
+  family, unknown-type fallback, golem Hurt->Walk remap, corpse lifecycle,
+  corpse cap, and end-of-animation frame clamp plus alpha fade. All pass.
+
+NOT PERFORMED
+- No in-browser run. Please check frame pacing on device; ENEMY_ANIM at the top
+  of the animation block holds every timing value (hurt duration, attack/walk/
+  idle/death fps, fade length, corpse cap) if anything needs tuning by eye.
+
+STILL UNUSED
+- The zombie (Zombie1-3) and floating-eye (Beholder1-3) families are fully
+  animated and shipped but no enemy type maps to them: 36 more sheets available
+  whenever you want new enemies.

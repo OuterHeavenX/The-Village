@@ -1,0 +1,34 @@
+THE VILLAGE V27.1.1 — CODE CLEANUP & LIVE-BUILD FIX
+
+Bug found and fixed:
+- index.html was still loading src/main-v264.js and styles.css?v=264-ui-sync
+  (title read "V26.4"). Every change made in V27.1 (battle camera/selection
+  UX) and V27.1.1 (premium card draft) already existed in
+  src/Battle/game-v271.js and styles.css, but was never actually reachable
+  in the running game because index.html pointed at the old V26.4 script.
+  This is now fixed: index.html loads the current build directly.
+
+Cleanup:
+- Removed the stale duplicate script generations that were no longer
+  referenced by anything (main-v261/262/263/264.js and their matching
+  game-v261/262/263/264.js, plus the old unversioned main.js/game.js).
+  The single current build is now just src/main.js -> src/Battle/game.js,
+  so future patches only need to edit one file instead of branching a new
+  "-vNN" copy and remembering to repoint index.html at it.
+- Removed styles-v261.css (unused, superseded by styles.css).
+- Removed the checked-in dist/ folder (a stale prior build artifact) —
+  run `npm run build` to regenerate it.
+- Moved the 60+ PATCH_NOTES_*.txt files and the old V19 README/audit report
+  into docs/ and docs/patch_notes/ so the project root is readable.
+
+Verified:
+- src/main.js, src/Battle/game.js, src/villageBootstrap.js, and
+  src/Renderer/threeAtmosphere.js all pass `node --check` (valid syntax).
+- No remaining references anywhere in the project to the removed
+  "-v26x" filenames or styles-v261.css.
+- `npm install` / `npm run build` could not be executed in this sandbox
+  (no network access to the npm registry), so the Vite production bundle
+  itself was not regenerated here — run it locally to produce dist/.
+
+No combat balance, controls, saves, waves, tower logic, or enemy logic
+changed.

@@ -1,0 +1,8 @@
+THE VILLAGE V28.5 — GOTHIC WAR DECK
+
+- Completely rebuilt the Cards screen layout.
+- Added distinct category vault tabs for All Cards, Defense, Support, Battle Skills, Run Upgrades, and Ground Defense.
+- Ground defenses can now be equipped and removed directly from their own category tab.
+- Preserved six-card loadouts, card details, favorites, sorting, merge-ready filtering, and Merge All.
+- Preserved stronger merge progression from V28.4.
+- Existing save data remains compatible.

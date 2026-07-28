@@ -1,0 +1,6 @@
+THE VILLAGE — V27.8 SHADOW TRAIL FIX
+
+- Removed the extra CSS drop-shadow filter and duplicate oval shadow beneath Shadow on the Village world map.
+- Shadow sprite sheets already include their own shadow; the additional filtered layers caused an iOS Safari compositor trail during upward movement.
+- Added a stylesheet cache-buster so Safari loads the corrected visual rule immediately.
+- No movement, collision, camera, battle, economy, cards, progression, or balance mechanics were changed.

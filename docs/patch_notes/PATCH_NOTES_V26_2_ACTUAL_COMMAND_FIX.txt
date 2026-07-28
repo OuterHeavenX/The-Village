@@ -1,0 +1,8 @@
+THE VILLAGE V26.2 — ACTUAL COMMAND FIX
+
+- Fixed a concrete bug: the Exit button sent action "exit", but the command function had no exit branch.
+- Exit and Main Menu now use the same internal returnToMainMenu() function.
+- Center, Speed, Pause, Exit, Hunt Again, and Main Menu now have direct per-button pointerdown, touchstart, and click bindings.
+- Kept a duplicate-command guard to prevent one tap firing twice.
+- No location reload or Safari navigation is used.
+- Rebuilt the production dist folder.

@@ -1,0 +1,20 @@
+RELICS OF THE KINGDOM — V15.4 ESSENCE ECONOMY
+
+IMPLEMENTED
+- Continuous Essence economy replaces automatic post-wave tower rewards.
+- Hunts begin with 10 / 60 Essence: enough for two 5-Essence Daggers.
+- Enemy Essence rewards scale from common enemies through elites, mini-bosses and bosses.
+- Defeated enemies launch animated Essence motes toward the top HUD pool.
+- All six equipped battle-deck cards remain available during combat and may be purchased whenever Essence is sufficient.
+- Two hero bonus ground-defense cards are available outside the six-card deck:
+  * Road Spikes: repeated road damage.
+  * Grave Oil: road slow with light damage and ignition chance.
+- Ground defenses place directly on road cells.
+- Support cards now create physical support towers beside attack towers instead of attaching invisibly.
+- Support towers boost adjacent attack-tower damage, attack speed, range or holy effects depending on type.
+- Inventory cards, equipped-deck cards and battle cards now use a vertical poker-card ratio.
+- Equipped deck cards inherit the same rarity color as the owned inventory card, including level/rarity consistency.
+
+BALANCE FOUNDATION
+Dagger 5, Whip 7, Garlic 7, basic supports 8–9, heavy defenses 10–15, Living Word 18.
+Common enemies yield roughly 1 Essence, armored/vampire enemies 2+, elites more, mini-bosses about 8, and bosses scale far higher.

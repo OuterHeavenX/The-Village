@@ -1,0 +1,21 @@
+THE VILLAGE V31.6 — NAVIGATION LAYER REBUILD
+
+Implemented directly from V31.5.1.
+
+MOVEMENT FOUNDATION
+- Retired pixel-sampled Village collision for Shadow.
+- Added an authored hidden navigation layer made from overlapping walkable road, plaza, bridge, and district regions.
+- Construction plots, water, cliffs, cathedral mass, and undeveloped terrain remain outside the walkable layer.
+- Added seamless overlaps at road and bridge junctions to eliminate tiny invisible collision seams.
+
+MOVEMENT POLISH
+- Preserved analog free movement inside every navigation region.
+- Preserved axis-separated wall sliding.
+- Added a compact foot capsule to keep Shadow clear of railings and plot borders.
+- Added subtle bridge-center guidance without taking control away from the player.
+- Added short-range recovery at navigation seams rather than abrupt snapping.
+
+PRESERVED
+- V31.4 fixed FF4-style close camera and no pinch-to-zoom.
+- V31.5 living economy, construction stages, wildlife, events, happiness, Shadow's Home, and Cathedral services.
+- Build plots, cards, battles, progression, economy, and existing save formats.

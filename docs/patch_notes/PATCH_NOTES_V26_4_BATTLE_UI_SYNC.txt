@@ -1,0 +1,9 @@
+THE VILLAGE V26.4 — BATTLE UI SYNC
+
+- Preserves the working V26.3 native button routing.
+- Speed button now updates immediately to ×1, ×2, or ×3 from the command result.
+- Pause button now toggles between Pause and Resume, including icon and ARIA label.
+- Added one centralized control-state reconciliation function.
+- Added active highlighting for accelerated speed and paused state.
+- Added subtle battlefield dimming while manually paused.
+- Existing save keys and game progress remain unchanged.

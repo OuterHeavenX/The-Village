@@ -1,0 +1,13 @@
+THE VILLAGE V32.0 — THE KINGDOM BEGINS
+
+- Added campaign-gated building roadmap.
+- Fresh games begin with only House, Farm, Lumber Camp, Quarry, and Warehouse.
+- Added research projects unlocked across campaign roads.
+- Added unified Food, Wood, Stone, Iron, Essence, and Gold economy.
+- Added multi-resource building and research costs.
+- Battles now return village resources.
+- Village buildings now grant battle bonuses.
+- Added Kingdom Chronicle.
+- Shadow remains Level I until the ten-road Golem arc is completed.
+- Chapter I's Heart of the Golem now triggers a return-to-Village Cathedral awakening before Level II sprites activate.
+- Existing navigation, camera, construction, cards, battle, weather, and save systems preserved.

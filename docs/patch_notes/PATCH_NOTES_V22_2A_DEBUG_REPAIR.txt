@@ -1,0 +1,8 @@
+RELICS OF THE KINGDOM — V22.2a VILLAGE DEBUG REPAIR
+
+- Replaced unreliable browser-synthesized building clicks with explicit tap detection.
+- A short tap opens a landmark; a drag pans; two fingers pinch-zoom.
+- Removed duplicate legacy village scrolling and center listeners.
+- Build plots now use the same explicit tap path as landmarks.
+- Added a new camera save key so stale camera coordinates cannot break the repaired map.
+- Preserved Cards input isolation, saves, audio, campaign, and combat.

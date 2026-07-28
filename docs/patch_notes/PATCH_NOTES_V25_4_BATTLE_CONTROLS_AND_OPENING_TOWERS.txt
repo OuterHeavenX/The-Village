@@ -1,0 +1,11 @@
+THE VILLAGE V25.4
+
+FIXES
+- Replaced unreliable iPad click-only bindings on the top-right battle controls with pointer-up controls plus click fallback.
+- Speed button now cycles x1 / x2 / x3 reliably and confirms the new speed with an in-game toast.
+- Battle exit X no longer opens the browser confirm alert. Tap once to arm exit; tap again within 2.6 seconds to return to The Village.
+- Added a visible armed state to the X button to prevent accidental exits.
+- Opening three-card draft is now tower-only. Supports, skills, hero boosts, and road pieces can appear in later drafts.
+
+VERSION
+V25.4 Battle Controls & Opening Defense Fix

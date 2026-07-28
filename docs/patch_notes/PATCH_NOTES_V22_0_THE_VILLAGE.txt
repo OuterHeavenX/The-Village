@@ -1,0 +1,18 @@
+RELICS OF THE KINGDOM — V22.0 THE VILLAGE FOUNDATION
+
+Implemented:
+- Replaced the static home menu with a living top-down pixel-art village hub.
+- Cathedral opens Campaign.
+- Raven Tavern opens Cards & Deck.
+- Barracks opens Hunters.
+- Village Hall opens the existing Kingdom building system.
+- Blacksmith opens Fusion Forge.
+- Marketplace opens Relic Vault.
+- Old Library opens Living Codex.
+- Watchtower opens audio settings.
+- Added walking villagers, the visible Hunter, chickens, chimney smoke, moving water, lantern flicker, clouds, trees, roads, bridge and town square.
+- Preserved the V19.1 native Cards scrolling repair.
+- Preserved V20 dynamic music, sound effects, saves, campaign, cards and battle systems.
+
+Scope:
+This is the Village Foundation. Deep construction placement, production, citizen jobs and gameplay buffs remain for later Village updates.

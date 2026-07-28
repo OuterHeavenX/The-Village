@@ -1,0 +1,9 @@
+RELICS OF THE KINGDOM — V15.2.2 CATHEDRAL TOP-CENTER FIX
+
+- Moved the cathedral to the top-center of the battlefield.
+- The starting road now forms a guaranteed straight approach into the front doors.
+- Enemy spawning now begins beyond the lower end of the road.
+- Enemies travel upward toward the cathedral.
+- Enemies stop at the centered doors and keep attacking until defeated.
+- Towers can continue targeting enemies while they attack the cathedral.
+- Camera pan, pinch zoom, recenter, deck, balance, AOE, and atmosphere are preserved.

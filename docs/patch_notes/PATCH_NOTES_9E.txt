@@ -1,0 +1,15 @@
+RELICS OF THE KINGDOM — MILESTONE 9E
+
+TRUE STARTUP CRASH FIX
+
+Root cause:
+The save migration attempted to call the const function inv() before inv was initialized.
+In JavaScript this throws a Temporal Dead Zone ReferenceError and stops the entire game module.
+The HTML interface remained visible, which made the failure look like an empty-card rendering issue.
+
+Fixed:
+- Removed the premature inv() call from startup migration.
+- Starter deck now initializes before helper functions are declared.
+- Card rendering and event bindings can now execute.
+- Existing save unlock repair remains enabled.
+- Cache version advanced to 9e.

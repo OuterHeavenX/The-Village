@@ -1,0 +1,10 @@
+RELICS OF THE KINGDOM — V16.0a ACTIVE CARD CYCLE
+
+- The Essence vial no longer resets when the three-card draft opens.
+- At 40 Essence, choose one of three random cards.
+- The chosen card becomes the only active card for that draft cycle.
+- Every placement/cast spends that card's Essence cost.
+- You may place multiple copies of the chosen card while you can afford it.
+- Other cards cannot be placed until the vial refills to 40 and a new draft appears.
+- The active card remains visible above the battlefield and can be tapped again.
+- Example: 40 Essence + Dagger costing 20 = up to two Dagger placements.

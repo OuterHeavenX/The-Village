@@ -1,0 +1,26 @@
+THE VILLAGE V32.4.1 — STABILITY AUDIT & CLEANUP
+
+FIXED
+- Repaired missing main-menu background references.
+- Replaced stale V27/V276 cache keys so Safari loads the current build.
+- Hardened familiar save migration and numeric validation.
+- Prevented max-level familiars from accumulating unusable XP.
+- Improved optional atmosphere behavior after app/tab backgrounding.
+
+CLEANED
+- Removed incomplete packaged node_modules.
+- Removed unused styles.original.css.
+- Removed macOS archive metadata.
+- Updated package metadata to 32.4.1.
+
+PRESERVED
+- Existing save key and legacy save fallback.
+- Familiar roster, equipped familiar, XP, and levels.
+- Keep evolution and archer defenses.
+- Dagger Tower 3-second piercing lane attack.
+- Cards, campaign, village, construction, research, economy, and progression.
+
+VALIDATION
+- All JavaScript files passed node --check.
+- All literal static asset references resolved after repair.
+- Final ZIP passed integrity testing.

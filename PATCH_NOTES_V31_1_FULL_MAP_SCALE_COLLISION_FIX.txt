@@ -1,0 +1,12 @@
+THE VILLAGE — V31.1 FULL MAP SCALE & COLLISION FIX
+
+- Correctly decoded the complete 1536×1024 HEIC grid instead of a single 512×512 internal tile.
+- Uses only assets/village/the_village_main.png as the Village backdrop.
+- Restored native aspect ratio; the map is no longer stretched or massively enlarged.
+- Rebuilt all construction plot positions against the actual empty plots in the image.
+- Expanded the Village to all 29 visible construction plots while preserving the existing save key.
+- Added a dedicated image-aligned walk mask for water, cliffs, cathedral, terrain edges and plot collision.
+- Repositioned Shadow at the south entrance.
+- Re-authored all five villager patrol routes onto connected developed land.
+- Kept the locked FF4-style camera; no pinch zoom or manual panning.
+- No battle, cards, heroes, bosses, campaign or progression changes.

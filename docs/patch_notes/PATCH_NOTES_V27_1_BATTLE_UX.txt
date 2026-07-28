@@ -1,0 +1,12 @@
+THE VILLAGE — V27.1 BATTLE UX
+
+Focused, low-risk UX update built from the confirmed V26.4 gold build.
+
+- Camera can pan with one finger while a tower/card is being placed.
+- Pinch zoom remains available during placement.
+- Dragging no longer accidentally places a tower; tapping still confirms placement.
+- Placement bar now explains drag-to-pan and pinch-to-zoom.
+- Tower selection has a larger touch target and a stronger pulsing range/selection indicator.
+- Three-card Essence draft keeps every card icon and now shows readable Level, Damage, Attack Rate, Range/Effect, Rarity, and placement cost.
+- Draft typography, spacing, contrast, and responsive phone/iPad layouts improved.
+- Combat balance, saves, waves, controls, and tower auto-leveling were not changed.

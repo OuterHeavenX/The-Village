@@ -1,0 +1,8 @@
+THE VILLAGE V32.3.1 — CARD FOOTER RESTORATION
+
+- Restored the original card dimensions and anatomy.
+- Restored the complete bottom stat/footer area and small corner icons.
+- Removed the V32.3 title-band sizing rules that compressed the footer.
+- Moved only the card name slightly upward into the existing dark area.
+- Long card names now stay on one line and truncate safely instead of overlapping stats.
+- Preserved all V32.3 boss presentation and Dagger Tower mechanics.

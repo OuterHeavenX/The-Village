@@ -1,0 +1,75 @@
+THE VILLAGE V29.8 — DISTRICT SEAM, BUILD ROSTER, TACTICAL ESPIONAGE
+
+=== 1. THE DISTRICT MISALIGNMENT ===
+Diagnosed in a real browser, not guessed at.
+
+The DOM grid was never wrong. Measured on screen, the four district frames tile
+perfectly: west.right = oldTown.left = 476.9, oldTown.right = east.left = 893.8,
+oldTown.bottom = south.top = 456.9. The JS coordinate system (WORLD 5322x2661,
+districts at 1774x887) agrees with the CSS exactly.
+
+The seam came from the ARTWORK. Content bounding boxes:
+  west_district.png    1774x887   margins L0  R0  T0  B0   full bleed
+  east_district.png    1774x887   margins L0  R0  T0  B0   full bleed
+  south_district.png   1774x887   margins L0  R0  T0  B0   full bleed
+  old_town_ground.png  1774x887   margins L51 R16 T13 B29  <-- inset
+Old Town alone had a dead border baked into the image, so it never met its
+neighbours no matter what the layout did.
+
+FIXED BY EDGE-EXTENSION, NOT RESCALING. The outermost real row and column of
+pixels are stretched outward to fill the dead border. Every art feature stays
+at exactly the coordinate it was at before, which means plot positions, gate
+portals, collision boxes and Kael's pathing are all untouched. Rescaling the
+image would have shifted features by up to 60px and broken the plot alignment
+that TOWN_V3_1 and V3_2 were spent tuning.
+  old_town_ground.png  -> margins L0 R0 T0 B0
+  village_ground.png   -> margins L0 R0 T0 B0  (same source art, same defect)
+Verified in-browser by sampling the image edges: 0 dark pixels on all four sides.
+
+=== 2. THE BUILD MENU ===
+It had exactly two structures. BUILDINGS contained house and farm and nothing
+else, and the tray was hardcoded HTML listing those same two.
+
+Now 26 structures across 7 categories, and the tray renders FROM the data, so
+the menu and the game can never disagree again:
+  Residential  House* · Manor* · Almshouse
+  Agriculture  Farm Plot* · Orchard · Herb Garden · Stone Well
+  Industry     Sawmill · Quarry · Blacksmith · Tannery
+  Military     Watchtower · Barracks · Armory · Palisade
+  Sacred       Chapel · Roadside Shrine · Reliquary · Graveyard
+  Arcane       Alchemist · Observatory · Rune Stone
+  Civic        Market · Tavern · Storehouse · Bathhouse
+  (* uses real art; the other 23 render a placeholder tile)
+
+Placeholders are deliberate and legible: a hatched tile, the structure's icon,
+and a small ART PENDING label. They are fully functional right now — you can
+select and place a Quarry today. To promote one to real art, add a single
+`image:` field to its entry in BUILDINGS. No other change needed.
+
+Every card shows name, output and cost. Categories are collapsible accordions.
+
+=== 3. KONAMI — TACTICAL ESPIONAGE VILLAGE ===
+Up Up Down Down Left Right Left Right B A in the village. On touch, seven quick
+taps on the village crest.
+  - the alert "!" pops over Kael, scaled on a spring curve
+  - Kael deploys a cardboard box, which bobs
+  - the world desaturates and the economy strip goes codec green
+  - the Colonel checks in occasionally with a line
+Persists under its own localStorage key, 'village.tactical.mode'. It does not
+touch the save object. Enter the code again to stand down.
+
+=== VERIFICATION PERFORMED ===
+Rendered in headless Chromium at 1400x960 and asserted, all passing:
+  tray opens · 7 categories · 26 structures (3 art, 23 placeholder) · every card
+  has a cost · selecting a placeholder structure enters build mode correctly ·
+  Old Town art full-bleed on all four edges · Konami toggles tactical mode ·
+  cardboard box deploys · alert fires · mode persists · zero page errors ·
+  zero missing assets
+
+=== NOT DONE, AND WORTH KNOWING ===
+- Citizens and buildings both queried as ZERO elements in the DOM while the
+  citizen layer reported 5 children. Before deciding NPCs are "too small", they
+  need to be confirmed rendering at all. I did not touch this.
+- Collision and boundaries were not audited this pass.
+- Building costs are first-pass numbers and completely untuned. They are all in
+  one table at the top of the BUILDINGS block.

@@ -1,0 +1,16 @@
+THE VILLAGE — V30.1 VILLAGE BUILD ACTIVATION FIX
+
+SCOPE
+- Village construction flow only.
+- No battle, cards, heroes, towers, campaign, boss, or progression changes.
+
+FIX
+- Fixed the BUILD button appearing to do nothing.
+- Root cause: the modern Village bootstrap and a preserved legacy Village controller both bound to the same BUILD tap during initial page loading. The modern handler opened the catalog, then the legacy handler immediately toggled it closed.
+- The modern Village bootstrap now claims Village ownership immediately when its module evaluates, before DOMContentLoaded. The legacy controller therefore correctly skips installation.
+
+RESULT
+- Tap BUILD to open the construction catalog.
+- Tap a building card to enter placement mode.
+- Tap a glowing empty plot to construct it using Village Gold.
+- Existing Village construction save key and all existing game progress remain preserved.

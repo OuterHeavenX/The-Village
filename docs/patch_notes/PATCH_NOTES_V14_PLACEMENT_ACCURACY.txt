@@ -1,0 +1,20 @@
+RELICS OF THE KINGDOM — V14.0 PLACEMENT ACCURACY
+
+This build returns to the polished 2D game and changes only tower/card placement alignment.
+
+FIXED
+- Touch coordinates now use the canvas's actual displayed size.
+- Correct conversion between iPad Safari client coordinates and battlefield coordinates.
+- Placement remains aligned after rotation, browser toolbar changes, split view, and resize.
+- Canvas automatically recalibrates when its CSS size or visual viewport changes.
+
+UNCHANGED
+- Artwork and 2D renderer
+- Cards, deck, combat, waves, progression, saves, UI, and balance
+
+TEST
+1. Open index.html.
+2. Enter a battle and select a tower card.
+3. Tap several legal tiles near the top, center, sides, and bottom of the battlefield.
+4. Rotate the iPad and repeat.
+5. The highlighted tile and placed tower should match the touched tile.

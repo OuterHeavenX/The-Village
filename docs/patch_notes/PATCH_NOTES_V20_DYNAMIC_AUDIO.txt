@@ -1,0 +1,14 @@
+V20 — Dynamic Gothic Audio
+
+Implemented a complete original procedural soundtrack and ambience engine using the Web Audio API. No copyrighted or external audio files are required.
+
+- iPhone/Safari audio unlock on first user gesture
+- Main menu, campaign, battle, boss, victory, and defeat music states
+- Smooth continuously scheduled gothic organ/bell/string-style synthesis
+- Battle percussion and boss intensity layers
+- Wind ambience bed
+- Boss, wave, victory, and defeat musical stings
+- Existing gameplay sound effects preserved and routed through an SFX volume bus
+- Master, music, SFX, and ambience controls
+- Audio preferences persist in the existing save
+- Cards scrolling/input refactor left untouched

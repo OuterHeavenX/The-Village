@@ -1,0 +1,10 @@
+THE VILLAGE — VILLAGE WORLD V1.6 COMPACT UI
+
+VILLAGE-ONLY UI POLISH
+- Rebuilt the construction menu as a compact, centered bottom drawer.
+- Added categorized Residential and Production sections.
+- Converted oversized horizontal building cards into compact icon-and-text rows.
+- Added internal vertical scrolling for future building categories; removed sideways scrolling.
+- Optimized the construction drawer for phones and tablets.
+- Reduced and repositioned Build, camera, district, joystick, and interaction controls to avoid overlap.
+- Preserved district travel, free movement, building placement, saves, economy, campaign, battle, Cards, Hunters, and Relics.

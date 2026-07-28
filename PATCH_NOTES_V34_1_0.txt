@@ -1,0 +1,64 @@
+THE VILLAGE — V34.1.0
+PERFORMANCE, LEGIBILITY & BOUNDARY
+
+THE BATTLE SLOWDOWN IS FIXED
+The game was running 331 blur effects every single frame. Canvas has a glow
+feature that is lovely and very expensive — the browser redraws into a scratch
+buffer and blurs it every time it is used. It was switched on inside the loops
+that draw each tower, each arrow, each lane blast and each soul particle, so the
+more that was happening on screen, the more blur passes stacked up. That is
+exactly why it got worse as a wave got busy.
+
+Measured on a heavy wave (18 towers, 26 enemies): 331 blur passes per frame
+before, 3 after. The glows now come from a small picture of a glow drawn once and
+stamped wherever it is needed.
+
+Particle effects are now capped too. Nothing limited them before: one skeleton
+death throws 18, the Cross Storm skill throws 80 in a single cast, and a wave
+killing several elites could stack past a thousand — each one costing work every
+frame from then on. Capped at 420, newest kept.
+
+A BUG I MADE AND CAUGHT
+While removing unused code, my automated cleanup deleted ten functions it should
+not have, including the one that positions the battle camera. The game would have
+crashed on the first frame of the first battle. My performance test crashed,
+which is how it was found. The file was thrown away and redone by hand with
+proper checks, and the function list was compared before and after to prove
+nothing else went missing. Four genuinely unused functions were then removed.
+
+THE INVISIBLE WALL WAS WORSE THAN IT LOOKED
+You were right that something was there, but the boundary was also in the wrong
+place. It cut off the library and the warehouse completely, and it stranded
+buildable plots in the north — you could construct buildings you could never walk
+to. Every building and plot was measured and the boundary resized to contain them.
+The wall and the collision line are now literally the same numbers in both files.
+
+WHITE BRICK WALLS
+A full ring of white brick with a stone cap, four corner towers with lanterns, and
+a proper water gate where the river passes through — piers and an arch. Built as
+long textured runs rather than individual bricks, so it costs about 34 objects
+instead of thousands.
+
+CARDS ARE READABLE NOW
+The battle hand was locked to six columns that could never wrap, on cards with a
+fixed height and 10px text that was being invisibly clipped — "Holy Water
+Barrage" was rendering as "Holy Wa". It now wraps to as many rows as it needs and
+names get three readable lines. Also: on phones the draft cards were hiding their
+descriptions entirely, so you were picking between three cards with no idea what
+any of them did. Restored.
+
+YOUR SAVE SYSTEM ALREADY EXISTED
+It is under More > Save Manager. It was tested hard — exported, wiped storage
+completely, re-imported, and everything came back including plots and campaign
+progress. It also backs up automatically before importing, rejects junk files
+without damage, and leaves other websites' data alone.
+
+One real reason it may have failed you on iPad: the file picker was hidden, and
+iOS Safari refuses to open a file picker that is hidden that way. Fixed.
+
+KNOWN — NOT CHANGED
+- The 3D Village draws about 426 objects per frame. The walls are 34 of that.
+  This is not what caused the battle slowdown, but it is the next thing worth
+  looking at on iPad.
+- Soul Reserve and Hunter Tavern still do nothing (see AUDIT_V32_4_2.md).
+- FRESH_START_TOKEN is still live.

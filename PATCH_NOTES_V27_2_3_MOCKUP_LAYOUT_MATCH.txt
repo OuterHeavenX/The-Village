@@ -1,0 +1,11 @@
+THE VILLAGE — V27.2.3 MOCKUP LAYOUT MATCH
+
+Cards-tab-only update.
+
+- Rebuilt the Cards & Deck composition to match the approved mockup.
+- Moved both passive ground-defense cards beneath the selected hunter.
+- Removed the unused separate ground-defense column.
+- Unified deck and collection card frames, typography, rarity borders, art areas, stats, and proportions.
+- Expanded the Cards panel to use tablet landscape space more effectively.
+- Preserved all working V27.2.2 card inspector, add/remove, filter, and merge interactions.
+- Added visible V27.2.3 build identification at the top of Cards.

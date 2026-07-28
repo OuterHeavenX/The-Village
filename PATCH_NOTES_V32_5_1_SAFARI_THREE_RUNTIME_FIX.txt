@@ -1,0 +1,8 @@
+THE VILLAGE V32.5.1 — SAFARI THREE.JS RUNTIME FIX
+
+- Replaced dynamic ES-module loading of Three.js with a Safari-compatible classic runtime load.
+- Removed the silent success state: the Village now displays an explicit 3D initialization status.
+- A successful launch displays “THREE.JS WORLD ACTIVE · V32.5.1”.
+- A failed launch displays the actual initialization error over the Village instead of quietly pretending the update worked.
+- Preserved save keys, resources, buildings, build menu, static bottom menu, battle systems, Keep, familiars, cards, research, relics, and progression.
+- Added renderer compatibility for older Safari-supported Three.js output encoding.

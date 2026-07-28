@@ -1,0 +1,7 @@
+THE VILLAGE V26.3 — NATIVE CONTROL RECONSTRUCTION
+
+- Deleted the accumulated battle control routers and capture listeners.
+- Added one stable public battle API near the top of the battle module.
+- Rebuilt Center, Speed, Pause, Exit, Hunt Again, and Main Menu as native HTML button commands.
+- Uses one ordinary bubbling click route, independent of the canvas gesture system.
+- Preserves existing save keys and game progress.

@@ -1,0 +1,10 @@
+RELICS OF THE KINGDOM — V22.4A CLEAN VILLAGE INPUT TEST
+
+Purpose:
+- Replace the failed end-of-file Village controller with a standalone module loaded before the main game.
+- Verify camera initialization, drag/pan, pinch zoom, zoom buttons, center button, and landmark taps.
+
+Important:
+- This is the first clean Village recovery checkpoint.
+- Build placement is intentionally not considered complete in this checkpoint.
+- Existing battle, cards, campaign, heroes, relics, audio, and save systems remain in place.

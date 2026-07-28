@@ -1,0 +1,9 @@
+RELICS OF THE KINGDOM — V22.2 LIVING VILLAGE CAMERA
+
+- Rebuilt The Village as a 1600 × 1900 transform-driven map.
+- Added drag-to-pan, two-finger pinch zoom, mouse-wheel zoom, and + / center / - controls.
+- Reduced landmark building sizes and redistributed them across the larger village.
+- Added camera bounds so the map cannot be lost off-screen.
+- Separated taps from drags so panning does not accidentally open buildings.
+- Restored reliable tap targets for every landmark building.
+- Preserved player-built plots, saves, dynamic audio, campaign, battle, and Cards scrolling.

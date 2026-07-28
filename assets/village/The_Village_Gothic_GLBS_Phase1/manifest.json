@@ -1,0 +1,249 @@
+[
+  {
+    "id": "house_lv1",
+    "file": "house_lv1.glb",
+    "name": "House Lv1",
+    "geometry_count": 31,
+    "size_bytes": 18676,
+    "bounds": [
+      [
+        -4.519999980926514,
+        0.0,
+        -2.799999952316284
+      ],
+      [
+        3.5,
+        7.0,
+        4.0
+      ]
+    ]
+  },
+  {
+    "id": "house_lv2",
+    "file": "house_lv2.glb",
+    "name": "House Lv2",
+    "geometry_count": 47,
+    "size_bytes": 27872,
+    "bounds": [
+      [
+        -5.333600044250488,
+        0.0,
+        -3.2320001125335693
+      ],
+      [
+        5.5,
+        8.187999725341797,
+        4.675000190734863
+      ]
+    ]
+  },
+  {
+    "id": "farm",
+    "file": "farm.glb",
+    "name": "Farm",
+    "geometry_count": 33,
+    "size_bytes": 21596,
+    "bounds": [
+      [
+        -3.700000047683716,
+        0.0,
+        -6.670000076293945
+      ],
+      [
+        5.75,
+        6.349999904632568,
+        2.75
+      ]
+    ]
+  },
+  {
+    "id": "lumber_camp",
+    "file": "lumber_camp.glb",
+    "name": "Lumber Camp",
+    "geometry_count": 18,
+    "size_bytes": 12764,
+    "bounds": [
+      [
+        -4.074999809265137,
+        0.0,
+        -4.199999809265137
+      ],
+      [
+        4.400000095367432,
+        5.75,
+        3.0
+      ]
+    ]
+  },
+  {
+    "id": "quarry",
+    "file": "quarry.glb",
+    "name": "Quarry",
+    "geometry_count": 14,
+    "size_bytes": 9532,
+    "bounds": [
+      [
+        -4.599999904632568,
+        -0.44999998807907104,
+        -3.799999952316284
+      ],
+      [
+        4.800000190734863,
+        5.039999961853027,
+        3.5
+      ]
+    ]
+  },
+  {
+    "id": "warehouse",
+    "file": "warehouse.glb",
+    "name": "Warehouse",
+    "geometry_count": 18,
+    "size_bytes": 11940,
+    "bounds": [
+      [
+        -4.5,
+        0.0,
+        -3.25
+      ],
+      [
+        4.5,
+        7.099999904632568,
+        3.950000047683716
+      ]
+    ]
+  },
+  {
+    "id": "library",
+    "file": "library.glb",
+    "name": "Library",
+    "geometry_count": 24,
+    "size_bytes": 18948,
+    "bounds": [
+      [
+        -5.75,
+        0.0,
+        -3.5
+      ],
+      [
+        4.75,
+        8.800000190734863,
+        3.700000047683716
+      ]
+    ]
+  },
+  {
+    "id": "alchemist",
+    "file": "alchemist.glb",
+    "name": "Alchemist",
+    "geometry_count": 24,
+    "size_bytes": 19212,
+    "bounds": [
+      [
+        -4.71999979019165,
+        0.0,
+        -3.0
+      ],
+      [
+        4.71999979019165,
+        7.599999904632568,
+        3.0
+      ]
+    ]
+  },
+  {
+    "id": "enchanter",
+    "file": "enchanter.glb",
+    "name": "Enchanter",
+    "geometry_count": 22,
+    "size_bytes": 16516,
+    "bounds": [
+      [
+        -4.21999979019165,
+        0.0,
+        -3.0999999046325684
+      ],
+      [
+        4.21999979019165,
+        7.699999809265137,
+        4.5
+      ]
+    ]
+  },
+  {
+    "id": "blacksmith",
+    "file": "blacksmith.glb",
+    "name": "Blacksmith",
+    "geometry_count": 14,
+    "size_bytes": 9300,
+    "bounds": [
+      [
+        -4.0,
+        0.0,
+        -3.0999999046325684
+      ],
+      [
+        4.599999904632568,
+        7.599999904632568,
+        3.0999999046325684
+      ]
+    ]
+  },
+  {
+    "id": "tavern",
+    "file": "tavern.glb",
+    "name": "Tavern",
+    "geometry_count": 25,
+    "size_bytes": 15612,
+    "bounds": [
+      [
+        -4.599999904632568,
+        0.0,
+        -3.25
+      ],
+      [
+        4.900000095367432,
+        7.599999904632568,
+        4.5
+      ]
+    ]
+  },
+  {
+    "id": "keep",
+    "file": "keep.glb",
+    "name": "Keep",
+    "geometry_count": 45,
+    "size_bytes": 27100,
+    "bounds": [
+      [
+        -7.25,
+        0.0,
+        -5.5
+      ],
+      [
+        7.25,
+        11.600000381469727,
+        5.5
+      ]
+    ]
+  },
+  {
+    "id": "cathedral",
+    "file": "cathedral.glb",
+    "name": "Cathedral",
+    "geometry_count": 43,
+    "size_bytes": 30724,
+    "bounds": [
+      [
+        -8.5,
+        0.0,
+        -9.446826934814453
+      ],
+      [
+        8.5,
+        16.5,
+        7.0
+      ]
+    ]
+  }
+]

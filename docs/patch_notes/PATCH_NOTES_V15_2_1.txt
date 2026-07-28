@@ -1,0 +1,12 @@
+RELICS OF THE KINGDOM — V15.2.1
+Cathedral & Camera Fine-Tuning
+
+- Starting road now enters the centered front doorway of the cathedral.
+- Enemies no longer vanish when reaching the cathedral.
+- Enemies remain targetable at the gate and repeatedly attack until defeated.
+- Added one-finger camera panning on empty battlefield space.
+- Added two-finger pinch zoom for phones and tablets.
+- Added mouse-wheel zoom and drag panning for desktop.
+- Added bounded camera movement and working recenter button.
+- HUD remains fixed while the battlefield moves beneath it.
+- Existing V15.2 balance, deck, AOE, combat and atmosphere preserved.

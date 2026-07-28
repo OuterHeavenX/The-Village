@@ -1,0 +1,16 @@
+const THREE = window.THREE;
+if (!THREE || !THREE.WebGLRenderer) throw new Error('Three.js runtime unavailable');
+const canvas=document.getElementById('threeBg');
+const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));if('outputColorSpace' in renderer&&THREE.SRGBColorSpace)renderer.outputColorSpace=THREE.SRGBColorSpace;else if('outputEncoding' in renderer&&THREE.sRGBEncoding)renderer.outputEncoding=THREE.sRGBEncoding;
+const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(52,1,.1,100);camera.position.set(0,1.2,9);
+scene.add(new THREE.HemisphereLight(0x8095c7,0x140910,.58));
+const moon=new THREE.PointLight(0xbfd0ff,3.1,40);moon.position.set(4.5,5.8,2);scene.add(moon);
+const warmA=new THREE.PointLight(0xff7a35,2.2,10),warmB=warmA.clone();warmA.position.set(-4,-1,2);warmB.position.set(4,-1,2);scene.add(warmA,warmB);
+const moonDisc=new THREE.Mesh(new THREE.CircleGeometry(1.05,48),new THREE.MeshBasicMaterial({color:0xd9e1ff,transparent:true,opacity:.23}));moonDisc.position.set(4.4,4.1,-4);scene.add(moonDisc);
+const starsGeo=new THREE.BufferGeometry(),count=420,pos=new Float32Array(count*3);for(let i=0;i<count;i++){pos[i*3]=(Math.random()-.5)*22;pos[i*3+1]=(Math.random()-.2)*13;pos[i*3+2]=-2-Math.random()*10}starsGeo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+const stars=new THREE.Points(starsGeo,new THREE.PointsMaterial({color:0xb7c5ef,size:.026,transparent:true,opacity:.42,depthWrite:false}));scene.add(stars);
+const mist=[];for(let i=0;i<5;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(15,2.2),new THREE.MeshBasicMaterial({color:i%2?0x53637d:0x73566f,transparent:true,opacity:.035+i*.008,depthWrite:false,side:THREE.DoubleSide}));m.position.set((i-2)*2,-1.8+i*.35,-1.5-i*.7);m.rotation.z=(i-2)*.025;scene.add(m);mist.push(m)}
+const embGeo=new THREE.BufferGeometry(),ec=110,ep=new Float32Array(ec*3);for(let i=0;i<ec;i++){ep[i*3]=(Math.random()-.5)*13;ep[i*3+1]=-5+Math.random()*9;ep[i*3+2]=-Math.random()*5}embGeo.setAttribute('position',new THREE.BufferAttribute(ep,3));const embers=new THREE.Points(embGeo,new THREE.PointsMaterial({color:0xe88b50,size:.04,transparent:true,opacity:.32,depthWrite:false}));scene.add(embers);
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();
+let t=0,last=performance.now(),frame=0;function loop(now){frame=requestAnimationFrame(loop);if(document.hidden)return;const dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;t+=dt;stars.rotation.z=t*.003;stars.material.opacity=.34+.1*Math.sin(t*.28);moonDisc.material.opacity=.19+.05*Math.sin(t*.22);mist.forEach((m,i)=>{m.position.x=Math.sin(t*(.055+i*.008)+i)*2.2;m.material.opacity=.025+i*.007+.012*Math.sin(t*.3+i)});embers.position.y=(t*.18)%2;embers.rotation.z=-t*.008;warmA.intensity=1.7+Math.sin(t*9)*.35+Math.random()*.15;warmB.intensity=1.55+Math.sin(t*8.2+1)*.32+Math.random()*.15;moon.intensity=2.8+Math.sin(t*.18)*.25;renderer.render(scene,camera)}document.addEventListener('visibilitychange',()=>{last=performance.now()});frame=requestAnimationFrame(loop);

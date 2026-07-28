@@ -1,0 +1,10 @@
+RELICS OF THE KINGDOM — V16.0 ESSENCE DRAFT
+
+- Removed the permanent card toolbar from battle.
+- Added a 40-point Essence Vial to the battle HUD.
+- The run begins with a full vial, granting one opening card draft.
+- Defeated enemies release Essence that flies into the vial.
+- At 40 Essence the battle pauses and three random cards are shown.
+- Choosing a card resets the vial, allows one free placement/cast, then resumes battle.
+- Wave completion no longer grants a card.
+- Existing combat, cathedral, camera, traps, supports, and Scripture Tower remain intact.

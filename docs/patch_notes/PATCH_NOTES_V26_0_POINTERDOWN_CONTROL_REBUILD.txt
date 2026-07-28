@@ -1,0 +1,11 @@
+THE VILLAGE V26.0 — POINTER-DOWN CONTROL REBUILD
+
+- Removed inline onclick commands from battle and result buttons.
+- Commands now execute immediately during capture-phase pointerdown.
+- Added touchstart fallback for Textastic/iPad preview.
+- Battlefield gesture handlers are blocked at the command marquee and results panel.
+- Center gives visible Centered feedback.
+- Speed cycles x1/x2/x3 immediately.
+- Pause changes to Resume immediately.
+- Exit and Main Menu use internal screen switching only.
+- Hunt Again starts a fresh run without reloading Safari.

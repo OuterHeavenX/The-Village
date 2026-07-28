@@ -1,0 +1,8 @@
+RELICS OF THE KINGDOM — V22.4B FUNCTIONAL VILLAGE CONSTRUCTION
+
+- Preserves the verified V22.4A camera, panning, pinch zoom, and navigation.
+- Renders eight persistent construction plots.
+- House, Farm, Lumber Camp, and Quarry can be selected and placed.
+- Adds one-time 500 Blood Essence Builder's Reserve for construction testing.
+- Validates costs, deducts Essence, prevents occupied plot reuse, and persists to localStorage.
+- Adds visible selection status, glowing valid plots, insufficient-resource feedback, construction animation, and cancellation.

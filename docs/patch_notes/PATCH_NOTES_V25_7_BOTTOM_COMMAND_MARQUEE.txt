@@ -1,0 +1,8 @@
+THE VILLAGE V25.7 — BOTTOM COMMAND MARQUEE
+
+- Replaced the unreachable top-right buttons with a large fixed bottom marquee.
+- Center, Speed, Pause, and Exit now use one canonical touch handler.
+- Exit includes a real browser navigation fallback.
+- Hunt Again and Main Menu are now real links, so iPad cannot lose their actions to canvas pointer capture.
+- Hunt Again reloads directly into a fresh hunt; Main Menu reloads directly to the village home.
+- Auto-controlled Kael remains enabled.

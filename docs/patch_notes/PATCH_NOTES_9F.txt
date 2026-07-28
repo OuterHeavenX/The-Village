@@ -1,0 +1,3 @@
+Milestone 9F
+
+Root cause fixed: renderDeck() called miniCardHTML(), but that function did not exist. The resulting ReferenceError stopped rendering after the first equipped slot, leaving the deck counter at 0/6 and the collection blank. Added the missing renderer and bumped cache versions.

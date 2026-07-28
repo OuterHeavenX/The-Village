@@ -1,0 +1,13 @@
+THE VILLAGE V26.1 — HARD CACHE RESET
+
+Root cause fixed:
+- Textastic/iPad was loading newly changed HTML/CSS while continuing to reuse the old cached game JavaScript URLs.
+- This made buttons visibly depress while their new commands never existed in the running game.
+
+Changes:
+- New unique entry filename: src/main-v261.js
+- New unique battle engine filename: src/Battle/game-v261.js
+- New unique stylesheet filename: styles-v261.css
+- Every imported module also receives a V26.1 cache-busting URL.
+- Center, Speed, Pause/Resume, Exit, Hunt Again, and Main Menu use the V26.0 pointer-down command rebuild.
+- No Safari page reload or external navigation is used for Exit/Main Menu.

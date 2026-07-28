@@ -1,0 +1,15 @@
+THE VILLAGE — V27.5 SHADOW + ENEMY ASSET INTEGRATION
+
+VISUAL-ONLY SCOPE
+- Main character changed from Kael placeholder art to Shadow.
+- Shadow battle visuals automatically match Hunter levels 1–9.
+- Shadow uses directional idle, walk, and attack sheets.
+- Village-world avatar now displays Shadow's directional walk sheet.
+- Procedural enemy placeholders replaced by the supplied enemy sprite assets.
+- Enemies face the direction of their active road segment.
+
+PROTECTED / UNCHANGED
+- Combat math and mechanics
+- Hero stats and targeting
+- Enemy stats, waves, routes, spawning, and gate attacks
+- Cards, towers, economy, progression, UI, and controls

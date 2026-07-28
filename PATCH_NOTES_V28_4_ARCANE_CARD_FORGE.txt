@@ -1,0 +1,8 @@
+THE VILLAGE V28.4 — ARCANE CARD FORGE
+
+- Rebuilt the Cards screen presentation into a much bolder gothic/arcane interface.
+- Preserved the six-card loadout, category filters, card inspection, deck saving, favorites, and merge structure.
+- Added stronger visual hierarchy, animated merge-ready feedback, rarity glows, larger card art, hover/touch emphasis, and a more dramatic hunter/deck area.
+- Card fusion now gives a meaningful permanent strength increase: each card level gained from merging adds 10% power, in addition to the rarity multiplier.
+- Merge notifications now report the resulting power increase.
+- Existing saves remain compatible.

@@ -1,0 +1,8 @@
+THE VILLAGE V32.3.2 — CARD TITLE ROW FIX
+
+- Preserved the exact existing card dimensions and artwork size.
+- Preserved all bottom stat values, badges, rarity information and corner icons.
+- Separated the card title and stat information into two stable rows.
+- Moved only the title upward into the existing dark band.
+- Added safe ellipsis handling for long card names.
+- No battle, boss, Dagger Tower, progression or save-system changes.

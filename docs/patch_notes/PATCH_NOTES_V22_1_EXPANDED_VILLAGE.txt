@@ -1,0 +1,10 @@
+RELICS OF THE KINGDOM — V22.1 EXPANDED VILLAGE
+
+- Enlarged The Village into a native two-axis scrolling map.
+- Repositioned all landmark buildings to prevent overlap.
+- Added reliable delegated navigation for every village landmark.
+- Added Center Village control.
+- Added Build Mode with eight construction plots.
+- Players can spend Blood Essence to construct Houses, Farms, Lumber Camps, and Quarries.
+- Village plot choices persist locally.
+- Existing Cards input repair, campaign, battle, saves, and dynamic audio remain intact.

@@ -1,0 +1,9 @@
+THE VILLAGE V32.2.3 — BATTLE CONTROL & CARD RENDER FIX
+
+- Removed all camera and battlefield shake from battle impacts, bosses, transformations, skills, and deaths.
+- Added Swap Two Towers to the battle-level upgrade popup. Tap two placed attack towers to exchange positions.
+- Added Move One Tower to the battle-level upgrade popup. Tap a tower, then an available road-connected location.
+- Battle remains paused during tactical repositioning and resumes safely afterward.
+- Added Cancel support through the existing placement bar.
+- Fixed Safari/iPad card icons disappearing until hover by forcing stable emoji compositing and removing hover-dependent repaint transforms.
+- Existing battle completion and 50% AoE balance changes remain preserved.

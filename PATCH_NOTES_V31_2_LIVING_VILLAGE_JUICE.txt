@@ -1,0 +1,22 @@
+THE VILLAGE — V31.2 LIVING VILLAGE JUICE
+
+Implemented directly on the V31.1 full-map collision build.
+
+ADDED
+- Expanded the village population from 5 to 8 visible residents using existing optimized sprite sheets.
+- Added a second guard patrol, another worker route, and another resident route.
+- Villagers now pause for varied lengths and occasionally look in different directions while idle.
+- Added subtle animated river highlights in the visible waterways.
+- Added breathing lantern glow at the cathedral, central crossroad, and southern entrance.
+- Added lightweight chimney-smoke effects.
+- Added floating warm atmospheric motes.
+- Added occasional flocks of ravens crossing the village.
+- Added a subtle arrival vignette when the village opens.
+- Added reduced-motion support for accessibility and performance.
+
+PRESERVED
+- V31.1 walk-mask collision and map boundaries.
+- Fixed FF4-style camera and Shadow controls.
+- Existing build menu, plots, economy, battles, cards, progression, and save data.
+- No save schema was changed.
+- No external libraries or network assets were added.

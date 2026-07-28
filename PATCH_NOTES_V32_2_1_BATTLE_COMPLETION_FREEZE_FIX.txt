@@ -1,0 +1,11 @@
+THE VILLAGE — V32.2.1 BATTLE COMPLETION FREEZE FIX
+
+FIXED
+- Final-wave victory now resolves before Essence Vial drafts or pause states.
+- Prevents the completed battle from freezing when the last enemy fills the vial.
+- Victory processing closes draft, placement, and transient battle overlays safely.
+- Result screen now provides Hunt Again, Cards, and Home destinations.
+- Cards and Home routes fully tear down battle-only UI before navigation.
+
+PRESERVED
+- Campaign rewards, cards, JP, village supplies, relics, Shadow progression, and save format.

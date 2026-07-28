@@ -1,0 +1,46 @@
+THE VILLAGE — V32.6.3
+THE GOTHIC GLB PACK IS LIVE
+
+The thirteen authored models now build the entire Village. Every placeholder has
+been deleted.
+
+WHAT YOU WILL SEE
+- Houses, manors, farms, lumber camps, quarries, warehouses, libraries,
+  alchemists, enchanters, blacksmiths, taverns, the keep and the cathedral are
+  all real authored models now.
+- The cathedral at the head of the village is the real cathedral model, not the
+  hand-built box-and-cone stand-in.
+- A keep, a blacksmith, a library and a warehouse have been added as authored
+  landmarks alongside the existing lumber camp, quarry, farm and tavern.
+- Buildings of the same type now sit at slightly different angles, so a street no
+  longer looks copy-pasted.
+
+WHAT WAS REMOVED
+- realGothicHouse(), which cloned a single house model for EVERY structure in the
+  game and then bolted on loose logs, rocks and crates to pretend it was a lumber
+  camp, a quarry or a warehouse.
+- dioramaBuilding(), PNG-cropped boxes standing in for buildings. Already dead
+  code — declared but never called.
+- house(), a procedural box-and-cone house. Also already dead code.
+- artFarm(), the procedural farm built around farm_plot.png.
+- cathedral(), the hand-assembled nave, towers, spires, rose window and steps.
+- cropTexture() and its four atlas textures, buildingKind(), proceduralWall().
+- the_village_gothic_house_lv1.glb, the old single placeholder model.
+
+That is five overlapping ways of drawing a building, none of them the real art,
+all replaced by one loader and one placement function.
+
+UNDER THE HOOD
+- All 13 models load in parallel at startup — 234 KB total.
+- Each model is measured once at load, so scale and centring come from the
+  geometry instead of hand-tuned numbers. The widest model lands at 6.20 units
+  against a 6.90-unit plot; nothing overhangs.
+- All 32 build types map onto the pack, with a keyword fallback so any building
+  added later still gets sensible art.
+- If one model fails to load it is substituted and named in the console. If all
+  thirteen fail, the game says so plainly and the classic 2D Village carries on.
+
+NOTE
+house_lv01.png, house_lv02.png and farm_plot.png are still in the build. They are
+no longer used for 3D geometry, but they remain the card art in the build menu
+and the menu backdrop.

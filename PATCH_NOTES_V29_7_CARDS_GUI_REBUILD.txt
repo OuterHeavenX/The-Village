@@ -1,0 +1,68 @@
+THE VILLAGE V29.7 — CARDS SCREEN, REBUILT AND ACTUALLY VERIFIED
+
+WHAT WENT WRONG IN V29.6
+V29.6 removed every rule whose selector began with #deckScreen. That missed the
+rest of the override spiral, which also lived in rules beginning with
+#collectionCards, .portrait-card.compact-card, .card-file-tab and
+.cards-build-banner. Those globals carry !important, so once the #deckScreen
+overrides were gone they took control, and !important beats specificity no
+matter how the new block was scoped. Result:
+  - .portrait-grid{grid-template-columns:repeat(6,...)!important} squashed the
+    collection into six columns
+  - .cards-build-banner{display:grid!important} kept the dev banner on screen
+  - the category tabs collapsed to 1px
+  - .sticky-actions (which holds Save Deck and Back, not the filters) was styled
+    as a pinned top bar and floated over the cards
+
+V29.7 removes all 1,302 rules that exist only to style the Cards screen,
+regardless of how their selector starts, and replaces them with one block.
+.portrait-grid is kept because the Forge screen also uses it; the new block
+overrides it only where required.
+
+EVERY FEATURE IS BACK
+All seven category tabs, confirmed working in a browser:
+  All Cards 23 · Defense 11 · Support 3 · Battle Skills 5 · Run Upgrades 4
+  Hero (JP job board, 10 nodes) · Passives 9
+The Hero tab renders the full JP panel again: hero file, JP available, Vanguard
+ranks, battle XP, and the ten-node Shadow Vanguard job path.
+
+EVERY CARD MATCHES, EVERYWHERE
+Equipped slots and collection cards use different markup (miniCardHTML vs
+cardHTML). Both are now normalised to one anatomy and one fixed track width, so
+a card is pixel-identical wherever it appears:
+  iPad landscape  equipped 164x219  collection 164x219
+  iPad portrait   equipped 164x219  collection 164x219
+  iPhone          equipped 132x176  collection 132x176
+All eight rarity tiers fill from the same var(--rarity) recipe. Tier identity is
+additive: an inner ring for Epic+ and above, a foil sweep for Legendary and
+Mythic. No tier replaces the fill any more.
+
+CRITICAL BUG FIXED — THE GAME COULD NOT RUN OFFLINE
+src/Renderer/threeAtmosphere.js imports Three.js from a CDN with a top-level
+static import, and main.js loaded it BEFORE game.js. If that request failed the
+whole module graph aborted and game.js never executed. This was reproduced in a
+browser with the CDN blocked: the game was dead. ARCHITECTURE.md claimed the
+layer was optional; it was not.
+main.js now loads game.js first and pulls the atmosphere layer with a dynamic
+import and a catch. Re-tested with the CDN unreachable: Cards screen opens, 23
+cards render, all 7 tabs render.
+
+HOW THIS WAS VERIFIED
+This build was rendered in headless Chromium and inspected, rather than reasoned
+about. 27 assertions across three viewports (iPad landscape, iPad portrait,
+iPhone), all passing:
+  build banner hidden · 7 tabs present and over 30px tall · filter row present ·
+  equipped card size exactly equals collection card size · cards hold their 3:4
+  proportion · every card fills with a rarity gradient · Save/Back not pinned
+  over content · panel reserves 150px for the bottom nav · zero page errors
+Plus a separate offline test proving the game survives the CDN being blocked.
+
+FILES CHANGED
+  styles.css   309,734 -> 164,535 bytes (47% smaller), 1,302 rules removed
+  src/main.js  atmosphere layer made non-blocking
+No other JavaScript and no HTML was changed. No card, tower, rarity, merge, JP
+or save logic was touched.
+
+STILL WORTH DOING
+The card art is still emoji. The layout now supports real art: .card-art is a
+square panel and will accept an <img> without any further CSS work.

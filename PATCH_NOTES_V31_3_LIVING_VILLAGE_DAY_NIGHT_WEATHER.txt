@@ -1,0 +1,25 @@
+THE VILLAGE — V31.3 LIVING VILLAGE: DAY, NIGHT & WEATHER
+
+ADDED
+- Six-stage atmospheric day/night cycle: dawn, morning, afternoon, evening, night, deep night.
+- Night lantern enhancement and firefly activity.
+- Dynamic clear, fog, wind, and rain conditions with smooth transitions.
+- Wind-blown leaves and animated rainfall.
+- Cathedral bell synthesized in-browser after the first player interaction.
+- Atmospheric status display showing current time period and weather.
+- Interactive Cathedral, Market, River Crossing, and Southern Road landmarks.
+- Three one-time hidden exploration rewards connected to the existing Village gold economy.
+- Secret-nearby indicator and discovery burst effect.
+- Citizen pacing responds to rain and nighttime.
+
+PRESERVED
+- Full-map collision mask.
+- Shadow controls and FF4-style camera.
+- Build plots and construction systems.
+- Cards, battles, progression, and economy.
+- Existing save data and save format.
+
+SAVE SAFETY
+- New atmosphere/discovery metadata is stored under a separate versioned localStorage key.
+- Existing core game saves are not reset or migrated.
+- Exploration gold is awarded through the existing Village economy object.

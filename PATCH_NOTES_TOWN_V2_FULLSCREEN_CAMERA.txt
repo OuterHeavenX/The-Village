@@ -1,0 +1,10 @@
+THE VILLAGE — HOMETOWN V2 FULL-SCREEN CAMERA
+
+Hometown-only update:
+- Village map now fills the entire hometown screen behind the HUD and bottom navigation.
+- Camera starts in a cover/fill view instead of a small framed view.
+- One-finger/mouse drag pans the map freely, including left and right exploration.
+- Pinch gesture and mouse wheel zoom around the gesture position.
+- Existing +, center, and - controls remain available.
+- Dynamic camera limits adapt to the current screen size and orientation.
+- Build House/Farm, citizens, controllable Hunter, economy, campaign, cards, battle, and all other mechanics remain unchanged.

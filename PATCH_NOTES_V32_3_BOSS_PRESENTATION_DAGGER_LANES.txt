@@ -1,0 +1,10 @@
+THE VILLAGE V32.3 — BOSS PRESENTATION & DAGGER LANES
+
+- Moved collection card names into a dedicated dark title band above card stats.
+- Doubled the visual scale of all bosses and enlarged boss health bars.
+- Corrected the Golem sprite anchor so it walks centered on the road.
+- Added boss entrance and mid-route pauses with smooth camera focus and return.
+- Rebuilt the Dagger Tower as a piercing straight-line lane weapon.
+- Dagger attacks once per second and hits every enemy in its path.
+- Dagger lane length: Level 1 = 3 tiles, Level 2 = 4 tiles, Level 3+ = 5 tiles.
+- Preserved battle completion, tower movement/swap, no-shake, and reduced-AoE updates.

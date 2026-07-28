@@ -1,0 +1,11 @@
+THE VILLAGE V23.0 — ECONOMY & IDENTITY
+
+- Officially renamed the game to The Village.
+- Preserved existing Relics of the Kingdom save data for compatibility.
+- Added live Food, Wood, Stone, and Population totals to the Village HUD.
+- Added persistent production from Farms, Lumber Camps, and Quarries.
+- Added House-based population and capacity growth.
+- Added up to 12 hours of offline production.
+- Added a Village Hall economy dashboard with rates, building count, level, happiness, and offline report.
+- Added Collect & Save control.
+- Existing V22.4B construction, camera, pinch zoom, panning, campaign, cards, heroes, relics, audio, and combat remain intact.

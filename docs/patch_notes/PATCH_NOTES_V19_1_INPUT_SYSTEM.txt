@@ -1,0 +1,13 @@
+RELICS OF THE KINGDOM — V19.1 INPUT SYSTEM REFACTOR
+
+Verified repair focused on persistent iPhone Cards scrolling freezes.
+
+Changes:
+- Removed the document-level touchmove preventDefault listener.
+- Stopped resizing the fixed app viewport from visualViewport during Safari toolbar animation.
+- Made #deckScreen the single native vertical Cards scroller.
+- Removed nested vertical scrolling from the Collection grid and deck panel.
+- Disabled gameplay canvas pointer ownership while the Cards screen is active.
+- Preserved the working 3 x 2 Battle Deck, compact Ground Defenses, matching card art, save data, campaign, and balance.
+
+No gameplay content or card proportions were redesigned in this patch.

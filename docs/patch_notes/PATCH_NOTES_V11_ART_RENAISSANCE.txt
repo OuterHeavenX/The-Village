@@ -1,0 +1,13 @@
+Relics of the Kingdom — v11.0 Art Renaissance I
+
+VISIBLE CHANGES
+- Rebuilt the road as cracked, shaded cobblestone with moss and blood details.
+- Replaced the small gate with a much larger gothic cathedral facade.
+- Cathedral now visually cracks as Gate health falls.
+- Towers are 18% larger with deeper shadows and stronger silhouettes.
+- Enemies now use recognizable body silhouettes instead of plain circles.
+- Bosses and elites render larger with clearer health bars.
+- Upgraded the Three.js atmosphere with layered mist, moon glow, stars, embers, and dynamic torch light.
+- Added cinematic vignette, richer combat contrast, premium HUD depth, and animated relic-card sheen.
+
+No progression, save, card-unlock, or balance rules were changed.

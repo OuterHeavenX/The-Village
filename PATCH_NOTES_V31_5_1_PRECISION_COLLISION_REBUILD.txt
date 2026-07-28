@@ -1,0 +1,7 @@
+THE VILLAGE V31.5.1 — PRECISION COLLISION REBUILD
+
+- Rebuilt the full-map walk mask against the current 1536x1024 village backdrop.
+- Tightened cliff, water, wall, plot, and cathedral boundaries.
+- Restored precise walkable bridge decks and approach paths.
+- Added a five-point Hunter foot capsule for smoother, more reliable contact.
+- Preserved FF4 camera, construction, living economy, cards, battles, progression, and save data.

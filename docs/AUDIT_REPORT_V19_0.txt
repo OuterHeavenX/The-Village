@@ -1,0 +1,24 @@
+V19.0 AUDIT REPORT
+
+HIGH-PRIORITY ISSUE FIXED
+1. Cards scrolling could be cancelled by the global touchmove guard. The allowed-scroller selector included only #collectionCards, not the #deckScreen page. A swipe beginning on the deck, hero, defenses, filters, or blank panel space was therefore prevented. #deckScreen and the horizontal card tabs are now explicitly allowed.
+
+VERIFIED
+- npm run build: PASS
+- 12 campaign chapter definitions: PRESENT
+- Chapter star persistence: PRESENT
+- Save migration and legacy save fallback: PRESENT
+- Boss HUD and boss spawn framework: PRESENT
+- Elite enemy generation: PRESENT
+- Relic vault: PRESENT
+- Codex and kingdom systems: PRESENT
+- Compact 3x2 mobile battle deck and compact ground defenses: PRESERVED
+
+REFINEMENTS
+- Corrected stale V16 browser title and cache query strings.
+- Replaced placeholder-only V19 documentation with an accurate feature/scope summary.
+
+KNOWN DESIGN DEBT (NOT SILENTLY CLAIMED AS COMPLETE)
+- Most chapter bosses use the same underlying movement/attack framework. Only selected boss types have distinct summon or frost behavior.
+- Chapters 9-12 currently add environments, stats, names, and rewards, but do not unlock new cards.
+- Hero progression is currently hero selection plus permanent hero levels; a full interactive talent/equipment progression loop is not consistently represented across this source branch.

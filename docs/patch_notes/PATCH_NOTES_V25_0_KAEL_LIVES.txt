@@ -1,0 +1,8 @@
+THE VILLAGE V25.0 — KAEL LIVES
+
+- Added Kael as a controllable village character.
+- Added touch joystick and interaction button.
+- Added camera follow while Kael walks.
+- Added Kael sprite rendering and joystick movement in battle.
+- Converted the supplied white-background PNG to a true RGBA transparent asset.
+- Preserved village pan/zoom, construction, citizens, economy, cards, campaign and saves.

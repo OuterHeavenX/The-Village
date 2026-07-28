@@ -1,0 +1,15 @@
+THE VILLAGE V32.6.5 — ROOF FLASH FIX
+
+Fixed:
+- Removed moving roof flicker / flashing on iPad Safari.
+- Gothic roof, spire, and canopy meshes still cast shadows, but no longer receive the moon shadow map on their own shallow surfaces.
+- Added polygon offset to roof materials to prevent coplanar depth contention.
+- Kept wall, ground, tree, and building shadows intact.
+- Updated Safari cache-busting to v3265.
+
+Preserved:
+- Save data and resources
+- Shadow movement and sprite animation
+- Build menu and plot schema
+- All Gothic GLB buildings
+- Cathedral, Keep, terrain, roads, weather, and battle systems

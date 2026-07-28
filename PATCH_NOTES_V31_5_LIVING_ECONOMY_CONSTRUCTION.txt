@@ -1,0 +1,21 @@
+THE VILLAGE V31.5 — LIVING ECONOMY & CONSTRUCTION
+
+ADDED
+- Four-stage visible construction: foundation, framework, walls, and roof finishing.
+- Construction workers carrying timber and stone, scaffolding, hammer sparks, and progress labels.
+- Merchant caravan route and visible village-goods traffic.
+- Dynamic happiness calculated from construction, landmarks, discoveries, and civic activity.
+- Shadow's Home interaction: Trophy Room, Rest Until Morning, and Hunter Journal.
+- Cathedral services: Blessing of Resolve, Rest and Recover, and Memorial Candles.
+- Wildlife: village cat, dog, deer, and river fish.
+- Residential, commerce, and south-commons visual district identity.
+- Random timed village events: Merchant Caravan, Lantern Festival, Traveling Bard, Blacksmith Sale, and Cathedral Ceremony.
+- Separate rotk.village.juice.v31_5 storage key for new state.
+
+PRESERVED
+- Full-map collision mask.
+- Fixed FF4 close-follow camera with no pinch zoom.
+- Shadow controls and animations.
+- Existing plot save strings and construction catalog.
+- Cards, battles, progression, economy, and prior save formats.
+- V31.2/V31.3 ambient life, day/night, weather, interactions, and discoveries.

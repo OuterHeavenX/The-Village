@@ -1,0 +1,14 @@
+THE VILLAGE V29.1 — CARD ARMORY / JP / PROGRESS PRESERVATION
+
+- Rebuilt the Cards screen with one authoritative responsive layout block.
+- Battle Deck cards and Collection cards now use matching dimensions and information hierarchy.
+- Removed overlapping and stacked-card behavior on iPad Safari.
+- Card icons, Level, ATK, HP, rarity background, and copies remain visible.
+- Rebuilt the Hero tab as a dedicated Shadow Vanguard dashboard with ten sequential ranks.
+- Added a one-time 10 JP migration grant for existing players.
+- Campaign stages award exactly 1 JP on first clear only; replays cannot farm JP.
+- Added permanent Shadow Vanguard rank effects in battle.
+- Added per-tower-type battle upgrades: ATK 0–5, Speed 0–5, Radius 0–3.
+- All upgrades apply to every copy of the same tower during the hunt.
+- Added a pre-migration localStorage backup at relicsEclipseSave_backup_v12.
+- Existing card IDs, inventory, copies, rarity, merge levels, unlocks, loadout, campaign progress, and boss rewards remain intact.

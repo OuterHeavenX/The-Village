@@ -1,0 +1,10 @@
+RELICS OF THE KINGDOM — V15.0.4 TRUE AOE & BALANCE FIX
+
+- The visible tower radius is now the exact gameplay attack radius.
+- Towers only acquire enemies inside the displayed AOE.
+- Projectiles no longer damage enemies that leave the tower AOE before impact.
+- Splash damage is clipped to the firing tower's displayed AOE.
+- All tower AOE starts at approximately 1.35 tiles, with only small level growth.
+- Enemy health and wave scaling increased substantially.
+- Summoned enemies were strengthened.
+- V15.0.2 deck fixes and V15.0.3 road fixes are preserved.

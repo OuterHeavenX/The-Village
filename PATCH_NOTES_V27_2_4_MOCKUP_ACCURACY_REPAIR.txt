@@ -1,0 +1,10 @@
+THE VILLAGE V27.2.4 — MOCKUP ACCURACY REPAIR
+
+Cards tab only:
+- Restored the six-card deck to one horizontal row on iPad landscape.
+- Prevented the prior responsive rule from collapsing deck cards into three oversized columns.
+- Unified battle-deck and collection card dimensions, artwork areas, typography, spacing, and status bars.
+- Kept both passive ground-defense cards beneath the selected hunter.
+- Cropped the hunter sprite sheet to a single character frame.
+- Hardened Return to Cards & Deck with pointer-up and click handling for iPad/Chrome.
+- Added visible V27.2.4 build identification.

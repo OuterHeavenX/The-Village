@@ -1,0 +1,25 @@
+THE VILLAGE V32.6.6 — GOTHIC ASSET LIBRARY
+
+ADDED
+- A unified five-level Gothic house family: House Lv1, Lv2, Lv3, Lv4 and Lv5.
+- Reusable GLB environment assets: stone wall, fence, bench, market stall, wagon, barrel, lamp post, statue, bridge, dead tree, shrub and rock cluster.
+- Authored prop placement around the Village roads and districts.
+- Animated farm crop rows with lightweight wind motion.
+- GLB lamp posts replacing the old procedural lamp geometry.
+- Visual bridge GLBs layered over the proven bridge collision geometry.
+
+BUILDING MAPPING
+- House -> House Lv1
+- Almshouse/Bathhouse -> House Lv2
+- Manor -> House Lv3
+- Estate/Town Hall -> House Lv4
+- Mansion/Palace -> House Lv5
+- Existing production, arcane, military and landmark buildings retain dedicated GLBs.
+
+PRESERVED
+- Existing save schema and all 29 construction plots.
+- Resources, progression, Build menu, bottom navigation and battle systems.
+- Roof flash fix and mobile shadow-map optimisations.
+
+STARTUP BADGE
+THREE.JS WORLD ACTIVE · V32.6.6 · GOTHIC ASSET LIBRARY

@@ -1,0 +1,8 @@
+RELICS OF THE KINGDOM — V16.1b COLLECTION REPAIR
+
+- Removed the legacy 86px icon-grid sizing that compressed the Card Collection.
+- Restored true 5:7 poker-card proportions in the lower collection.
+- Restored normal card art flow instead of absolute-positioned stacked artwork.
+- Collection now scrolls vertically inside its own viewport.
+- Preserved the 2x3 battle deck and two Hero Ground Defense slots.
+- Preserved V16.0a Essence Draft gameplay.

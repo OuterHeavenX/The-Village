@@ -1,0 +1,8 @@
+Relics of the Kingdom V16.1e — Tablet Layout on Phone
+
+- Phones now render the same Cards & Deck composition used on tablet.
+- The complete interface is scaled to the phone width instead of being reflowed vertically.
+- Six-card deck remains a 3 × 2 grid.
+- Hero Ground Defense remains beside the deck.
+- Card Collection remains visible and internally scrollable.
+- Existing Essence Draft gameplay and V16.1c non-stacking collection behavior are preserved.

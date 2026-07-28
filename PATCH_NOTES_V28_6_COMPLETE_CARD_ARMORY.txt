@@ -1,0 +1,12 @@
+THE VILLAGE V28.6 — COMPLETE CARD ARMORY
+
+- Replaced the Cards screen layout with a cleaner full-width armory.
+- Removed rarity rings and glow-only rarity treatment.
+- Entire card backgrounds now display rarity color in deck and collection.
+- Card icons are fully visible and substantially larger.
+- ATK, HP, and card level are always visible.
+- Preserved six-card loadouts, sorting, favorites, details, Merge All, and save compatibility.
+- Added a dedicated Passives tab.
+- Expanded passive ground defenses from 2 to 9: Road Spikes, Grave Oil, Iron Bear Trap, Frost Rune, Poison Fog, Holy Banner, Watch Bell, Shadow Mine, and Soul Lantern.
+- Only the two equipped passives enter a hunt.
+- Existing merge progression remains permanent: each card level adds 10% power in addition to rarity strength.

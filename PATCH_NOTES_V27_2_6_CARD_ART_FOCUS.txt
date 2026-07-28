@@ -1,0 +1,10 @@
+THE VILLAGE V27.2.6 — CARD ART FOCUS
+
+Cards-tab-only update:
+- Preserved the approved V27.2.5 page layout.
+- Made equipped deck cards and collection cards the same physical height and component styling.
+- Removed large rarity-colored card body backgrounds; rarity now reads through borders, badges, and subtle glow.
+- Enlarged the card art/icon window so the icon is the primary visual focus.
+- Reduced and unified the information/footer area.
+- Added a direct DOM-level fallback for Return to Cards & Deck.
+- Updated the visible Cards build banner to V27.2.6.

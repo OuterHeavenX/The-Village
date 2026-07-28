@@ -1,0 +1,39 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+.cache/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.stage6-chrome-profile*/
+
+# Editor metadata
+.vscode/
+.idea/
+*.code-workspace
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+._*
+
+# Test and tool caches
+playwright-report/
+test-results/
+blob-report/
+__pycache__/
+*.py[cod]

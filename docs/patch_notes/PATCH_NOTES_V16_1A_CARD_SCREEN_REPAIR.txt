@@ -1,0 +1,10 @@
+RELICS OF THE KINGDOM — V16.1a CARD SCREEN REPAIR
+
+Verified fixes:
+- The six-card battle deck is forced into a true 3-column by 2-row grid.
+- Both Hero Ground Defense slots remain separate from the six-card deck.
+- Deck and ground-defense cards preserve the same 5:7 poker-card silhouette and card markup used by the collection.
+- The collection now uses true 5:7 cards instead of compressed 82px legacy rows.
+- Five collection rows are visible within a vertically scrollable card area.
+- Legacy Milestone 9D and V15 CSS selectors no longer override the V16.1 layout.
+- Existing V16.0a Essence Draft gameplay is unchanged.

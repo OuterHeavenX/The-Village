@@ -1,0 +1,98 @@
+THE VILLAGE V29.6 — CARDS SCREEN REBUILD
+
+Presentation only. No card, tower, rarity, merge, JP or save logic was touched.
+No HTML or JavaScript was changed for this rebuild.
+
+=== WHAT WAS WRONG ===
+The Cards screen had been restyled by appending override blocks rather than
+editing existing rules, over many iterations:
+
+  1,054 of 2,756 rules in styles.css were #deckScreen-scoped   (38% of them)
+  154,690 bytes of 309,734                                     (50% of the file)
+  3,593 of 3,860 declarations carried !important                (93%)
+  #deckScreen #collectionCards.cards.portrait-grid appeared 38 times
+  #deckScreen #equippedDeck.equipped-deck                       29 times
+  #deckScreen #equippedDeck .deck-slot                          28 times
+
+Once a rule is declared 38 times with !important, nothing wins predictably.
+That is the root cause of every symptom in the screenshots.
+
+=== ROOT CAUSE OF THE COLOUR INCONSISTENCY ===
+.rarity-common / good / rare / epic / legendary defined only --rarity.
+.rarity-epicplus / legendaryplus / mythic defined --rarity AND an inset
+box-shadow marked !important. That inset shadow painted over the card fill, so
+the three highest tiers rendered dark with a coloured ring while every lower
+tier rendered as a filled colour card. Epic+ and Legendary+ looked like a
+different game to Epic and Rare.
+
+Fixed: every tier now derives its fill, border, art panel, badge and footer
+colour from the same var(--rarity) recipe. Tier identity is now ADDITIVE on
+top of that fill, never a replacement:
+  - all eight tiers: rarity-tinted gradient body, border and art panel
+  - epic+, legendary, legendary+, mythic: an extra inner rarity ring
+  - legendary, legendary+, mythic: a slow animated foil sweep
+  - mythic sweeps faster and brighter
+The equipped slots and the collection cards now share one gradient recipe, so
+a card looks identical wherever it appears.
+
+=== BUGS FIXED FROM THE SCREENSHOTS ===
+- Equipped top row rendered as bare icons. The equipped slots are built by
+  miniCardHTML() with a completely different class set (deck-card-art,
+  deck-card-name, deck-card-stats, deck-card-view) from the collection cards
+  built by cardHTML(). Those five classes had lost all styling in the override
+  spiral, and the slots were being forced to a fixed aspect-ratio with
+  overflow:hidden, so the name and stats were clipped away. All five are now
+  styled, rows are equal height, and nothing is clipped.
+- The bottom navigation covered the last row of cards. The panel now reserves
+  96px plus the iOS safe-area inset.
+- Rarity name and copy count in the card footer were dark-on-dark and
+  unreadable. The rarity name now renders in its own rarity colour with a soft
+  glow; the copy count sits at readable contrast.
+- The Active Loadout left a large empty column beside the hero panel. The
+  loadout is now a two-column grid: hero panel fixed, cards fill the rest.
+- The deck profile box mangled its text into a narrow column. It is now a
+  wrapping horizontal strip.
+
+=== THE REBUILD ===
+All 1,054 #deckScreen rules were removed and replaced with one authoritative
+block of 179 rules at the end of styles.css.
+
+                         before      after
+  #deckScreen rules       1,054        179
+  declarations            3,860        815
+  !important                 93%         1%   (4 declarations, only to defeat
+                                               the three global rarity shadows)
+  styles.css            309,734    191,823    (38% smaller)
+
+Nothing outside the Cards screen was touched: every non-#deckScreen selector in
+the file is byte-identical, verified by re-parsing.
+
+=== JUICE ===
+- Cards fade and rise in on a staggered cubic ease.
+- Hover lifts the card 6px with a rarity-coloured glow; the sigil scales and
+  tilts. Press gives a physical scale-down.
+- Legendary and above carry a continuous foil sweep.
+- Available job nodes pulse gold.
+- Tabs, buttons and slots all animate on hover and press.
+- Everything animated is disabled under prefers-reduced-motion.
+
+=== SAFARI SAFETY ===
+The design uses color-mix(), which needs Safari 16.2+. Every critical
+declaration (card background, border, art panel, footer colour) is preceded by
+a plain-colour fallback, so on an older engine the cards render in neutral
+slate rather than losing their background entirely.
+
+=== VERIFICATION PERFORMED ===
+- 28 automated CSS assertions, all passing: rarity consistency across all eight
+  tiers, both card bodies sharing one recipe, no tier replacing the fill,
+  fallbacks present ahead of every color-mix, each screenshot bug closed,
+  each juice effect present, reduced-motion honoured, braces balanced, and no
+  duplicate selector storms remaining.
+- Coverage check: all 147 classes in the Cards screen markup were cross-checked
+  against the new block. Every element that had styling before still has it.
+- Re-parse confirms 0 non-deck selectors lost.
+
+=== NOT PERFORMED ===
+- No in-browser run. Layout numbers (card minimum width, grid gaps, the 96px
+  nav reserve) are the values most likely to want adjusting by eye. They are
+  all at the top of the block in the #deckScreen custom properties.

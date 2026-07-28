@@ -1,0 +1,17 @@
+THE VILLAGE V27.3.0 — DYNAMIC BATTLEFIELD
+
+Battle-only update:
+- Expanded the battle grid from 12x9 to 16x18.
+- Battles now begin with a short six-tile road.
+- The road automatically grows after every cleared non-final wave.
+- Later waves may reveal two road tiles at once.
+- Added guarded procedural road generation with boundary, overlap, tower, trap, and future-space checks.
+- Enemy entry automatically moves to the newest road endpoint.
+- Added a cinematic camera reveal for newly created road tiles, followed by return to the prior battle view.
+- Reserved the active road frontier so towers cannot permanently block route growth.
+- Existing road-adjacent placement naturally unlocks new build territory as the path expands.
+- Removed hidden manual road cards from normal Essence drafts; road growth is now a wave system.
+- Preserved Essence earned beyond the exact 40-point trigger and restores it after the forced card purchase.
+- Added safe wave-transition state handling and end-of-wave Guardian/Chalice healing hooks.
+
+No non-battle game systems were intentionally modified.

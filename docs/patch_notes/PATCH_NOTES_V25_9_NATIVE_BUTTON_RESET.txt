@@ -1,0 +1,8 @@
+THE VILLAGE V25.9 — NATIVE BUTTON RESET
+
+- Removed all accumulated V25.5–V25.8 document-level touch routers.
+- One command function now owns Center, Speed, Pause, Exit, Hunt Again, and Main Menu.
+- Added native inline click fallbacks directly on every essential button for iPad Safari/Textastic previews.
+- Exit and Main Menu switch screens in memory; they do not reload or navigate Safari.
+- Hunt Again starts a fresh hunt in memory.
+- Preserved full-screen battlefield, pinch zoom, and automatic hero behavior.

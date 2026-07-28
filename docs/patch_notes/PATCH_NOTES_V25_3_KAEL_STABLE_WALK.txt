@@ -1,0 +1,8 @@
+THE VILLAGE V25.3 — KAEL STABLE WALK CYCLE
+
+- Rebuilt Kael's runtime sheet into a precise 4-column x 4-row RGBA sprite sheet.
+- Chose one stable facing pose for down, up, right, and left from the mixed source artwork.
+- Created a subtle four-frame step/bob cycle without changing Kael's facing direction.
+- Removed the source poses that caused Kael to rotate between front, side, and back while walking.
+- Updated both Village CSS animation and battlefield canvas extraction to the new 4x4 layout.
+- Preserved the established row mapping: down, up, right, left.

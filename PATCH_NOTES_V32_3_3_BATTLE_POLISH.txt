@@ -1,0 +1,10 @@
+THE VILLAGE V32.3.3 — BATTLE POLISH
+
+- Enemy health bars now sit directly beneath their sprites.
+- Boss health bars use a stable feet-relative anchor instead of scaling far below enlarged sprites.
+- Golem and other bosses face toward the screen during cinematic pauses.
+- Boss pause animation is held on a stable idle frame to remove jitter before movement resumes.
+- Dagger Tower now fires its piercing lane volley once every 3 seconds.
+- Dagger lane lengths remain 3 / 4 / 5 tiles at Levels 1 / 2 / 3+.
+- Battle victory/defeat panel is centered horizontally and vertically on iPad and remains responsive on iPhone.
+- No card layout, progression, save format, or other gameplay systems changed.

@@ -1,0 +1,11 @@
+RELICS OF THE KINGDOM — V15.0.2
+
+Focused stability patch:
+- Reduced the selected-tower range overlay to 40% of its previous visual size (60% smaller).
+- Fixed removing cards from equipped deck slots.
+- Fixed Equip/Remove buttons in the card collection.
+- Fixed Equip/Remove from the card detail screen.
+- Removed the render-time auto-refill behavior that caused removed cards to immediately reappear.
+- Preserved the six-card maximum and Save Deck persistence.
+
+No unrelated gameplay changes were made.

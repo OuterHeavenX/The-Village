@@ -1,0 +1,8 @@
+RELICS OF THE KINGDOM — V15.1 COMBAT POLISH
+
+- Preserved V15.0.4 balance, true AOE, roads, deck system, and saves.
+- Added distinct projectile visuals for Whip, Dagger, Axe, Bone, Cross, and other towers.
+- Added enemy hit flash and subtle impact recoil.
+- Added glowing soul motes on enemy deaths.
+- Added stronger feedback and mobile vibration for elite and boss kills.
+- Existing combo text, critical feedback, weather, particles, and death effects remain intact.

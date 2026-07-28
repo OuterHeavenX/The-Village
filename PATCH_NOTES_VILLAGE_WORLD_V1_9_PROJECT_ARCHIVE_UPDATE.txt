@@ -1,0 +1,21 @@
+THE VILLAGE — VILLAGE WORLD V1.9 PROJECT ARCHIVE UPDATE
+Date: 2026-07-23
+
+Documentation-only update.
+
+UPDATED
+- project_docs/PROJECT_STATE.md
+- project_docs/ROADMAP.md
+
+RECORDED
+- Connected five-district long-term layout.
+- Current scrollable square-card build-menu direction.
+- Functional-building priority order.
+- Campaign elemental-research unlock archive.
+- Commerce, Military, and Arcane concept-pack experiments.
+- Decision to pause building-asset production.
+- Production-sheet requirements for any future asset work.
+
+NOT CHANGED
+- No HTML, CSS, JavaScript, save data, gameplay, controls, or image assets were modified.
+- No experimental building pack was integrated into this working ZIP.

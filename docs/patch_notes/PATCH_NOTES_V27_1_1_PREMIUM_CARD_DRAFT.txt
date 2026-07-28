@@ -1,0 +1,9 @@
+THE VILLAGE V27.1.1 — PREMIUM CARD DRAFT
+
+- Preserves the large card artwork/icon for every draft choice.
+- Increases card title, stat, and cost readability.
+- Displays card level, damage, attack speed, range, target type, cost, rarity, and passive ability.
+- Adds clearer spacing and information hierarchy.
+- Adds tactile press feedback and retains the staggered card-deal animation.
+- Keeps the centered swipeable card view on narrow phones and three-card view on tablets.
+- No combat balance, controls, saves, waves, tower logic, or enemy logic changed.

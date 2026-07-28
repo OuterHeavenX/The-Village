@@ -1,0 +1,11 @@
+THE VILLAGE — HOMETOWN PLOT ALIGNMENT V3.1
+
+Hometown-only repair:
+- Repositioned all construction lots to the actual grass parcels in village_ground.png.
+- Removed plot overlap across cobblestone roads and water edges.
+- Balanced the four upper lots around the cathedral.
+- Rebuilt the lower district as six centered construction spaces.
+- Added separate visual sizing for House and Farm assets.
+- Reduced building art on narrow parcels so structures remain inside their lots.
+- Existing saved House/Farm placements remain supported and move into their corrected positions.
+- No battle, campaign, cards, heroes, economy, or other game mechanics were changed.

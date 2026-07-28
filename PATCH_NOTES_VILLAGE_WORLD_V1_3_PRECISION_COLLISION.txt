@@ -1,0 +1,10 @@
+THE VILLAGE — VILLAGE WORLD V1.3 PRECISION COLLISION
+
+Village-only update:
+- Replaced broad collision rectangles with narrow road corridors matched to each district artwork.
+- Hunter now stays on cobblestone roads, bridge throats, plazas, and gate approaches.
+- Grass plots, decorative beds, water, walls, and building footprints are blocked.
+- Added diagonal-first movement with curb sliding for smoother joystick control.
+- Added automatic recovery to the nearest legal road point if a save/portal position is invalid.
+- Tightened citizen path collision and retained road-safe patrol routes.
+- No campaign, battle, cards, hunters, relics, economy, or other non-Village systems changed.

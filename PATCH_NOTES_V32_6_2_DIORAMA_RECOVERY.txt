@@ -1,0 +1,67 @@
+THE VILLAGE — V32.6.2
+HD DIORAMA RECOVERY AUDIT
+
+THE BLACK SCREEN IS FIXED — AND IT WAS NEVER A WEBGL ERROR
+- assets/village/house_lv02.png was missing from the build. Only the .heic
+  source shipped. The three Village art textures were loaded with Promise.all,
+  so that one 404 aborted the entire 3D world.
+- The error handler then read error.message. Three.js loaders reject with a DOM
+  ErrorEvent, which has no .message, so the fallback string "Unknown WebGL
+  error" was printed for what was really a missing file.
+- Worse, the handler ran world.innerHTML = ... which destroyed the 2D Village —
+  ground, plots, buildings and citizens — so there was nothing left to fall back
+  to. That is the black screen.
+- house_lv02.png has been regenerated from its own HEIC source.
+- Every texture, model and sprite sheet now loads through a fallback chain and
+  can no longer abort the world.
+- Errors now name the real cause, e.g. "could not load house_lv02.png".
+- Failure degrades to the classic 2D Village instead of erasing it.
+
+IPAD SAFARI
+- The decorative atmosphere layer no longer opens a second WebGL context on
+  mobile. It was completely hidden behind the 3D Village anyway, and iOS
+  enforces a browser-wide context limit — with several tabs open, that second
+  request is exactly what fails.
+- WebGL context loss and restore are now handled. Backgrounding the app no
+  longer leaves the Village black forever.
+- If no context can be created at all, the game says so plainly and suggests
+  closing other Safari tabs.
+- Mobile rendering budget: antialiasing off, pixel ratio capped at 1.35, cheaper
+  shadow filtering, and the shadow map halved from 2048 to 1024 (roughly 16 MB
+  down to 4 MB).
+- Polyfilled ctx.roundRect for iPads on Safari older than 16.4, where the
+  cobblestone texture used to throw and take the world down with it.
+
+FASTER
+- The render loop was calling readPlots() — a synchronous localStorage read plus
+  JSON.parse — once per frame, about sixty times a second. Measured: 120 frames
+  caused 120 disk-backed reads. Now 1.
+- The render loop can finally be stopped. It previously kept running forever,
+  rendering into a canvas that had already been removed.
+- Rendering is skipped while the tab is in the background.
+
+ALSO FIXED
+- the_village_main.png was missing while the stylesheet referenced it twice.
+- package.json claimed 32.5.1 on a V32.6 build, and the lock file disagreed with
+  both.
+- Cache identifiers had drifted across four files, so Safari could pair a new
+  script with a months-old stylesheet.
+- The 3D status banner was rendering underneath the resource strip.
+
+NEW — THREE MORE METAL GEAR SOLID HOMAGES (NINE IN TOTAL)
+- SHADOW? SHADOW?! SHAAAADOW! Staged over the defeat screen in three beats.
+  Only fires once you have dialled the codec at least once.
+- METAL GEAR?! The instant the Golem reaches its third form. A walking weapon
+  platform that rebuilds itself mid-fight earns the double-take.
+- THE SORROW. Five quick taps on the Codex completion figure. Every enemy you
+  have ever discovered drifts upstream past you in the dark, while the river
+  counts your kills back to you.
+
+KNOWN — NOT CHANGED
+- A 13-model gothic GLB pack (house, farm, quarry, tavern, keep, cathedral and
+  more, 272 KB) ships in assets/village/The_Village_Gothic_GLBS_Phase1/ and no
+  code references it. The renderer still loads only the older standalone house
+  model. Wiring the pack up is a design task; its manifest.json already carries
+  per-model bounds.
+- Soul Reserve and Hunter Tavern still do nothing (see AUDIT_V32_4_2.md).
+- FRESH_START_TOKEN is still live.

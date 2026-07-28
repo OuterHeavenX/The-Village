@@ -1,0 +1,9 @@
+THE VILLAGE V28.2
+
+- Restored the original combat-radius calculation for every non-Axe tower.
+- Removed the Range upgrade option from all non-Axe towers.
+- Axe Tower alone can purchase +0.50 tile attack-radius upgrades.
+- Shared Battle XP now opens a visible upgrade-selection window whenever a Battle Level is earned.
+- The upgrade window pauses combat, lists every placed attack tower, and lets the player choose Power, Speed, or Axe Range.
+- Upgrade Points may be saved for later. Tap the UPGRADES HUD pill to reopen the window.
+- Existing saves and permanent progression remain unchanged.

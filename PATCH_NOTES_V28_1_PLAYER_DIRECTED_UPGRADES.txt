@@ -1,0 +1,25 @@
+THE VILLAGE V28.1 — PLAYER-DIRECTED BATTLE UPGRADES
+
+Implemented:
+- Removed kill-owner tower XP and automatic tower leveling.
+- All enemy deaths now award shared Battle XP, regardless of which tower or Shadow lands the final hit.
+- Filling the Battle XP bar awards Upgrade Points controlled by the player.
+- Added an UPGRADES counter to the battle HUD.
+- Tap/click a placed attack tower to spend points on one of three paths:
+  * Power: +24% damage
+  * Range: +0.34 tiles
+  * Speed: approximately 16% faster attacks
+- Upgrade costs scale as tower level rises.
+- Towers cap at level 6 during the current battle.
+- Normal enemies grant 1 Battle XP, elites 2, minibosses 4, and bosses 6.
+- Blood Moon now boosts shared Battle XP instead of tower-owned XP.
+- Thornheart Crown now begins a hunt with one Upgrade Point.
+
+AXE TOWER RANGE:
+- Range calculation now respects each card's actual range stat.
+- The Axe Tower receives a larger +0.50 tile gain whenever the player chooses Range.
+- Its high-arc behavior allows it to remain useful when placed behind another tower.
+
+COMPATIBILITY:
+- Existing permanent card progression, campaign progress, boss transformations, Shadow Level 2 unlock, tower merging, maps, deck, and save data remain intact.
+- Upgrade Points and chosen battle upgrades are run-only and are not written into permanent save data.

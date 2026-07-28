@@ -1,0 +1,8 @@
+RELICS OF THE KINGDOM — MILESTONE 9D
+
+CARD COLLECTION VISIBILITY REPAIR
+- Cache-busted all JavaScript modules so iPhone/iPad cannot reuse an older broken build.
+- Starter six are restored with usable copies.
+- Empty deck slots automatically refill from owned cards.
+- Card collection receives a guaranteed visible scroll area.
+- Existing campaign unlocks remain preserved.

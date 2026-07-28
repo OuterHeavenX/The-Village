@@ -1,0 +1,28 @@
+THE VILLAGE V32.4 — FAMILIARS & KEEP EVOLUTION
+
+SHADOW FAMILIARS
+- Added five personal familiars that orbit and follow Shadow in battle:
+  Night Bat, Giant Sword, Demon, Ghost, and Faerie.
+- Added a Familiar selection area to the Heroes screen.
+- Only one familiar is equipped at a time.
+- Every familiar has its own persistent level and XP bar.
+- Familiar XP is earned from enemy defeats while that familiar is equipped.
+- Familiar levels are preserved in the existing save file.
+- Each familiar has a distinct autonomous role:
+  Bat: rapid strikes.
+  Giant Sword: heavy slashes.
+  Demon: damaging attacks that burn targets.
+  Ghost: attacks that slow targets.
+  Faerie: periodically heals the Keep.
+
+BATTLE KEEP EVOLUTION
+- The battle Keep now visually grows through five presentation levels.
+- Existing Reinforced Keep progression controls the battle Keep level.
+- Higher levels add larger walls, battlements, towers, banners, and archers.
+- Level 1 has no archers; Levels 2–5 add one additional archer per level.
+- Archers automatically target enemies approaching the Keep.
+- Higher Keep levels improve archer damage, range, and volley speed.
+
+COMPATIBILITY
+- Existing campaign, cards, buildings, Shadow progress, and saves are preserved.
+- No card layout or Dagger Tower behavior was changed.

@@ -1,0 +1,58 @@
+THE VILLAGE V32.2 — CLEAN SLATE
+
+=== WHY YOUR PROGRESS SURVIVED ===
+V32.1's gates only decide what a NEW save is handed. Your save already existed,
+so it kept everything it had already earned. That was intended, but it is not
+what you wanted, so this build ships one guaranteed clean slate.
+
+FRESH_START_TOKEN. The first time V32.2 runs it clears every key written by any
+previous build, then records its token so it never wipes again. Launch it once
+and you are genuinely at night one. Everything you do after that is kept
+normally — verified by making progress after the wipe and relaunching.
+
+=== WHY THE RESET BUTTON KILLED THE TAB ===
+Two real faults, both fixed.
+
+1. IT ONLY CLEARED TWO KEYS OUT OF SIX.
+   The handler removed 'relicsEclipseSave' and 'gateRunnerSave'. The game also
+   writes 'relicsEclipseSave_backup_v12', 'theVillageFreshTownV1Plots',
+   'rotkVillagePlots' and 'rotkVillagePlotsV224B', plus the easter-egg flags.
+   So after a "full reset" your village was still full of buildings that the
+   brand-new save had no research for. Confirmed in a browser: all three plot
+   stores survived the reset untouched.
+
+2. IT USED A NATIVE confirm() AND THEN RELOADED STRAIGHT INTO IT.
+   confirm() blocks the main thread while the render loop, the audio graph and
+   the village timers keep queueing work behind it. location.reload() then tore
+   the document down mid-frame with all of that still live. On a memory-tight
+   iPad with a dozen tabs open, that is a very good way to lose the tab.
+
+Now:
+   - an in-page confirmation styled like the rest of the game, no native modal
+   - the battle loop is paused and the audio graph silenced BEFORE anything is
+     torn down
+   - every key is cleared by explicit list AND by prefix sweep, so nothing that
+     belongs to this game can survive
+   - it navigates with location.replace() to a fresh URL rather than reloading,
+     which guarantees a clean document instead of a possible bfcache restore
+   - every step is wrapped, so a failure in one cannot strand the reset
+
+=== VERIFICATION ===
+20 assertions, all passing.
+  A long-played save was planted: Shadow level 6, ten legendary level-7 cards,
+  six chapters cleared, three research projects, a blacksmith and a manor built,
+  legacy plot stores and the Vampire Killer flag set. After one launch of this
+  build: 8 cards, all level 1, Shadow Level I, zero chapters, zero research, all
+  three plot stores gone, easter-egg flags gone, and the prologue playing.
+  Relaunching after making progress kept that progress and granted Chapter I's
+  rewards, proving the wipe is genuinely one-time.
+  The Reset button shows an in-page dialog with zero native dialogs raised,
+  cancel preserves the save, confirm clears everything and lands on a fresh
+  document, and no page errors occur anywhere in the sequence.
+Also re-ran the full V32.1 suite and the three-device suite: still green.
+
+=== ONE THING TO KNOW ===
+Because this build wipes once on first launch, do not launch it until you are
+ready to lose your current progress. If you want to keep your current save,
+open src/Battle/game.js and delete the FRESH_START_TOKEN block near the top of
+the save loader; the repaired Reset button will still be there when you want it.

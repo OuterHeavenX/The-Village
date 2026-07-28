@@ -1,0 +1,11 @@
+THE VILLAGE — VILLAGE WORLD V1.7 MOBILE UI FIX
+
+Village-only changes:
+- Added cache-busted CSS/JS URLs for Textastic and iOS browsers.
+- Added inline critical mobile styles so stale cached CSS cannot restore the oversized construction panel.
+- Rebuilt the construction menu as a compact, vertically scrollable categorized list.
+- Limited the construction drawer to 46% of the viewport / 350 px on phones.
+- Hard-limited building thumbnails to 40 x 40 px on phones.
+- Temporarily hides joystick, district shortcuts, camera controls, and Build button while the construction drawer is open.
+- Reduced and separated the main Village controls to prevent overlap.
+- No non-Village mechanics changed.

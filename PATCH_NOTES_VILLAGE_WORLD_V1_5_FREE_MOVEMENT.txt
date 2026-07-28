@@ -1,0 +1,15 @@
+THE VILLAGE — VILLAGE WORLD V1.5 FREE MOVEMENT
+
+Village-only changes:
+- Removed all terrain, road, grass, water, and wall collision checks from the Hunter.
+- Removed terrain collision checks from citizens.
+- Hunter now moves freely within the overall Village world bounds.
+- Citizens continue following their authored patrol routes without collision blocking.
+- Repositioned and enlarged the Old Town west portal trigger.
+- Repositioned and enlarged the West District return portal trigger.
+- West District travel now places the Hunter safely inside the destination.
+- Preserved camera controls, district buttons, gate fade transitions, buildings, plots, economy, and saves.
+- No Battle, Campaign, Cards, Hunters, Relics, or other non-Village mechanics were changed.
+
+Future plan:
+- Add collision only to placed building structures and explicit world objects.

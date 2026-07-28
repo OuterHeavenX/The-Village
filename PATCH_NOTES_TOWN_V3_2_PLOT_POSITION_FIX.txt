@@ -1,0 +1,9 @@
+THE VILLAGE — HOMETOWN V3.2 PLOT POSITION FIX
+
+Scope: hometown construction plots only.
+
+Fixed:
+- Removed a CSS shorthand rule that reset every empty plot's left/top coordinates to auto.
+- Empty construction plots now remain locked to their intended grass parcels.
+- Built House and Farm assets continue using the V3.1 type-specific sizing and grounding.
+- No battle, campaign, cards, heroes, economy, navigation, or other game mechanics were changed.

@@ -1,0 +1,11 @@
+THE VILLAGE V30.5 — UNIFIED FF4-STYLE VILLAGE MAP
+
+VILLAGE-ONLY UPDATE
+- Restored the stable V30.1 original building presentation and removed the experimental Three.js prototype integration from active use.
+- Stitched West District, Old Town, East District, and South District into one 5322 x 2661 unified Village backdrop.
+- Replaced four separately rendered district images with one local map image: assets/village/village_unified_map.png.
+- Locked the Village to one fixed town-map zoom, inspired by classic Final Fantasy IV towns.
+- Removed Village pinch-to-zoom, wheel zoom, manual map dragging, zoom buttons, and district jump buttons.
+- Camera now follows Shadow at a fixed scale and stops at the outer world bounds.
+- Existing authored gate portals remain responsible for crossing between district walkable regions, but the visible map is now one continuous backdrop.
+- Existing building plots, Gold construction catalog, offline production, citizens, saves, campaign hotspot, and all non-Village systems remain unchanged.

@@ -1,0 +1,17 @@
+THE VILLAGE — V27.7 SHADOW DIRECTIONS & ENEMY HEALTH BARS
+
+Scope: visual corrections only. No combat, progression, economy, road, card, tower, movement-speed, or wave mechanics were changed.
+
+FIXED
+- Corrected Shadow world-map sprite row mapping:
+  - Down remains row 1
+  - Left now uses row 2
+  - Right now uses row 3
+  - Up now uses row 4
+- Enemy health bars now render below every enemy sprite.
+- Boss, mini-boss, elite, and standard bars retain proportional widths while sharing the same below-sprite placement rule.
+
+FILES CHANGED
+- styles.css
+- src/Battle/game.js
+- project_docs/PROJECT_STATE.md

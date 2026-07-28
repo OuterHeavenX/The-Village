@@ -1,0 +1,24 @@
+THE VILLAGE — V31.4 FF4 CLOSE CAMERA
+
+CAMERA
+- Increased the fixed Village camera scale for a much closer classic-JRPG presentation.
+- The full map is no longer visible at once on tablet/desktop screens.
+- Added smooth frame-rate-independent camera following.
+- Added a small dead zone to prevent constant camera jitter.
+- Added directional look-ahead while Shadow walks.
+- Added soft camera settling when Shadow stops.
+- Camera recenters cleanly after viewport resizing or orientation changes.
+
+INPUT
+- Village pinch-to-zoom remains disabled.
+- Village mouse-wheel zoom remains disabled.
+- Manual Village camera dragging/panning remains disabled.
+- Camera distance is fixed by the game rather than controlled by the player.
+
+PRESERVED
+- Full-map collision mask.
+- Shadow movement and animation.
+- Construction plots and building systems.
+- Living Village citizens and atmosphere.
+- Day/night, weather, interactions, and exploration rewards.
+- Cards, battles, progression, economy, and existing save format.

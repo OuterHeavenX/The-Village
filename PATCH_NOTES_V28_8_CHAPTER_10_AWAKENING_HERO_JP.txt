@@ -1,0 +1,12 @@
+THE VILLAGE V28.8 — CHAPTER 10 AWAKENING + HERO JP
+
+- Added a one-time Chapter 10 Golem finale cinematic.
+- Music and combat audio stop; procedural wind remains.
+- Golem Form 3 uses its death sprite sheet.
+- Shadow walks to the fallen guardian and claims the Heart of the Golem.
+- Full-screen blackout, runes, particles, flash, and sprite swap reveal Shadow Level II.
+- Existing one-time Golem Core and save compatibility preserved.
+- Added persistent Job Points (JP); chapter bosses award JP and Chapter 10 awards 10 JP.
+- Added a separate Hero file tab on the Cards screen.
+- Added a real Shadow sprite avatar to the deck screen.
+- Added the initial Shadow Vanguard job-board foundation for future JP skills.

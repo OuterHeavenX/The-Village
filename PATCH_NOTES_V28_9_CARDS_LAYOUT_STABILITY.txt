@@ -1,0 +1,11 @@
+THE VILLAGE V28.9 — CARDS LAYOUT STABILITY REBUILD
+
+- Rebuilt the Cards screen layout rules from a clean scoped reset.
+- Removed conflicting legacy grid, fixed-row, negative-margin, and side-tab overrides.
+- Fixed card overlap and stacking on iPad/Safari.
+- Collection cards now have fixed, readable dimensions with fully visible icons.
+- ATK, HP, card level, rarity, and copies remain visible without colliding.
+- Battle deck is a stable 3 x 2 grid beside Shadow's profile.
+- Category tabs use a responsive top grid and include Hero and Passives.
+- The entire Cards page scrolls normally; the collection is no longer trapped in a broken nested viewport.
+- Existing saves, loadouts, merges, passives, JP, and Chapter 10 progression remain unchanged.

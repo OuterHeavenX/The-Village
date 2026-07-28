@@ -1,0 +1,11 @@
+THE VILLAGE — VILLAGE WORLD V1
+
+Village-only update:
+- Preserved Old Town and all existing House/Farm placement data.
+- Added connected West, East, and South district backgrounds.
+- Expanded the hometown camera world into a four-district cross.
+- Hunter can walk continuously between connected district tiles.
+- Added district jump controls for Old Town, West, East, and South.
+- Kept Old Town construction plots, citizens, economy, campaign hotspot, and camera controls intact.
+- Added assets/village/district_manifest.json for future district-specific buildings and NPCs.
+- No battle, campaign, cards, hunters, relics, economy formulas, or other non-Village mechanics were changed.

@@ -1,0 +1,83 @@
+THE VILLAGE V29.5 — THE DEEP ROSTER, VISIBLE SYNERGY, BATTLEFIELD JUICE
+
+=== 1. CAMPAIGN EXTENDED TO TWENTY CHAPTERS ===
+- Chapters 1-10 are untouched. The original roster still owns the early road.
+- Chapters 11-20 draw from a deep roster that mixes the old enemies with six
+  new ones. The gate is a single check on chapter number, so nothing about the
+  first ten chapters changed.
+- Eight new chapters (12-19) with their own maps, bosses, relics and lore.
+- The Eclipse Throne moved from chapter 12 to chapter 20 and its boss was
+  rescaled from 4,450 HP to 11,000 to sit at the end of a twenty-chapter road.
+- Eight new maps and eight new relics. No map or relic is used twice.
+
+THE SIX NEW ENEMIES (chapter 11 onward)
+  Ravenous Ghoul    44hp  slow, cheap, arrives in numbers
+  Plague Revenant   82hp  28% armour
+  Gravelord        145hp  46% armour, very slow, a wall
+  Pale Watcher      36hp  FLYING, fastest thing on the field
+  Void Gazer        64hp  FLYING, holy damage only
+  Dread Eye        104hp  FLYING, tanky
+- The three eyes fly, which means your existing air-targeting rules apply to
+  them. The Void Gazer takes holy damage only, so chapters 15+ punish a deck
+  with no holy answer.
+
+DEEP-ROSTER SPAWN WEIGHTS
+  ghoul 13% · watcher 11% · revenant 10% · gazer 10% · gravelord 9% ·
+  dreadeye 8% · armor 8% · vampire 8% · ghost 7% · wolf 6% · bat 5% ·
+  bone soldier takes the remainder
+
+BUG FOUND AND FIXED
+- Four bosses had no sprite family entry: bellkeeper (ch9), ashabbot (ch10),
+  underking (ch11) and eclipselord — your FINAL BOSS. All four were silently
+  falling back to the orc sprite. They now have proper vampire and orc families.
+
+=== 2. SYNERGY IS NOW VISIBLE ===
+- Active synergies draw as a glowing thread between the two towers, with a mote
+  travelling FROM the partner INTO the tower being buffed, so the direction of
+  the bonus is readable at a glance.
+- Every tower currently receiving a bonus wears a soft pulsing ring.
+- Each synergy has its own colour and name: Holy Infusion, Frost Channel,
+  Guardian Watch, Blessed Blades, Sanctified Time, Bone Ignition, Rosary Cadence.
+- Selecting a tower now spells out exactly what it is getting and from whom,
+  e.g. "Holy Infusion + Bone Ignition / +70% damage · +22% fire rate / from
+  Holy Water Infusion, Bone Pillar" instead of the old "Synergy active".
+- With no synergy it now tells you how to make one rather than just saying no.
+- A full synergy legend was added to the in-game tutorial listing all seven
+  combinations and their exact numbers.
+
+HOW THIS WAS KEPT HONEST
+- The combat function synergyFor() was NOT modified. The display reads a
+  separate mirror function. A test compares the two across all 16,807 possible
+  tower-and-neighbour configurations: they agree exactly. The display can
+  never show a bonus the game is not actually applying.
+
+=== 3. BATTLEFIELD JUICE ===
+- Damage numbers no longer stack. Your screenshot showed three numbers piled on
+  the same pixel; they now fan out horizontally and stagger vertically.
+- Towers recoil away from their target when they fire, with a muzzle flash and
+  a spark puff. Synergised towers throw a brighter, larger flash.
+- The gate bleeds. Taking damage at the cathedral washes the screen edges red
+  and shoves the camera; bosses hit noticeably harder than common enemies.
+
+=== NOT CHANGED ===
+- Chapters 1-10 in every respect. Existing tower stats, card definitions, save
+  schema, and all synergy multipliers.
+
+=== VERIFICATION PERFORMED ===
+- node --check passes; stylesheet still brace-balanced.
+- 110 automated assertions across four suites, all passing:
+    animation 21 · juice 36 · content 32 · synergy equivalence 16,807 configs
+- Content suite proves: 20 chapters numbered 1-20, every map/relic/boss sprite
+  resolves, no map or relic reused, boss HP strictly increasing with no spike
+  above 1.6x, wave counts never decreasing, all six new enemies present in
+  every stat table, flying and armour traits wired, the deep-roster spawn
+  distribution valid and summing under 1, and all eight new relics backed by
+  real code rather than only a description.
+- Every sprite path the game can generate was checked against the shipped
+  files: 0 missing.
+
+=== NOT PERFORMED ===
+- No in-browser run. Chapters 11-20 have never been played. Treat the deep
+  roster numbers as a first pass: base HP, speed and reward for the six new
+  enemies sit in the tables inside spawnEnemy, and the spawn weights are the
+  single 'if(deep)' block directly above them.

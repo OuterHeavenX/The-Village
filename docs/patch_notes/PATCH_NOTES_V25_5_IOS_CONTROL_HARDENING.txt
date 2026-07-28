@@ -1,0 +1,7 @@
+THE VILLAGE V25.5 — iOS CONTROL HARDENING
+
+- The Eclipse Codex help panel no longer opens automatically when a battle begins.
+- Added capture-phase iOS touch handling for Understood, speed, pause, recenter, and exit.
+- Exit now returns to The Village with one tap; no confirmation alert or second tap.
+- Raised battle controls above canvas overlays and lowered the village joystick beneath modal panels.
+- Preserved the V25.4 opening draft rule: the initial three choices are real defense towers.

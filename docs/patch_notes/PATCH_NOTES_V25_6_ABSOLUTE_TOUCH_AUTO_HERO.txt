@@ -1,0 +1,6 @@
+THE VILLAGE V25.6
+
+- Removed manual hero controls during battle. Kael now patrols in front of the cathedral and attacks nearby enemies automatically.
+- Added coordinate-based iPad touch routing for top-right controls, tutorial dismissal, Hunt Again, and Main Menu. This works even when Safari incorrectly keeps pointer capture on the canvas.
+- Raised battle and results controls above every game layer.
+- Expanded result-button touch targets.

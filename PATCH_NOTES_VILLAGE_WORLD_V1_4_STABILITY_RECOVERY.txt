@@ -1,0 +1,10 @@
+THE VILLAGE — VILLAGE WORLD V1.4
+STABILITY RECOVERY + PRECISION COLLISION
+
+Village-only changes:
+- Fixed the mobile black-screen regression in Village World V1.3.
+- Corrected initialization order: the Hunter is now snapped to the road only after the district collision data exists.
+- Preserved the precise road-only collision boundaries for the Hunter.
+- Preserved citizen road constraints and district gate travel.
+- Preserved camera pan, pinch zoom, district jump controls, building plots, economy and saves.
+- No Battle, Campaign, Cards, Hunters, Relics or other non-Village mechanics were changed.

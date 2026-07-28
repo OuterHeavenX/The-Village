@@ -1,0 +1,10 @@
+V16.1f — Mobile Collection & Merge All
+- Removed the forced 980px tablet viewport from phones.
+- Added a readable portrait phone layout inspired by a native mobile battle-deck screen.
+- Hunter and 2x3 deck remain side by side at usable sizes.
+- Ground-defense slots remain visible below the battle deck.
+- The entire Cards page now scrolls naturally from top to bottom.
+- Collection uses three readable cards per row on phones.
+- Added Merge All Duplicates. It lights up when one or more cards have at least three copies.
+- One tap fuses all currently eligible duplicate sets and updates levels, rarity, Forge Embers, and fusion stats.
+- Existing V16 Essence Draft gameplay is unchanged.

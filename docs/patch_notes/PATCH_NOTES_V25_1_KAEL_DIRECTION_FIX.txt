@@ -1,0 +1,10 @@
+THE VILLAGE V25.1 — KAEL DIRECTION & WALK FIX
+
+- Corrected Kael sprite sheet layout to four columns by four rows.
+- Row 1: walk down.
+- Row 2: walk up.
+- Row 3: walk right.
+- Row 4: walk left.
+- Removed the incorrect six-frame animation that crossed into neighboring poses.
+- Corrected both Village and battlefield rendering.
+- Kael now stays on the current directional row while walking and retains his last facing direction while idle.

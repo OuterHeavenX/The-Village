@@ -1,0 +1,12 @@
+THE VILLAGE V32.7.0 — GOTHIC WORLD POLISH
+
+- Preserved V32.6.8 facing, real citizen sprites, battle fixes and two MGS homages.
+- Applied a darker unified Gothic material/lighting pass to the GLB library.
+- Added automatic foreground-building transparency when architecture blocks Shadow.
+- Added functional proximity prompts for House, Farm, production, civic, arcane, Keep and Cathedral buildings.
+- Kept citizen sprite routines and Living Village atmosphere.
+- Strengthened Holy Water Barrage to 5 meaningful holy hits and raised the holy skill damage floor.
+- Preserved critical damage ordering/floor.
+- Added third subtle MGS Easter egg: a hidden alert marker in the northern tree line.
+- Updated Safari cache busting to V32.7.0.
+- No save keys, campaign definitions, build plots, resources, cards or progression were reset.

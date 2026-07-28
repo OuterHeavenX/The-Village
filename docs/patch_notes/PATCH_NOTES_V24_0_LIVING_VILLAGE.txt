@@ -1,0 +1,10 @@
+THE VILLAGE V24.0 — THE LIVING VILLAGE
+
+- Added five animated citizens using the supplied sprite and shadow sheets.
+- Farmer follows a work route toward the farming outskirts.
+- Knight patrols the primary roads and village approaches.
+- Adult residents travel between the square, tavern, marketplace, and roads.
+- Child plays around the fountain and town square.
+- Directional walking and idle frames use the 4x8, 32px sprite layout.
+- Citizens scale naturally with the existing Village camera.
+- Camera, construction, economy, saves, navigation, cards, and combat remain intact.

@@ -1,0 +1,10 @@
+THE VILLAGE — V28.0 GOLEM BOSS ARC / SHADOW LEVEL 2
+
+- Campaign levels 1–4 now use the Golem's first transformation.
+- Campaign levels 5–9 now use the Golem's second transformation.
+- Level 10 final-wave Golem begins in form 1 and transforms at 67% and 34% health.
+- The third transformation destroys one currently placed tower every 6 seconds.
+- Completing level 10 for the first time drops the unique Heart of the Golem once only.
+- Heart of the Golem permanently raises Shadow to level 2 and activates the supplied level-2 sprite in battle and the Village.
+- Existing saves are migrated additively; cards, towers, merges, maps, upgrades, inventory, and progression are preserved.
+- No unrelated combat balance or Village mechanics were changed.

@@ -1,0 +1,14 @@
+THE VILLAGE — V28.7 RAID-STYLE BATTLE DECK
+
+CARDS UI
+- Replaced the V28.6 Cards layout with a new icon-first battle deck structure inspired by the clarity of modern mobile tower-defense deck screens.
+- The selected hunter is now a large featured loadout card beside a 3x2 six-card battle deck.
+- Battle deck cards now emphasize icon artwork, card level, ATK, and HP with minimal text.
+- Collection cards now use larger fully visible icons, full rarity-colored backgrounds, readable levels, ATK, and HP.
+- Category tabs remain separate for All Cards, Defense, Support, Battle Skills, Run Upgrades, and Passives.
+- Existing loadouts, two passive slots, merge controls, sorting, favorites, card inspection, and saves remain compatible.
+- Responsive layouts added for iPad, phones, and narrow portrait screens.
+
+SYSTEMS
+- No battle mechanics, campaign progression, support behavior, road generation, boss progression, or save keys were removed.
+- Card merging still permanently increases card level and power.

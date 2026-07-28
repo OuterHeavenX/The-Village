@@ -1,0 +1,25 @@
+THE VILLAGE — V30.0 VILLAGE CONSTRUCTION CATALOG
+
+SCOPE
+- Village portion only.
+- Battle, cards, heroes, bosses, campaign progression, tower balance, and other game systems were not redesigned.
+
+BUILD MENU REDESIGN
+- Replaced the compact accordion menu with a full construction catalog.
+- All 30 currently available Village structures are visible from the All Buildings view.
+- Added category filters: Residential, Production, Commerce, Military, Sacred, Arcane, and Civic.
+- Added building search by name, description, or production output.
+- Every card clearly displays its production/benefit and Gold construction cost.
+- Added responsive two-column iPhone/iPad layout and one-column layout for narrow phones.
+- Added safe icon artwork for buildings that do not yet have dedicated PNG files; existing House, Manor, and Farm PNGs remain in use.
+
+VILLAGE GOLD + ECONOMY
+- Village construction now uses a separate persistent Village Gold treasury rather than Blood Essence.
+- Existing saves receive a one-time V30 Builder's Treasury grant of 2,500 Gold.
+- Night Market, Hunter Tavern, and Stables generate Gold per hour.
+- Farm, Orchard, Herb Garden, Well, Sawmill, and Quarry now feed the existing offline economy calculations.
+- Corrected the economy bridge to read the current Village plot save key so constructed buildings affect production.
+- Existing plot/save data is preserved.
+
+BUILD IDENTIFICATION
+- Browser title updated to V30.0 Village Construction Catalog.

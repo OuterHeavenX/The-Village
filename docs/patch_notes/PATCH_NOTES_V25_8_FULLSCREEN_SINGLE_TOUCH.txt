@@ -1,0 +1,8 @@
+THE VILLAGE V25.8 — FULLSCREEN + SINGLE TOUCH OWNER
+
+- Removed Safari reload links from Exit, Hunt Again, and Main Menu. All three now change screens inside the running game.
+- Replaced overlapping iPad handlers with one capture-phase touch router. Speed, Pause, Center, Exit, Hunt Again, and Main Menu execute exactly once per tap.
+- Fixed the hidden double-toggle bug that made Pause appear unresponsive.
+- Battle map now uses cover scaling and fills the entire display.
+- Pinch zoom range expanded from 72% to 265%; drag remains available when no card is being placed.
+- Kael remains fully autonomous during battle.

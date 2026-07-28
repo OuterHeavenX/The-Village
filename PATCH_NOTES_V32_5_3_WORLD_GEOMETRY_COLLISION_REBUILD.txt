@@ -1,0 +1,13 @@
+THE VILLAGE V32.5.3 — WORLD GEOMETRY & COLLISION REBUILD
+
+- Deleted the retired 2D authored NAV_RECTS collision system.
+- Added Three.js-coordinate world boundaries.
+- Added river collision using the visible 3D river footprint only.
+- Added bridge openings that exactly match both visible crossings.
+- Straightened the river into a coherent continuous channel.
+- Rebuilt both bridges at full bank-to-bank length.
+- Added solid bridge abutments to eliminate unfinished ends.
+- Added road connections on both sides of every bridge.
+- Relocated decorative houses away from water.
+- Remapped saved construction plot rendering to dry land without changing save records.
+- Preserved resources, population, progression, Build menu, static bottom menu, Cathedral access, battle, cards, heroes, relics, Keep and familiars.

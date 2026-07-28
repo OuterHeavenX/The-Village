@@ -1,0 +1,8 @@
+THE VILLAGE V32.5.2 — THREE.JS ONLY
+
+- Permanently removed the old the_village_main image element from the Village screen.
+- Corrected the Three.js canvas stacking order so it renders above the legacy world container.
+- Disabled all legacy painted-map, citizen, ambience, and sprite-world layers in the Village renderer.
+- Preserved economy, resources, saves, constructed plot records, Build menu, Cathedral campaign hotspot, and bottom navigation.
+- Added a hard visible startup error instead of silently restoring the old map.
+- Added visible THREE.JS WORLD ACTIVE · V32.5.2 startup confirmation.

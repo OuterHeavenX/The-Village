@@ -1,0 +1,14 @@
+THE VILLAGE — V27.2.2 CARDS INTERACTION RECOVERY
+Build date: 2026-07-21
+
+Scope lock: Cards tab only.
+
+- Added a visible build banner at the top of Cards & Deck.
+- Replaced per-card click wiring with one capture-phase Cards controller.
+- Added pointer-up support for iPad/Chrome touch interaction.
+- Category tabs now map directly to All, Defense, Support, Skills, and Run Upgrades.
+- Inventory and equipped deck cards open the same card inspector.
+- Add/Remove Deck returns to Cards automatically after a successful change.
+- Merge Ready and Merge All remain connected to the existing inventory/fusion system.
+- Added explicit pointer-event and touch-action protection scoped to Cards.
+- No non-Cards gameplay systems or save schema were changed.

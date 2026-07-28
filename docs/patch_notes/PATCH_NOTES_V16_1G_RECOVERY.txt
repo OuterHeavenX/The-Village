@@ -1,0 +1,8 @@
+V16.1g — Navigation & Save Recovery
+
+- Fixed a mobile CSS rule that forced the Cards screen to remain visible even when the router marked it hidden.
+- Restored the Home screen and correct bottom-navigation destinations.
+- Preserved the existing localStorage save key and inventory data.
+- Preserved the readable scrolling mobile Cards layout.
+- Preserved Merge All Duplicates.
+- No save reset or migration is performed by this patch.

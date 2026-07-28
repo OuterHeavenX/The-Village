@@ -1,0 +1,15 @@
+THE VILLAGE — V31.0 THE_VILLAGE_MAIN FF4 MAP
+
+Village-only scope:
+- Converted assets/village/the_village_main.heic to the active PNG backdrop.
+- Upscaled the supplied 512x512 source to 2048x2048 for the game world.
+- Removed the obsolete district/background assets from the build.
+- Retired district portals and legacy 5322x2661 coordinates.
+- Added one continuous collision model based on the visible road, bridge, plaza, water, cliff, forest, and plot regions.
+- Repositioned the nine construction plots over the nine empty authored plots.
+- Restored Shadow with fixed-scale FF4-style camera following.
+- Restored all five existing villager types with new patrol routes on the connected road network.
+- Preserved construction saves, Gold economy, building catalog, battle, cards, heroes, bosses, and progression.
+
+Important source note:
+- the_village_main.heic supplied in the ZIP is 512x512. It was converted and carefully upscaled, but no nonexistent higher-resolution detail was claimed.

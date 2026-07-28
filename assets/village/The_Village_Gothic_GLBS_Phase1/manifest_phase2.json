@@ -1,0 +1,34 @@
+{
+  "buildings": [
+    "alchemist.glb",
+    "blacksmith.glb",
+    "cathedral.glb",
+    "enchanter.glb",
+    "farm.glb",
+    "house_lv1.glb",
+    "house_lv2.glb",
+    "house_lv3.glb",
+    "house_lv4.glb",
+    "house_lv5.glb",
+    "keep.glb",
+    "library.glb",
+    "lumber_camp.glb",
+    "quarry.glb",
+    "tavern.glb",
+    "warehouse.glb"
+  ],
+  "environment": [
+    "barrel.glb",
+    "bench.glb",
+    "bridge.glb",
+    "dead_tree.glb",
+    "fence.glb",
+    "lamp_post.glb",
+    "market_stall.glb",
+    "rock_cluster.glb",
+    "shrub.glb",
+    "statue.glb",
+    "stone_wall.glb",
+    "wagon.glb"
+  ]
+}

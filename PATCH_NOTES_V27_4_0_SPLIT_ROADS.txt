@@ -1,0 +1,22 @@
+THE VILLAGE V27.4.0 — SPLIT ROADS
+
+BATTLE-ONLY UPDATE
+
+- Fixed disconnected road spawning. Enemy entrances can only activate on a fully connected route to the Cathedral.
+- Replaced emergency road jumping with two guaranteed connected road plans.
+- Added a random second-route reveal between waves 6 and 8.
+- Added two active enemy entrances.
+- Added alternating assault, split army, and rush-front spawn patterns.
+- Enemies now retain their assigned route for the entire trip.
+- Boss summons and reinforcements spawn from the same connected route as their summoner.
+- Added branch-aware road growth that favors the shorter route while preserving randomness.
+- Added safe fallback behavior: if a route cannot legally grow, expansion is skipped rather than teleporting the entrance.
+- Added camera reveal and NEW ENEMY ROUTE announcement for branch activation.
+- Added glowing markers for every active entrance.
+- Reserved upcoming road-front tiles so towers cannot immediately block procedural expansion.
+- Existing battle cards, hero systems, menus, campaign data, and non-battle systems were left unchanged.
+
+Validation performed:
+- JavaScript syntax check passed.
+- Both complete route plans were simulated to 54 connected tiles with no duplicate cells.
+- Archive integrity verified after packaging.

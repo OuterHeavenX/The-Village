@@ -1,0 +1,12 @@
+THE VILLAGE — V27.9 VILLAGE BOUNDARIES & GATE ARRIVALS
+
+Village-only fixes:
+- Restored hard movement boundaries around every district map.
+- Shadow can no longer walk into transparent space, cross perimeter walls, or enter neighboring maps without a gate.
+- Movement uses axis-separated collision for smooth wall sliding.
+- Entering Old Town's east gate now places Shadow on the west side of the East District.
+- Returning from the East District places Shadow at Old Town's east side.
+- Entering Old Town's west gate now places Shadow on the east side of the West District.
+- Returning from the West District places Shadow at Old Town's west side.
+- North/south gate behavior remains unchanged.
+- No battle, cards, economy, progression, enemy, or balance systems changed.

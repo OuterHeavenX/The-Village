@@ -1,0 +1,7 @@
+V22.3b iOS Village Recovery
+- Replaced the pointer-capture village controller with independent iOS touch and desktop mouse controls.
+- Building buttons now use direct click handlers and no longer depend on camera gesture completion.
+- Zoom and center buttons now use direct isolated handlers.
+- Removed stale camera restore and always opens centered on the town square.
+- Added one-finger pan, two-finger pinch, wheel zoom, camera bounds, and build plot handlers.
+- Added a runtime village-ready marker for debugging.

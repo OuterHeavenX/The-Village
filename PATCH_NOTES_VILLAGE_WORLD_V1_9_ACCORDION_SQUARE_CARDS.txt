@@ -1,0 +1,9 @@
+THE VILLAGE — VILLAGE WORLD V1.9
+
+Village-only UI update:
+- Rebuilt Build Mode as a compact accordion menu by category.
+- Added collapsible Residential, Production, Arcane, Commerce, Military, and Civic sections.
+- Existing structures now display as square picture cards rather than wide rows.
+- Phone layout uses two columns; tablet layout uses up to four.
+- Selecting a structure still closes the menu and activates plot placement.
+- No campaign, battle, cards, hunters, relics, economy, or other non-Village mechanics changed.

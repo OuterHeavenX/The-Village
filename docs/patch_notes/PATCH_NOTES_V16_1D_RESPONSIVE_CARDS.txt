@@ -1,0 +1,13 @@
+RELICS OF THE KINGDOM — V16.1d RESPONSIVE CARDS SCREEN
+
+- Rebuilt the Cards & Deck screen as a true responsive layout.
+- Phone portrait now reflows vertically instead of squeezing the tablet layout.
+- Hunter becomes a compact horizontal summary card.
+- Six-card battle deck remains a readable 3 x 2 grid.
+- Hero Ground Defense slots move beneath the battle deck in a 2-column row.
+- Collection displays two full poker-proportion cards per row on phones.
+- Category tabs scroll horizontally instead of compressing.
+- Sort and Merge controls remain touch-friendly.
+- The entire Cards screen scrolls naturally while bottom navigation remains available.
+- Tablet and desktop layouts remain unchanged.
+- V16.0a Essence Draft and V16.1c non-stacking collection behavior are preserved.

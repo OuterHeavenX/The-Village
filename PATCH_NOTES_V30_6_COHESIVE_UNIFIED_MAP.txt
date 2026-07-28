@@ -1,0 +1,14 @@
+THE VILLAGE V30.6 — COHESIVE UNIFIED MAP PASS
+
+Scope: Village backdrop only.
+
+Changes:
+- Rebuilt assets/village/village_unified_map.png from the four original district images.
+- Removed the baked checkerboard/empty transparency around Old Town.
+- Repositioned and overlapped West, Old Town, East, and South into a tighter continuous town layout.
+- Added blended transition zones and stone-road connectors between districts.
+- Replaced all blank/white exterior areas with a dark terrain surround so the camera never exposes empty image space.
+- Preserved the fixed FF4-style camera behavior and existing game systems.
+
+Untouched:
+- Battle, campaign, cards, heroes, enemies, bosses, progression, economy, construction logic, and save keys.

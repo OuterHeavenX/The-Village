@@ -1,0 +1,36 @@
+THE VILLAGE — V32.6.4
+ROOF FLASHING FIXED
+
+THE PROBLEM
+Roofs and walls flashed with crawling stripes whenever you walked. That was
+shadow acne, and V32.6.4 fixes it. It was introduced in V32.6.2.
+
+To save memory on iPad, V32.6.2 halved the shadow map from 2048 to 1024 but left
+the bias values that were tuned for the larger map. Halving the map doubles the
+world size of a shadow texel, so the offset that stops a surface from shadowing
+itself ended up about 4x too small. Every surface facing the moon shadowed itself
+in stripes — and because the camera moves while the shadow map does not, those
+stripes crawled across the roofs as you walked.
+
+THE FIX
+- Shadow bias is now calculated from the actual texel size instead of being
+  hard-coded, so changing the shadow resolution can never break it again.
+- The shadow camera's depth range was left at Three.js's default of 0.5 to 500.
+  The scene only needs 1 to 140, so about 3.6x of the shadow map's depth
+  resolution was being thrown away. Now tightened.
+- The main camera ran near=0.1 against far=300, a 3000:1 ratio that wastes almost
+  all depth precision. The camera never gets closer than about 15 units to
+  anything, so near is now 1 — roughly 10x more depth precision, which also rules
+  out genuine z-fighting on 16-bit mobile depth buffers.
+
+FASTER TOO
+The whole village was being re-rendered into the shadow map 60 times a second,
+even though nothing that casts a shadow ever moves. Buildings, terrain and trees
+are static, and the player is a sprite, which never casts. The shadow map is now
+drawn once and redrawn only when you construct something or when Safari restores
+a lost graphics context.
+
+Measured: 0 shadow passes across 180 frames, down from 180.
+
+One small trade: the ambient tree sway is 0.7 degrees, and it no longer animates
+in the shadows. At this camera distance you will not see it.

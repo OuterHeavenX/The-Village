@@ -1,0 +1,61 @@
+THE VILLAGE V29.4 — IMPACT JUICE + VAMPIRE KILLER
+
+Render-only. No combat values, balance, save schema, or content IDs changed.
+
+STAGE 2 — GAME FEEL
+- Directional knockback. e.hitKick was previously applied as a fixed leftward
+  nudge regardless of where the shot came from. Enemies are now pushed along the
+  actual tower->enemy vector. Visual translation only; pathing is untouched.
+- Squash and stretch. A 0.15s squash on impact, scaled around the sprite anchor.
+- Directional impact sparks fired in a cone along the hit vector, with per-
+  particle size, speed and lifetime variance, and a size falloff as they die.
+- Trauma-based screen shake. Shake is now driven by a trauma value that decays
+  and is applied as trauma-squared, which reads far better than linear jitter,
+  plus a directional impulse so a heavy hit shoves the camera the way the blow
+  landed. The pre-existing G.shake calls still work and stack on top.
+- Damage numbers with weight. Chip damage is small and muted; solid hits are
+  full size; crits are large, outlined, longer-lived, and arc outward with
+  horizontal drift and gravity. All numbers now pop in on a cubic ease.
+- Death bursts, scaled by rank. Bosses throw roughly three times the debris of
+  a common enemy and shake the screen accordingly.
+
+BUG FIXED WHILE DOING THIS
+- hit() is called every frame for burn damage, so the old code pushed a damage
+  number 60 times a second for every burning enemy. Damage over time now
+  accumulates and surfaces one number per 6 damage. This also stops the new
+  spark system from spraying particles on every burn tick.
+
+THE SURPRISE — VAMPIRE KILLER MODE
+- A homage to Castlevania, which this game was already wearing on its sleeve.
+- Enter the Konami code on a keyboard: up up down down left right left right B A.
+- On touch, tap the menu crest seven times quickly.
+- Unlocking it lights a gothic rose window over the battlefield in slowly
+  rotating stained glass, turns every impact spark holy gold, and lets the night
+  speak up every fourth wave.
+- It is a toggle. Enter it again to seal the whip away.
+- The unlock persists under its own localStorage key, 'village.vk.mode'. It does
+  NOT touch your save object, so save compatibility is unaffected either way.
+
+TUNING
+- Every value lives in the JUICE constant at the top of the V29.4 block: spark
+  lifetime and speed, cone width, knockback cap and decay, squash time and
+  amount, trauma decay, shake amplitude, and the three damage-number sizes.
+
+VERIFICATION PERFORMED
+- node --check passes.
+- 22 unit tests on the extracted juice module: damage-over-time throttling,
+  spark counts scaling with damage, crit trauma exceeding chip trauma,
+  knockback direction resolving correctly on both sides of a tower, kick
+  magnitude clamping, damage-number sizing and crit flagging, trauma clamping
+  and decay to rest, shake finiteness at rest and at maximum trauma, the
+  Vampire Killer toggle and its persistence, homage lines staying silent when
+  the mode is off, and death bursts scaling with rank. All pass.
+- The 20 V29.3 animation tests were re-run against the patched file: no
+  regressions.
+- The damage-number pop curve was swept across its full range for all three
+  sizes: no non-finite or out-of-range values, and legacy floaters with no size
+  or pop field still render at their original scale.
+
+NOT PERFORMED
+- No in-browser run. Shake amplitude and knockback distance are the two values
+  most likely to want tuning by eye on a real device.

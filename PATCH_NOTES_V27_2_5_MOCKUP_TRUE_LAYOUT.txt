@@ -1,0 +1,10 @@
+THE VILLAGE V27.2.5 — MOCKUP TRUE LAYOUT
+
+Cards screen only:
+- Replaced conflicting Cards responsive rules with one final isolated layout layer.
+- Full-width tablet Cards panel.
+- Hunter/passive column plus six-card deck row.
+- Five-column collection at iPad landscape width.
+- Matching deck and collection card proportions/content structure.
+- Direct window-level Return to Cards & Deck handler for iPad Chromium.
+- No gameplay, balance, save-format, village, campaign, hero, relic, or battle changes.

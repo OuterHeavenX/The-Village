@@ -1,0 +1,12 @@
+THE VILLAGE — FRESH HOMETOWN V1
+
+Scope strictly limited to the hometown scene.
+- Removed the former CSS-built hometown scenery and building layout.
+- Installed assets/village/village_ground.png as the new town map.
+- Converted the supplied HEIC house/farm assets to true PNG files.
+- Build menu now offers only House and Farm Plot.
+- New construction plots place the real supplied PNG artwork.
+- Reset hometown placement storage under a new save key so the town starts fresh.
+- Retained the controllable Hunter and mobile joystick.
+- Retained supplied citizen sprite sheets and rerouted citizens across the new map.
+- Preserved campaign/cards/heroes/battle/economy and all non-hometown mechanics.

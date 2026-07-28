@@ -1,0 +1,11 @@
+THE VILLAGE — VILLAGE WORLD V1.2 PATH COLLISION & POLISH
+
+Village-only changes:
+- Added district-specific invisible walk-path collision masks.
+- The Hunter can now move only on cobblestone roads, bridges, gate approaches, and central plazas.
+- Movement uses axis-separated collision for smooth sliding along road edges.
+- Water, grass parcels, walls, rooftops, and building areas are blocked.
+- Citizens now use the same navigation mask as the Hunter.
+- Citizen patrol routes were revised to axis-aligned road-safe waypoints so they no longer cut diagonally across grass or structures.
+- Existing district gate teleport travel, camera controls, town building system, and saves remain intact.
+- No battle, campaign, cards, hunters, relics, economy, or other game mechanics were changed.

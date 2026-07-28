@@ -1,0 +1,6 @@
+RELICS OF THE KINGDOM — V16.1c NON-STACKING COLLECTION GRID
+
+- Replaced the conflicting legacy collection row sizing with one explicit row per card.
+- Each collection card is locked to its own grid cell and can no longer overlap the next row.
+- Preserved the 5-column tablet/desktop collection and 4-column mobile collection.
+- Preserved vertical scrolling, the 2x3 battle deck, Hero Ground Defense slots, and V16 Essence gameplay.

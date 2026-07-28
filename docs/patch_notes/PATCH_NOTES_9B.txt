@@ -1,0 +1,11 @@
+RELICS OF THE KINGDOM — MILESTONE 9B
+Campaign Card Unlock Fix
+
+- Six starter cards are available from the beginning.
+- New cards now unlock permanently on the first clear of each campaign chapter.
+- Chapter 1 immediately awards Axe Tower and Bone Pillar.
+- Each campaign node now shows the cards it awards.
+- Locked cards remain visible in the collection with their unlock requirement.
+- Victory results clearly announce newly unlocked cards.
+- Reward chests now give duplicates only from cards already unlocked.
+- Existing saves are migrated using completed chapters, so cleared stages award their intended cards.

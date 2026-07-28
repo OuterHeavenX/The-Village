@@ -1,0 +1,4 @@
+RELICS OF THE KINGDOM V15.0.1 — MAIN MENU FIX
+
+Fixed a startup initialization error that prevented the main-screen buttons from receiving their click handlers.
+No gameplay features from V15 were removed.

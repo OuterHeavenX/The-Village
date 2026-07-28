@@ -1,0 +1,10 @@
+RELICS OF THE KINGDOM V22.3 — VILLAGE STABILITY REBUILD
+
+- Removed the undefined centerVillage startup call that stopped Village initialization.
+- Replaced overlapping Village camera/click handlers with one unified controller.
+- Reliable tap, drag, pinch, mouse-wheel, zoom buttons, and center button behavior.
+- Reduced landmark scale and increased spacing.
+- Added persistent camera position and on-screen zoom percentage.
+- Preserved existing Village construction data and game save data.
+- Prevented drag/pinch gestures from firing accidental building clicks.
+- Kept Build Mode UI fixed above the transformed world.

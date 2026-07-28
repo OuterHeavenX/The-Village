@@ -1,0 +1,15 @@
+THE VILLAGE V27.2.1 — CARDS TAB REBUILD ONLY
+
+Changed only the Cards & Deck interface and its card-detail interactions.
+
+- Equipped deck cards now open the same full card details screen as collection cards.
+- Collection cards no longer equip/remove directly from an embedded button.
+- Full details provides Add to Battle Deck or Remove from Battle Deck.
+- A successful deck change closes the details screen and returns to Cards.
+- Equipped and collection cards use the same card markup, rarity, level, artwork, description, stats, and copy count.
+- Restored and raised category tab hit areas: All, Defense Towers, Support Cards, Battle Skills, Run Upgrades.
+- Merge Ready and Merge All controls remain mapped to the existing card inventory merge system.
+- Rebuilt responsive spacing for desktop, iPad, and phone.
+- Added bottom-navigation clearance and a scroll-safe inspector.
+
+No battle balance, campaign, village, hunter, relic, save schema, or unrelated navigation logic was changed.

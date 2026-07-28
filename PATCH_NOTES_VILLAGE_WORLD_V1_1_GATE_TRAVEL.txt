@@ -1,0 +1,9 @@
+THE VILLAGE — VILLAGE WORLD V1.1 GATE TRAVEL REPAIR
+
+Village-only changes:
+- Replaced the misaligned painted seam connectors with paired district gate portals.
+- The Hunter can now physically walk into Old Town's south gate, west bridge, or east gatehouse.
+- Each entrance transfers the Hunter to the matching district entrance with a short fade.
+- Return gates are active in South, West, and East districts.
+- Camera follows the Hunter into the destination district.
+- No battle, campaign, card, hunter, relic, economy, or other game mechanics were changed.

@@ -1,0 +1,12 @@
+THE VILLAGE — V27.1.2 CLEANED CARDS SCREEN REPAIR
+
+Applied to the user-provided V27.1.1 Cleaned baseline.
+
+- Restored reliable Cards screen pointer interaction.
+- Improved category tab touch targets and layout.
+- Improved equipped deck card sizing and readability.
+- Improved collection card readability and spacing.
+- Improved sort/filter/control interaction layers.
+- Improved iPad landscape layout.
+- Preserved the cleaned project structure and existing battle game.js.
+- No combat balance, waves, save data, enemies, or battle controls changed.

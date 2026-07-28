@@ -1,0 +1,12 @@
+THE VILLAGE — V27.6 SHADOW DIRECTION + ENEMY VISIBILITY FIX
+
+Scope: visual asset repair only. No combat, wave, economy, card, road, progression, or control mechanics changed.
+
+FIXES
+- Corrected Shadow sprite row mapping to the actual sheet order: down, up, left, right.
+- Fixed broken right-facing and down-facing village animations.
+- Added eager preload for all Shadow idle/walk/attack sheets and all enemy walk/run sheets.
+- Resolved sprite URLs against the document base URL for reliable localhost loading.
+- Added cache-busting version tags so Safari does not reuse the broken V27.5 scripts or sprite CSS.
+- Added a temporary enemy fallback silhouette only while an image is still loading, preventing invisible enemies.
+- Preserved all gameplay mechanics and balance values.

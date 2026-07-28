@@ -1,0 +1,9 @@
+V16.1h — Natural Cards Scroll + Hero Support Layout
+
+- Restored ordinary full-page vertical scrolling on the Cards menu.
+- Removed the nested card-collection scroll viewport on phones.
+- Added two equipped Hero Support Card displays in the unused lower hero panel.
+- Support displays mirror support cards already equipped in the six-card deck.
+- Kept the 3x2 battle deck and two Hero Ground Defense slots.
+- Resized the phone composition for legibility while preserving the compact reference layout.
+- Preserved the existing save key and all navigation/progression systems.
