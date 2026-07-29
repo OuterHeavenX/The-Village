@@ -17,6 +17,7 @@ const SHADOW_LEVELS={
  8:{root:'assets/characters/shadow_lv_07-09/PNG/Swordsman_lvl8/With_shadow',prefix:'lvl8'},
  9:{root:'assets/characters/shadow_lv_07-09/PNG/Swordsman_lvl9/With_shadow',prefix:'lvl9'}
 };
+const SHADOW_LEVEL_ONE_PORTRAIT=new URL('../../assets/characters/shadow_portrait_lvl-01/shadow_portrait_lvl-01.png',import.meta.url).href;
 function shadowAsset(level,action='Walk'){const n=Math.max(1,Math.min(9,Number(level)||1)),d=SHADOW_LEVELS[n];return `${d.root}/${d.prefix}_${action}_with_shadow.png`}
 const GOLEM_ROOT='assets/enemies/boss_enemies/boss_golem_1/Tiled_files';
 function golemAsset(form=1,action='Walk'){const n=Math.max(1,Math.min(3,Number(form)||1)),a=action==='Attack'?'Attack':action==='Idle'?'Idle':action==='Death'?'Death':'Walk';return `${GOLEM_ROOT}/Golem${n}_${a}_with_shadow.png`}
@@ -186,6 +187,15 @@ function impactDir(e,shot){
  if(!dx&&!dy){dx=0;dy=-1}
  const m=Math.hypot(dx,dy)||1; return {x:dx/m,y:dy/m};
 }
+let lastCombatHitSound=0;
+function combatHitSound(heavy,mid){
+ const now=performance.now();
+ if(now-lastCombatHitSound<28)return;
+ lastCombatHitSound=now;
+ const base=heavy?105:mid?155:205;
+ playTone(base,heavy?.075:.05,'square',heavy?.055:.038);
+ playTone(base*1.65,heavy?.045:.03,'triangle',heavy?.032:.022);
+}
 function impactFeedback(e,d,crit,shot){
  if(!G)return;
  // damage-over-time ticks arrive every frame; accumulate them instead of
@@ -201,6 +211,7 @@ function impactFeedback(e,d,crit,shot){
   return;
  }
  const dir=impactDir(e,shot), heavy=crit||d>=18, mid=d>=7;
+ combatHitSound(heavy,mid);
  e.kickX=dir.x; e.kickY=dir.y;
  e.hitKick=Math.min(JUICE.kickMax,(e.hitKick||0)+(heavy?.14:mid?.085:.05));
  e.squashT=JUICE.squashT;
@@ -670,7 +681,7 @@ const CATHEDRAL={gateX:7.5,gateY:3.05,drawX:7.5*64-61,drawY:-18};
 const ROAD_GROWTH={startingTiles:6,maxTiles:54,safeMargin:1,focusZoom:1.22};
 const CARD_POOL=[
  {id:'whip',name:'Whip Tower',type:'tower',icon:'⛓️',cost:34,desc:'Fast chained lashes. Strong general defense.',rarity:'Common',range:2.3,damage:14,rate:.7,color:'#d8c3a5'},
- {id:'holy',name:'Holy Water Infusion',type:'support',icon:'🔥',cost:42,desc:'Attach to a defense tower: adds burn and splash damage.',rarity:'Rare',range:2.1,damage:10,rate:1.05,color:'#ff8a43',aoe:.5,burn:5},
+ {id:'holy',name:'Holy Water Infusion',type:'support',icon:'💧',cost:42,desc:'Consecrates a defense with holy splash and lingering damage.',rarity:'Rare',range:2.1,damage:10,rate:1.05,color:'#8edcff',aoe:.5,burn:5},
  {id:'dagger',name:'Dagger Tower',type:'tower',icon:'🗡️',cost:27,desc:'Fires a piercing straight-line dagger every 3 seconds, striking every enemy in its lane.',rarity:'Common',range:3,damage:8,rate:3,color:'#d9ecff',lanePierce:true},
  {id:'axe',name:'Axe Tower',type:'tower',icon:'🪓',cost:48,desc:'Heavy arcing strikes through armor.',rarity:'Rare',range:2.8,damage:26,rate:1.25,color:'#b8a0a0',pierce:2},
  {id:'cross',name:'Cross Tower',type:'tower',icon:'✝️',cost:56,desc:'Returning holy blades hit twice.',rarity:'Epic',range:3.0,damage:17,rate:.9,color:'#ffe18b',returning:true},
@@ -681,7 +692,7 @@ const CARD_POOL=[
  {id:'rosary',name:'Rosary Shrine',type:'tower',icon:'📿',cost:52,desc:'Sacred bolts weaken the front line.',rarity:'Rare',range:2.4,damage:12,rate:1.05,color:'#f3d59b',slow:.82},
  {id:'garlic',name:'Garlic Tower',type:'tower',icon:'🧄',cost:46,desc:'A pungent ward that damages and slows every undead creature inside its aura.',rarity:'Rare',range:2.05,damage:7,rate:.72,color:'#d9efad',slow:.78,aoe:.36},
  {id:'scripture',name:'Tower of the Living Word',type:'tower',icon:'📖',cost:60,essenceCost:18,desc:'Orbiting Bibles strike every undead creature that enters their sacred field. Each tower level adds another independently attacking Bible.',rarity:'Legendary',range:2.75,damage:13,rate:.82,color:'#ffe58a',holy:true},
- {id:'waterSkill',name:'Holy Water Barrage',type:'skill',icon:'💥',cost:25,desc:'Burns enemies in a targeted area.',rarity:'Rare',cool:9},
+ {id:'waterSkill',name:'Holy Water Barrage',type:'skill',icon:'🧪',cost:25,desc:'Calls blue-white sacred rain over a targeted area.',rarity:'Rare',cool:9},
  {id:'crossSkill',name:'Cross Storm',type:'skill',icon:'✨',cost:34,desc:'Holy crosses sweep the entire road.',rarity:'Epic',cool:14},
  {id:'freeze',name:'Chrono Sigil',type:'support',icon:'⏱️',cost:30,desc:'Attach to a defense tower: attacks slow enemies.',rarity:'Epic',cool:15},
  {id:'summon',name:'Eclipse Rally',type:'skill',icon:'⚔️',cost:40,desc:'Hero gains frenzy and heals the village.',rarity:'Legendary',cool:18},
@@ -785,13 +796,36 @@ const KINGDOM_BUILDINGS=[
  {id:'market',name:'Night Market',icon:'🏪',desc:'Increases enemy rewards by 3% per level.',max:5,cost:32},
  {id:'museum',name:'Relic Museum',icon:'🏛️',desc:'Relic effects gain 4% strength per level.',max:5,cost:45}
 ];
+const ENEMY_DECREE_GOALS=[100,500,1000,5000,10000,20000,50000,100000,250000,500000,1000000];
+const decreeSeries=(key,label,goals,value,rewardScale=1)=>goals.map((goal,index)=>({
+ id:`${key}-${goal}`,category:label,name:`${label} ${index+1}`,desc:`Reach ${goal.toLocaleString()} ${label.toLowerCase()}.`,
+ goal,reward:Math.max(10,Math.round((12+index*8)*rewardScale)),value
+}));
+const totalHeroLevels=()=>Object.values(save.heroLevels||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+const totalFamiliarLevels=()=>Object.values(save.familiars?.progress||{}).reduce((sum,state)=>sum+Math.max(1,Number(state?.level)||1),0);
+const totalOwnedCards=()=>Object.values(save.inventory||{}).reduce((sum,item)=>sum+Math.max(0,Number(item?.copies)||0),0);
+const totalBuildings=()=>{const village=villageBuildingCounts();return Object.values(save.kingdom?.buildings||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0)+Object.values(village).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0)};
+const villageProgressScore=()=>save.campaign.completed.length+(save.villageProgression?.researched?.length||0)+totalBuildings();
 const ACHIEVEMENTS=[
- {id:'firstblood',name:'First Blood',desc:'Defeat 100 enemies.',stat:'totalKills',goal:100,reward:20},
- {id:'roadkeeper',name:'Keeper of Roads',desc:'Reach wave 15.',stat:'highestWave',goal:15,reward:25},
- {id:'collector',name:'Relic Collector',desc:'Discover 12 cards.',custom:()=>CARD_POOL.filter(c=>inv(c.id).copies>0).length,goal:12,reward:30},
- {id:'guardianfall',name:'Guardian Fall',desc:'Defeat 4 bosses.',stat:'bosses',goal:4,reward:35},
- {id:'kingmaker',name:'Kingmaker',desc:'Complete 5 campaign chapters.',custom:()=>save.campaign.completed.length,goal:5,reward:50},
- {id:'forgefire',name:'Forgefire',desc:'Complete 5 card fusions.',stat:'fusions',goal:5,reward:40}
+ ...decreeSeries('enemies','Enemies Defeated',ENEMY_DECREE_GOALS,()=>save.stats.totalKills,1.2),
+ ...decreeSeries('wave','Highest Wave',[5,10,15,20,30,50,75,100,250,500,1000],()=>save.stats.highestWave),
+ ...decreeSeries('hunter-levels','Hunter Levels',[5,10,20,30,40,50],totalHeroLevels),
+ ...decreeSeries('jp','Job Points',[1,5,10,20,30,50,100],()=>save.stats.jpEarned),
+ ...decreeSeries('cards','Cards Recovered',[5,10,25,50,100,250,500,1000],totalOwnedCards),
+ ...decreeSeries('gold','Gold Earned',ENEMY_DECREE_GOALS,()=>save.stats.goldEarned),
+ ...decreeSeries('essence','Blood Essence Earned',ENEMY_DECREE_GOALS,()=>save.stats.bloodEssenceEarned,1.2),
+ ...decreeSeries('bosses','Bosses Defeated',[1,5,10,25,50,100,250,500,1000],()=>save.stats.bosses,1.3),
+ ...decreeSeries('buildings','Buildings Raised',[1,5,10,20,30,50,100],totalBuildings),
+ ...decreeSeries('tower-merges','Tower Merges',[1,10,25,50,100,250,500,1000],()=>save.stats.towerMerges),
+ ...decreeSeries('tower-placement','Tower Placements',[10,50,100,500,1000,5000,10000,20000,50000,100000],()=>save.stats.towersPlaced),
+ ...decreeSeries('relics','Relics Recovered',[1,5,10,15,20],()=>save.unlockedRelics.length,1.4),
+ ...decreeSeries('familiars','Familiar Levels',[5,10,20,40,60,80,100],totalFamiliarLevels),
+ ...decreeSeries('village','Village Progress',[1,5,10,20,30,50,75,100],villageProgressScore),
+ ...decreeSeries('perfect','Perfect Victories',[1,5,10,25,50,100,250,500],()=>save.stats.perfectVictories,1.5)
+];
+const HIDDEN_ACHIEVEMENTS=[
+ {id:'hidden-vampire-killer',name:'Bloodline Remembered',desc:'An ancient command awakened the night.',reward:75,complete:()=>VK.on,cosmetic:'dogTag'},
+ {id:'hidden-codec',name:'The Frequency',desc:'A forbidden transmission reached the Village.',reward:75,complete:()=>MGS.greeted,cosmetic:'dogTag'}
 ];
 const DEFAULT_DECK=['whip','holy','dagger','waterSkill','freeze','crossSkill'];
 const ESSENCE_COSTS={dagger:5,whip:7,holy:8,freeze:8,guardian:9,garlic:7,axe:10,cross:11,clock:11,bone:10,familiar:12,rosary:10,silver:15,scripture:18,waterSkill:8,crossSkill:11,summon:12,axeRain:10,grandCross:16};
@@ -869,7 +903,7 @@ let save=loadedSave||{};
 const previousSaveVersion=Number(save.saveVersion)||0;
 if(loadedSave&&previousSaveVersion<12){try{STORAGE.set('relicsEclipseSave_backup_v12',JSON.stringify(loadedSave))}catch{}}
 save.saveVersion=14;save.familiars=save.familiars&&typeof save.familiars==='object'?save.familiars:{equipped:'bat',unlocked:FAMILIARS.map(f=>f.id),progress:{}};save.familiars.unlocked=Array.isArray(save.familiars.unlocked)?save.familiars.unlocked:FAMILIARS.map(f=>f.id);save.familiars.progress=save.familiars.progress&&typeof save.familiars.progress==='object'?save.familiars.progress:{};if(!save.familiars.unlocked.includes(save.familiars.equipped))save.familiars.equipped=save.familiars.unlocked[0]||'bat';for(const f of FAMILIARS)familiarState(f.id);save.villageProgression=save.villageProgression&&typeof save.villageProgression==='object'?save.villageProgression:{};save.villageProgression.era=save.villageProgression.era||'settlement';save.villageProgression.researched=Array.isArray(save.villageProgression.researched)?save.villageProgression.researched:[];save.villageProgression.artifacts=Array.isArray(save.villageProgression.artifacts)?save.villageProgression.artifacts:[];save.villageProgression.chronicle=Array.isArray(save.villageProgression.chronicle)?save.villageProgression.chronicle:[];save.villageProgression.pendingShadowAwakening=!!save.villageProgression.pendingShadowAwakening;save.villageProgression.shadowAwakeningComplete=!!save.villageProgression.shadowAwakeningComplete;save.villageProgression.flags=save.villageProgression.flags&&typeof save.villageProgression.flags==='object'?save.villageProgression.flags:{};save.bestWave=save.bestWave||0;save.essence=save.essence||0;save.tutorialSeen=!!save.tutorialSeen;
-save.inventory={...defaultInventory(),...(save.inventory||{})};for(const oldRoad of ['pathS','pathL','bloodTile','ironTile','cryptTile'])delete save.inventory[oldRoad];save.selectedHero=save.selectedHero||'warden';save.heroLevels=save.heroLevels||Object.fromEntries(HEROES.map(h=>[h.id,1]));save.keepUpgrades=save.keepUpgrades||{};save.runHistory=save.runHistory||[];save.settings={audio:true,music:true,sfx:true,musicVolume:.46,sfxVolume:.72,ambienceVolume:.34,...(save.settings||{})};save.materials={eclipseShards:0,bloodEssence:save.essence||0,ancientRelics:0,hunterMedallions:0,forgeEmbers:0,...(save.materials||{})};save.stats={runs:0,wins:0,totalKills:0,totalCards:0,fusions:0,bosses:0,highestWave:save.bestWave||0,...(save.stats||{})};save.discoveredEnemies=save.discoveredEnemies||{};save.discoveredMaps=save.discoveredMaps||{};save.campaign=save.campaign&&typeof save.campaign==='object'?save.campaign:{unlocked:1,completed:[],selected:'cemetery'};save.campaign.unlocked=Math.max(1,Math.min(CHAPTERS.length,Number(save.campaign.unlocked)||1));save.campaign.completed=Array.isArray(save.campaign.completed)?save.campaign.completed.filter(id=>CHAPTERS.some(c=>c.id===id)):[];save.campaign.selected=CHAPTERS.some(c=>c.id===save.campaign.selected)?save.campaign.selected:'cemetery';save.campaign.stars=save.campaign.stars&&typeof save.campaign.stars==='object'?save.campaign.stars:{};save.shadowLevel=Math.max(1,Math.min(9,Number(save.shadowLevel)||Number(save.heroLevels?.[save.selectedHero])||1));save.uniqueBossDrops=save.uniqueBossDrops&&typeof save.uniqueBossDrops==='object'?save.uniqueBossDrops:{};save.unlockedRelics=Array.isArray(save.unlockedRelics)?save.unlockedRelics:[];save.equippedRelic=save.equippedRelic||null;save.kingdom=save.kingdom||{buildings:{},renown:0};save.achievements=save.achievements&&typeof save.achievements==='object'?save.achievements:{claimed:[]};save.achievements.claimed=Array.isArray(save.achievements.claimed)?save.achievements.claimed:[];save.unlockedRelics=save.unlockedRelics.filter(id=>RELICS.some(r=>r.id===id));if(save.equippedRelic&&!save.unlockedRelics.includes(save.equippedRelic))save.equippedRelic=null;
+save.inventory={...defaultInventory(),...(save.inventory||{})};for(const oldRoad of ['pathS','pathL','bloodTile','ironTile','cryptTile'])delete save.inventory[oldRoad];save.selectedHero=save.selectedHero||'warden';save.heroLevels=save.heroLevels||Object.fromEntries(HEROES.map(h=>[h.id,1]));save.keepUpgrades=save.keepUpgrades||{};save.runHistory=save.runHistory||[];save.settings={audio:true,music:true,sfx:true,musicVolume:.46,sfxVolume:.72,ambienceVolume:.34,...(save.settings||{})};save.materials={eclipseShards:0,bloodEssence:save.essence||0,ancientRelics:0,hunterMedallions:0,forgeEmbers:0,...(save.materials||{})};save.stats={runs:0,wins:0,totalKills:0,totalCards:0,fusions:0,bosses:0,highestWave:save.bestWave||0,towerMerges:0,towersPlaced:0,goldEarned:0,bloodEssenceEarned:save.essence||0,jpEarned:0,perfectVictories:0,...(save.stats||{})};save.discoveredEnemies=save.discoveredEnemies||{};save.discoveredMaps=save.discoveredMaps||{};save.campaign=save.campaign&&typeof save.campaign==='object'?save.campaign:{unlocked:1,completed:[],selected:'cemetery'};save.campaign.unlocked=Math.max(1,Math.min(CHAPTERS.length,Number(save.campaign.unlocked)||1));save.campaign.completed=Array.isArray(save.campaign.completed)?save.campaign.completed.filter(id=>CHAPTERS.some(c=>c.id===id)):[];save.campaign.selected=CHAPTERS.some(c=>c.id===save.campaign.selected)?save.campaign.selected:'cemetery';save.campaign.stars=save.campaign.stars&&typeof save.campaign.stars==='object'?save.campaign.stars:{};save.shadowLevel=Math.max(1,Math.min(9,Number(save.shadowLevel)||Number(save.heroLevels?.[save.selectedHero])||1));save.uniqueBossDrops=save.uniqueBossDrops&&typeof save.uniqueBossDrops==='object'?save.uniqueBossDrops:{};save.unlockedRelics=Array.isArray(save.unlockedRelics)?save.unlockedRelics:[];save.equippedRelic=save.equippedRelic||null;save.kingdom=save.kingdom||{buildings:{},renown:0};save.achievements=save.achievements&&typeof save.achievements==='object'?save.achievements:{claimed:[]};save.achievements.claimed=Array.isArray(save.achievements.claimed)?save.achievements.claimed:[];save.cosmetics=save.cosmetics&&typeof save.cosmetics==='object'?save.cosmetics:{};save.unlockedRelics=save.unlockedRelics.filter(id=>RELICS.some(r=>r.id===id));if(save.equippedRelic&&!save.unlockedRelics.includes(save.equippedRelic))save.equippedRelic=null;
 // Repair older saves that advanced the campaign counter without recording completed chapter IDs.
 for(const ch of CHAPTERS){if(ch.number<save.campaign.unlocked&&!save.campaign.completed.includes(ch.id))save.campaign.completed.push(ch.id)}
 const progressionIds=progressionUnlockedIds(save.campaign.completed);
@@ -886,7 +920,7 @@ if((save.campaign?.completed||[]).includes('cemetery')&&!save.unlocked.includes(
 // V15.3 Scripture Tower preview: grant the new signature defense to every existing kingdom.
 if((save.campaign?.completed||[]).includes('cathedral')&&!save.unlocked.includes('scripture'))save.unlocked.push('scripture');const scriptureItem=save.inventory.scripture||(save.inventory.scripture={copies:0,rarity:'legendary',level:1,recent:true,lastFound:Date.now()});if(scriptureItem.copies<2&&(save.campaign?.completed||[]).includes('cathedral'))scriptureItem.copies=2;if(scriptureItem.rarity==='common')scriptureItem.rarity='legendary';
 save.ui=save.ui&&typeof save.ui==='object'?save.ui:{};save.ui.cardFilter=['all','tower','support','skill','hero','heroProfile','ground'].includes(save.ui.cardFilter)?save.ui.cardFilter:'all';save.ui.cardSort=['type','rarity','strength','level','name','recent'].includes(save.ui.cardSort)?save.ui.cardSort:'type';
-save.heroJP=save.heroJP&&typeof save.heroJP==='object'?save.heroJP:{};for(const h of HEROES)save.heroJP[h.id]=Math.max(0,Number(save.heroJP[h.id])||0);save.heroJobs=save.heroJobs&&typeof save.heroJobs==='object'?save.heroJobs:{};save.jpAwardedStages=Array.isArray(save.jpAwardedStages)?save.jpAwardedStages.filter(id=>CHAPTERS.some(c=>c.id===id)):[];if(!save.jpRetroGrantV1){save.heroJP[save.selectedHero]=(save.heroJP[save.selectedHero]||0)+10;save.jpRetroGrantV1=true;save.jpAwardedStages=[...new Set([...save.jpAwardedStages,...save.campaign.completed])];}for(const h of HEROES){const existing=save.heroJobs[h.id]&&typeof save.heroJobs[h.id]==='object'?save.heroJobs[h.id]:{};save.heroJobs[h.id]={vanguardRank:Math.max(0,Math.min(10,Number(existing.vanguardRank)||0)),...existing};}save.heroEquipment=save.heroEquipment&&typeof save.heroEquipment==='object'?save.heroEquipment:{};save.groundDefenseSlots=Array.isArray(save.groundDefenseSlots)?save.groundDefenseSlots.filter(id=>HERO_GROUND_DEFENSES.some(c=>c.id===id)).slice(0,2):HERO_GROUND_DEFENSES.slice(0,2).map(c=>c.id);while(save.groundDefenseSlots.length<Math.min(2,HERO_GROUND_DEFENSES.length)){const next=HERO_GROUND_DEFENSES.find(c=>!save.groundDefenseSlots.includes(c.id));if(!next)break;save.groundDefenseSlots.push(next.id)};// V32.1 — a brand new hunter owns only the two passives that fill the ground
+save.heroJP=save.heroJP&&typeof save.heroJP==='object'?save.heroJP:{};for(const h of HEROES)save.heroJP[h.id]=Math.max(0,Number(save.heroJP[h.id])||0);save.heroJobs=save.heroJobs&&typeof save.heroJobs==='object'?save.heroJobs:{};save.jpAwardedStages=Array.isArray(save.jpAwardedStages)?save.jpAwardedStages.filter(id=>CHAPTERS.some(c=>c.id===id)):[];if(!save.jpRetroGrantV1){save.heroJP[save.selectedHero]=(save.heroJP[save.selectedHero]||0)+10;save.jpRetroGrantV1=true;save.jpAwardedStages=[...new Set([...save.jpAwardedStages,...save.campaign.completed])];}save.stats.jpEarned=Math.max(save.stats.jpEarned||0,save.jpAwardedStages.length+(save.jpRetroGrantV1?10:0));for(const h of HEROES){const existing=save.heroJobs[h.id]&&typeof save.heroJobs[h.id]==='object'?save.heroJobs[h.id]:{};save.heroJobs[h.id]={vanguardRank:Math.max(0,Math.min(10,Number(existing.vanguardRank)||0)),...existing};}save.heroEquipment=save.heroEquipment&&typeof save.heroEquipment==='object'?save.heroEquipment:{};save.groundDefenseSlots=Array.isArray(save.groundDefenseSlots)?save.groundDefenseSlots.filter(id=>HERO_GROUND_DEFENSES.some(c=>c.id===id)).slice(0,2):HERO_GROUND_DEFENSES.slice(0,2).map(c=>c.id);// Existing arrays are intentional loadouts; only legacy saves with no field receive defaults.
 // slots. The other seven are earned on the road (see CHAPTER_CARD_UNLOCKS).
 const STARTER_GROUND=HERO_GROUND_DEFENSES.slice(0,2).map(c=>c.id);
 const groundUnlocked=new Set([...STARTER_GROUND,...progressionUnlockedIds(save.campaign?.completed||[])]);
@@ -1174,9 +1208,10 @@ function beginWaveTransition(){
 }
 
 function freshGame(mode='chapter',chapterId=null){
+ resize(); // A new run receives a clean Canvas backing surface and state stack.
  const session=resetBattleVisualState('stage initialization');
  resetBattlePointerGesture();
- AUDIO.unlock();AUDIO.setState('battle',true);
+ AUDIO.unlock();AUDIO.setState('battle',true,true);
  const chapter=mode==='chapter'?(CHAPTERS.find(c=>c.id===(chapterId||save.campaign.selected))||CHAPTERS[0]):null;
  const chapterNumber=chapter?.number||Math.max(6,Math.floor((save.bestWave||1)/4));
  const roadSetup=generateStartingRoad(generateRoadPlans(chapterNumber)),roadPlans=roadSetup.plans,routes=roadSetup.routes,path=roadSetup.path;
@@ -1185,14 +1220,14 @@ function freshGame(mode='chapter',chapterId=null){
  const villageBonus=villageBattleBonuses();
  const map=chapter?(MAPS.find(m=>m.id===chapter.map)||MAPS[0]):MAPS[Math.floor(Math.random()*MAPS.length)];save.discoveredMaps[map.id]=true;
  const heroDef=HEROES.find(h=>h.id===save.selectedHero)||HEROES[0];const up=save.keepUpgrades,kb=save.kingdom.buildings||{};
- G={mode,map,state:'play',paused:true,speed:1,time:0,last:performance.now(),hp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp+(save.equippedRelic==='ossuary'?8:0),maxHp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp+(save.equippedRelic==='ossuary'?8:0),essence:40,maxEssence:40,pendingEssence:0,essenceCarry:0,faerieEssenceRemainder:0,wave:1,kills:0,xp:0,xpNeed:8,level:1,battlePoints:0,cardUpgrades:{},path,towers:[],traps:[],enemies:[],shots:[],laneShots:[],particles:[],floaters:[],corpses:[],selected:null,selectedTower:null,towerEditMode:null,towerEditFirst:null,towerEditWasPaused:null,hand:[...save.deck.map(id=>({...card(id),coolLeft:0})),...save.groundDefenseSlots.map(groundCardById).filter(Boolean).map(c=>({...c,coolLeft:0}))],drawWeights:{},pickCounts:{},spawnLeft:5,spawnTimer:0,waveDelay:2,chapterWaves:mode==='endless'?999:chapter.waves,chapter,chapterCleared:false,roadPattern:roadSetup.pattern,roadPlans,routes,branchWaves:roadPlans.slice(1).map((_,i)=>5+i*4+Math.floor(Math.random()*3)),branchActive:false,spawnMode:'single',spawnPattern:'single',spawnSequence:0,rushRoute:0,hero:{x:CATHEDRAL.gateX-1.25,y:3.35,facing:'down',walking:false,anim:0,hp:100,max:100,rate:.48,t:0,damage:22*(1+(up.hunter||0)*.03+(kb.library||0)*.03)*villageBonus.heroDamage,range:2.5,holy:false,crit:.05,frenzy:0,def:heroDef},shake:0,flash:0,boss:false,globalDamage:(1+(kb.forge||0)*.02)*villageBonus.towerDamage*(save.equippedRelic==='sunless'?1.10:save.equippedRelic==='abyssseal'?1.08:1),pendingWave:true,pendingCard:null,placementRotation:0,hoverTile:null,weather,relic:RELICS.find(r=>r.id===save.equippedRelic)||null,killChain:0,miniBossDefeated:false,openingDraft:false,activeDraftCard:null,draftChoices:null,draftChoiceCommitted:false,runDrops:[],roadMisses:0,lastDropAt:0,bossIntroPlayed:false,ambient:Array.from({length:42},(_,i)=>({x:Math.random()*GRID.cols,y:Math.random()*GRID.rows,v:.08+Math.random()*.18,phase:Math.random()*6.28,kind:i%3})),familiar:{...familiarDef(),...familiarState(save.familiars.equipped),t:1.1,angle:0},keepLevel:keepBattleLevel(),archerTimers:Array.from({length:Math.max(0,keepBattleLevel()-1)},(_,i)=>.6+i*.45),camera:{zoom:1,panX:0,panY:0},cameraPulse:0,hitStop:0,bossImpactWindow:false,rainSplashTimer:0,queuedSkills:[],comboTimer:0,comboBest:0,weatherFlash:0,waveTransition:false,cameraTour:null};
+ G={mode,map,state:'play',paused:true,speed:1,time:0,last:performance.now(),hp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp+(save.equippedRelic==='ossuary'?8:0),maxHp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp+(save.equippedRelic==='ossuary'?8:0),essence:40,maxEssence:40,pendingEssence:0,essenceCarry:0,faerieEssenceRemainder:0,wave:1,kills:0,xp:0,xpNeed:8,level:1,battlePoints:0,cardUpgrades:{},path,towers:[],traps:[],enemies:[],shots:[],laneShots:[],particles:[],floaters:[],corpses:[],selected:null,selectedTower:null,towerEditMode:null,towerEditFirst:null,towerEditWasPaused:null,hand:[...save.deck.map(id=>({...card(id),coolLeft:0})),...save.groundDefenseSlots.map(groundCardById).filter(Boolean).map(c=>({...c,coolLeft:0}))],drawWeights:{},pickCounts:{},spawnLeft:5,spawnTimer:0,waveDelay:2,chapterWaves:mode==='endless'?999:chapter.waves,chapter,chapterCleared:false,roadPattern:roadSetup.pattern,roadPlans,routes,branchWaves:roadPlans.slice(1).map((_,i)=>5+i*4+Math.floor(Math.random()*3)),branchActive:false,spawnMode:'single',spawnPattern:'single',spawnSequence:0,rushRoute:0,hero:{x:CATHEDRAL.gateX-1.25,y:3.35,facing:'down',walking:false,anim:0,hp:100,max:100,rate:.48,t:0,damage:22*(1+(up.hunter||0)*.03+(kb.library||0)*.03)*villageBonus.heroDamage,range:2.5,holy:false,crit:.05,frenzy:0,def:heroDef},shake:0,flash:0,boss:false,globalDamage:(1+(kb.forge||0)*.02)*villageBonus.towerDamage*(save.equippedRelic==='sunless'?1.10:save.equippedRelic==='abyssseal'?1.08:1),pendingWave:true,pendingCard:null,placementRotation:0,hoverTile:null,weather,relic:RELICS.find(r=>r.id===save.equippedRelic)||null,relicKillCount:0,killChain:0,miniBossDefeated:false,openingDraft:false,activeDraftCard:null,draftChoices:null,draftChoiceCommitted:false,runDrops:[],roadMisses:0,lastDropAt:0,bossIntroPlayed:false,ambient:Array.from({length:42},(_,i)=>({x:Math.random()*GRID.cols,y:Math.random()*GRID.rows,v:.08+Math.random()*.18,phase:Math.random()*6.28,kind:i%3})),familiar:{...familiarDef(),...familiarState(save.familiars.equipped),t:1.1,angle:0},keepLevel:keepBattleLevel(),archerTimers:Array.from({length:Math.max(0,keepBattleLevel()-1)},(_,i)=>.6+i*.45),camera:{zoom:1,panX:0,panY:0},cameraPulse:0,hitStop:0,bossImpactWindow:false,rainSplashTimer:0,holyRains:[],queuedSkills:[],comboTimer:0,comboBest:0,weatherFlash:0,waveTransition:false,cameraTour:null};
  applyVanguardBonuses();
  $('#weatherTxt').textContent=map.name+' · '+weather.name;$('#relicTxt').textContent=G.relic?.name||'None';applyEquippedRelic();showToast((chapter?chapter.name:map.name)+' — '+weather.name+': '+weather.desc);
  [UI.menu,UI.deck,$('#campaignScreen'),$('#relicVaultScreen'),$('#heroesScreen'),$('#upgradesScreen'),$('#forgeScreen'),$('#codexScreen'),$('#profileScreen'),$('#cardInspectScreen'),$('#kingdomScreen'),$('#achievementsScreen'),$('#moreScreen')].forEach(s=>s?.classList.add('hidden'));UI.over.classList.add('hidden');UI.choices.classList.add('hidden');UI.hud.classList.remove('hidden');setBattleMode(true);UI.tutorial.classList.add('hidden');renderHand();
  if(visualDebug())console.info('[Battle visuals] stage initialized',{session,chapter:chapter?.id||'endless',index:chapter?chapter.number-1:null,map:map.id,camera:{...G.camera},weather:weather.id,overlays:document.querySelectorAll('.battle-cinematic:not(.hidden),.wave-banner:not(.hidden)').length});
  setTimeout(()=>{if(session===battleSessionId)beginLivingBattle(session)},450);
 }
-function applyEquippedRelic(){if(!G?.relic)return;const r=G.relic;if(r.id==='fang')G.hero.rate*=.82;if(r.id==='candle')G.globalDamage*=1.08;if(r.id==='chalice')G.hp=Math.min(G.maxHp,G.hp+2);if(r.id==='ring')G.hero.crit+=.08;if(r.id==='thorn')G.battlePoints=(G.battlePoints||0)+1;if(r.id==='banner'){G.hp+=5;G.maxHp+=5}if(r.id==='moon')G.hero.crit+=.12;if(r.id==='bloodseal')G.globalDamage*=1.12}
+function applyEquippedRelic(){if(!G?.relic)return;const r=G.relic;if(r.id==='fang')G.hero.rate/=1.18;if(r.id==='thorn')G.battlePoints=(G.battlePoints||0)+1;if(r.id==='banner'){G.hp+=5;G.maxHp+=5}if(r.id==='moon')G.hero.crit+=.12;if(r.id==='bloodseal')G.globalDamage*=1.12}
 
 function showBattleCinematic(kicker,title,subtitle,duration=2350){
  const el=$('#battleCinematic');if(!el)return;
@@ -1384,11 +1419,33 @@ function setDeckCard(id,equip){
  saveProgress();
  return true;
 }
+function setGroundDefenseCard(id,equip){
+ const c=groundCardById(id);
+ if(!c||inv(id).copies<1)return false;
+ const next=save.groundDefenseSlots.filter(x=>x!==id);
+ if(equip){
+  if(next.length>=2){showToast('Hero already has two Passive Cards');return false}
+  next.push(id);
+ }
+ save.groundDefenseSlots=next;
+ saveProgress();
+ return true;
+}
+function holyInfusionTier(level){return Math.max(1,Math.min(3,Number(level)||1))}
+function cardIconHTML(c,level=1){
+ if(c?.id==='holy'){
+  const tier=holyInfusionTier(level);
+  return `<span class="holy-infusion-icon tier-${tier}" aria-label="Holy Water Infusion ${['I','II','III'][tier-1]}"><i>💧</i><b>${'✦'.repeat(tier)}</b><small>${['I','II','III'][tier-1]}</small></span>`;
+ }
+ if(c?.id==='waterSkill')return '<span class="holy-barrage-icon" aria-label="Sacred blue-white holy water"><i>💧</i><b>💧</b><small>✦</small></span>';
+ return c?.icon||'◆';
+}
 function miniCardHTML(c){
  const item=inv(c.id),power=cardPower(c.id);
  const atk=c.damage?Math.max(1,Math.round(c.damage*power)):c.type==='support'?Math.round(10*power):c.type==='skill'?Math.round((c.cost||30)*power):Math.round(8*power);
  const hp=c.type==='tower'?Math.round((90+(c.cost||30)*4)*power):c.type==='support'?Math.round(120*power):c.type==='hero'?Math.round(100*power):Math.round(70*power);
- return `<span class="deck-card-level">LV ${item.level}</span><div class="deck-card-art"><span>${c.icon}</span></div><strong class="deck-card-name">${c.name}</strong><div class="deck-card-stats"><span>⚔ ${atk}</span><span>♥ ${hp}</span></div>`;
+ const defenseCard=c.type==='tower'||c.type==='trap';
+ return `<span class="deck-card-level">LV ${item.level}</span><div class="deck-card-art"><span>${cardIconHTML(c,item.level)}</span></div><strong class="deck-card-name">${c.name}</strong><div class="deck-card-stats ${defenseCard?'defense-stats':''}"><span>⚔ ${atk}</span>${defenseCard?'':`<span>♥ ${hp}</span>`}</div>`;
 }
 function groundCardById(id){return HERO_GROUND_DEFENSES.find(c=>c.id===id)}
 function renderGroundDefenseSlots(){
@@ -1402,12 +1459,17 @@ function renderGroundDefenseSlots(){
  }
 }
 
+function shadowPortraitHTML(level){
+ const n=Math.max(1,Math.min(9,Number(level)||1));
+ const src=n===1?SHADOW_LEVEL_ONE_PORTRAIT:shadowAsset(n,'Idle');
+ return `<span class="shadow-avatar-sprite shadow-lv-${n} ${n===1?'official-portrait':''}"><img src="${src}" alt="Shadow level ${n}" draggable="false" decoding="async"></span>`;
+}
 function renderDeck(){save.favorites=Array.isArray(save.favorites)?save.favorites:[];save.ui=save.ui||{cardFilter:'all',cardSort:'type'};ensureVisibleCardCollection();const repairedUnlocks=reconcileCardUnlocks();if(repairedUnlocks.length)setTimeout(()=>showToast(`Recovered unlocks: ${repairedUnlocks.map(c=>c.name).join(' + ')}`),100);
  const equipped=$('#equippedDeck'),box=$('#collectionCards');equipped.innerHTML='';box.innerHTML='';renderGroundDefenseSlots();
  const selectedHero=HEROES.find(h=>h.id===save.selectedHero)||HEROES[0];
  const heroLevel=Math.max(1,save.heroLevels?.[selectedHero.id]||1);
  const heroPortrait=$('#deckHeroPortrait'),heroName=$('#deckHeroName'),heroLevelEl=$('#deckHeroLevel'),heroCard=$('#deckHeroCard');
- if(heroPortrait){const shadowLv=currentShadowLevel();heroPortrait.innerHTML=`<span class="shadow-avatar-sprite shadow-lv-${shadowLv}" style="--shadow-sheet:url('${shadowAsset(shadowLv,'Idle')}')"></span>`;heroPortrait.title=`Shadow · Level ${shadowLv}`;}if(heroName)heroName.textContent=selectedHero.name;if(heroLevelEl)heroLevelEl.textContent=`Lv ${heroLevel} · ${save.heroJP[selectedHero.id]||0} JP`;
+ if(heroPortrait){const shadowLv=currentShadowLevel();heroPortrait.innerHTML=shadowPortraitHTML(shadowLv);heroPortrait.title=`Shadow · Level ${shadowLv}`;}if(heroName)heroName.textContent=selectedHero.name;if(heroLevelEl)heroLevelEl.textContent=`Lv ${heroLevel} · ${save.heroJP[selectedHero.id]||0} JP`;
  const xp=$('#deckHeroXP');if(xp){const pct=Math.min(100,((heroLevel*37)%100));xp.title=`Mastery ${pct}%`;xp.querySelector('i').style.width=pct+'%'}
  const gear=$('#deckHeroGear');if(gear)gear.innerHTML=heroGear(selectedHero.id).map(([slot,name,icon])=>`<span title="${slot}: ${name}"><i>${icon}</i><small>${slot}</small></span>`).join('');
  const heroSupports=$('#deckHeroSupports');if(heroSupports){
@@ -1428,10 +1490,10 @@ function renderDeck(){save.favorites=Array.isArray(save.favorites)?save.favorite
  if(filter!=='ground')cards=sortCards(cards,sort);
  cards.forEach(c=>{
   if(filter==='ground'){
-   const equipped=save.groundDefenseSlots.includes(c.id),el=document.createElement('article');
-   el.dataset.groundCardId=c.id;el.dataset.cardsAction='ground-toggle';el.tabIndex=0;el.setAttribute('role','button');
+   const equipped=save.groundDefenseSlots.includes(c.id),owned=inv(c.id).copies>0,el=document.createElement('article');
+   el.dataset.groundCardId=c.id;el.dataset.cardsAction='ground-inspect';el.tabIndex=0;el.setAttribute('role','button');
    el.className=`card portrait-card compact-card ground-collection-card rarity-${inv(c.id).rarity} ${equipped?'selected':''}`;
-   el.innerHTML=cardHTML(c,true)+`<span class="collection-card-status">${equipped?'EQUIPPED · TAP TO REMOVE':'TAP TO EQUIP'}</span>`;
+   el.innerHTML=cardHTML(c,true)+`<span class="collection-card-status">${equipped?'EQUIPPED · TAP FOR DETAILS':owned?'TAP FOR DETAILS':'LOCKED · VIEW REQUIREMENTS'}</span>`;
    box.append(el);return;
   }
   const item=inv(c.id),unlocked=save.unlocked.includes(c.id)&&item.copies>0,fav=save.favorites.includes(c.id),unlockAt=unlockChapterForCard(c.id),el=document.createElement('article');el.dataset.cardId=c.id;el.dataset.cardsAction=unlocked?'inspect':'locked';el.tabIndex=0;el.setAttribute('role','button');el.className=`card portrait-card compact-card rarity-${item.rarity} ${save.deck.includes(c.id)?'selected':''} ${unlocked?'':'locked-card'}`;el.innerHTML=cardHTML(c,true)+`<span class="card-type-corner" title="${shortType(c.type)}">${{tower:'🛡️',support:'✚',skill:'⚔️',hero:'⬆️'}[c.type]||'◆'}</span><span class="favorite-corner ${fav?'is-favorite':''}" aria-label="${fav?'Favorite':'Not favorite'}">★</span>${unlocked?'':`<div class="card-lock-overlay"><b>🔒 LOCKED</b><small>${unlockAt?`Defeat Chapter ${unlockAt.number}: ${unlockAt.name}`:'Campaign reward'}</small></div>`}`;
@@ -1469,7 +1531,7 @@ function purchaseVanguardRank(heroId){
 function renderHeroJPPanel(box,hero){
  const level=currentShadowLevel(),jp=save.heroJP[hero.id]||0,rank=vanguardRank(hero.id);
  box.className='hero-jp-panel';
- box.innerHTML=`<section class="hero-jp-header"><div class="hero-jp-avatar"><span class="shadow-avatar-sprite shadow-lv-${level}" style="--shadow-sheet:url('${shadowAsset(level,'Idle')}')"></span></div><div class="hero-jp-summary"><span class="section-kicker">HERO FILE</span><h2>Shadow</h2><p>Shadow Vanguard · Hero Level ${level}</p><div class="hero-jp-badges"><span><b>${jp}</b> JP Available</span><span><b>${rank}</b>/10 Vanguard</span></div></div><div class="hero-jp-help"><b>Job Points</b><p>Earn 1 JP the first time each campaign stage is cleared. Spend carefully—each rank is permanent.</p></div></section><section class="hero-job-board"><div class="job-board-title"><div><span class="section-kicker">SHADOW VANGUARD</span><h3>Level 1 Job Path</h3></div><strong>${rank}/10</strong></div><div class="job-node-grid">${VANGUARD_SKILLS.map((skill,i)=>{const n=i+1,unlocked=rank>=n,available=rank===i&&jp>0;return `<button type="button" class="job-node ${unlocked?'unlocked':available?'available':'locked'}" data-vanguard-rank="${n}" ${unlocked||available?'':'disabled'}><span class="job-rank">${n}</span><i>${skill.icon}</i><b>${skill.name}</b><small>${skill.bonus}</small><em>${unlocked?'UNLOCKED':available?'SPEND 1 JP':'LOCKED'}</em></button>`}).join('')}</div></section>`;
+  box.innerHTML=`<section class="hero-jp-header"><div class="hero-jp-avatar">${shadowPortraitHTML(level)}</div><div class="hero-jp-summary"><span class="section-kicker">HERO FILE</span><h2>Shadow</h2><p>Shadow Vanguard · Hero Level ${level}</p><div class="hero-jp-badges"><span><b>${jp}</b> JP Available</span><span><b>${rank}</b>/10 Vanguard</span></div></div><div class="hero-jp-help"><b>Job Points</b><p>Earn 1 JP the first time each campaign stage is cleared. Spend carefully—each rank is permanent.</p></div></section><section class="hero-job-board"><div class="job-board-title"><div><span class="section-kicker">SHADOW VANGUARD</span><h3>Level 1 Job Path</h3></div><strong>${rank}/10</strong></div><div class="job-node-grid">${VANGUARD_SKILLS.map((skill,i)=>{const n=i+1,unlocked=rank>=n,available=rank===i&&jp>0;return `<button type="button" class="job-node ${unlocked?'unlocked':available?'available':'locked'}" data-vanguard-rank="${n}" ${unlocked||available?'':'disabled'}><span class="job-rank">${n}</span><i>${skill.icon}</i><b>${skill.name}</b><small>${skill.bonus}</small><em>${unlocked?'UNLOCKED':available?'SPEND 1 JP':'LOCKED'}</em></button>`}).join('')}</div></section>`;
  box.querySelectorAll('[data-vanguard-rank]').forEach(btn=>btn.onclick=()=>{const requested=Number(btn.dataset.vanguardRank);if(requested===vanguardRank(hero.id)+1)purchaseVanguardRank(hero.id)});
 }
 
@@ -1479,7 +1541,8 @@ function cardHTML(c,collection=false){
  const item=inv(c.id),r=rarityDef(item.rarity),power=cardPower(c.id),owned=c.type==='tower'&&G?G.towers.filter(t=>t.id===c.id).length:0;
  const atk=c.damage?Math.max(1,Math.round(c.damage*power)):c.type==='support'?Math.round(10*power):c.type==='skill'?Math.round((c.cost||30)*power):Math.round(8*power);
  const hp=c.type==='tower'?Math.round((90+(c.cost||30)*4)*power):c.type==='support'?Math.round(120*power):c.type==='hero'?Math.round(100*power):Math.round(70*power);
- return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art"><div class="art-sigil">${c.icon}</div></div><div class="card-copy"><h3>${c.name}</h3></div><div class="card-primary-stats"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span><span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span></div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
+ const defenseCard=c.type==='tower'||c.type==='trap';
+ return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art"><div class="art-sigil">${cardIconHTML(c,item.level)}</div></div><div class="card-copy"><h3>${c.name}</h3></div><div class="card-primary-stats ${defenseCard?'defense-stats':''}"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span>${defenseCard?'':`<span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span>`}</div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
 }
 function draftCardHTML(c){
  if(c.hiddenSystem)return `<span class="draft-level">SYSTEM</span><span class="draft-type">ROAD</span><div class="draft-art"><div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>SYSTEM EFFECT</small><p>${c.desc}</p></div><div class="draft-stat-grid"><div><small>ROLE</small><b>Road</b></div><div><small>DRAW WEIGHT</small><b>${Math.round((c.drawWeight??1)*100)}%</b></div></div>`;
@@ -1487,7 +1550,7 @@ function draftCardHTML(c){
  const role=shortType(c.type);
  const target=c.type==='tower'?(c.id==='dagger'||c.id==='cross'?'Air + Ground':c.id==='axe'?'Ground · Armor':c.id==='scripture'?'Ground · Chain':'Ground'):c.type==='support'?'Allied Tower':'Battlefield';
  const passive=c.desc||'No passive effect.';
- return `<span class="draft-level">LV ${item.level}</span><span class="draft-type">${role}</span><div class="draft-art"><div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-stat-grid"><div><small>DAMAGE</small><b>${damage||'—'}</b></div><div><small>ATTACK SPEED</small><b>${speed}</b></div><div><small>RANGE</small><b>${range}</b></div><div><small>TARGETS</small><b>${target}</b></div></div><div class="draft-passive"><small>PASSIVE ABILITY</small><p>${passive}</p></div><div class="draft-cost"><span>${r.name} · Level ${item.level}</span><strong>✦ ${cost}</strong></div>`;
+ return `<span class="draft-level">LV ${item.level}</span><span class="draft-type">${role}</span><div class="draft-art"><div class="draft-icon">${cardIconHTML(c,item.level)}</div></div><h3>${c.name}</h3><div class="draft-stat-grid"><div><small>DAMAGE</small><b>${damage||'—'}</b></div><div><small>ATTACK SPEED</small><b>${speed}</b></div><div><small>RANGE</small><b>${range}</b></div><div><small>TARGETS</small><b>${target}</b></div></div><div class="draft-passive"><small>PASSIVE ABILITY</small><p>${passive}</p></div><div class="draft-cost"><span>${r.name} · Level ${item.level}</span><strong>✦ ${cost}</strong></div>`;
 }
 
 function renderHand(){
@@ -1499,7 +1562,7 @@ function renderHand(){
  const el=document.createElement('button');
  el.type='button';
  el.className=`hand-card active ${affordable?'affordable':'locked-cost'}`;
- el.innerHTML=`<span class="hlvl">Lv ${inv(c.id).level}</span><div class="hicon">${c.icon}</div><div class="hname">${c.name}</div><div class="hcost">✦ ${cost}</div>`;
+  el.innerHTML=`<span class="hlvl">Lv ${inv(c.id).level}</span><div class="hicon">${cardIconHTML(c,inv(c.id).level)}</div><div class="hname">${c.name}</div><div class="hcost">✦ ${cost}</div>`;
  el.title=affordable?`Place another ${c.name} for ${cost} Essence`:`Need ${cost-G.essence} more Essence`;
  el.onclick=()=>G.pendingCard&&!G.draftChoiceCommitted?reopenDraftChoices():selectEssenceCard(c);
  UI.hand.append(el);UI.hand.classList.remove('hidden');UI.hand.setAttribute('aria-hidden','false');
@@ -1647,10 +1710,10 @@ function handleBattleTap(e){
  if(c.type==='tower'){
   if(!validTowerTile(p.x,p.y))return showToast('Towers must touch a road or a road-connected tower');
   const existing=G.towers.find(t=>t.x===p.x&&t.y===p.y);
-  if(existing){if(existing.id!==c.id||existing.level>=3)return showToast('Only identical towers can merge');existing.level++;existing.damage*=1.7;existing.range+=.18;burst(p.x+.5,p.y+.5,c.color,24);showToast(`Merged to level ${existing.level}`);used=true;}
-  else {const tower={...c,x:p.x,y:p.y,level:1,t:0,upgradeDamage:0,upgradeRange:0,upgradeRate:0,elite:!!c.elite,permanentPower:cardPower(c.id),supports:[]};applyCardBattleUpgradesToTower(tower);G.towers.push(tower);used=true;}
+   if(existing){if(existing.id!==c.id||existing.level>=3)return showToast('Only identical towers can merge');existing.level++;existing.damage*=1.7;existing.range+=.18;save.stats.towerMerges++;burst(p.x+.5,p.y+.5,c.color,24);showToast(`Merged to level ${existing.level}`);used=true;}
+   else {const tower={...c,x:p.x,y:p.y,level:1,t:0,upgradeDamage:0,upgradeRange:0,upgradeRate:0,elite:!!c.elite,permanentPower:cardPower(c.id),supports:[]};applyCardBattleUpgradesToTower(tower);G.towers.push(tower);save.stats.towersPlaced++;used=true;}
  } else if(c.type==='support'){
-  if(!validSupportTile(p.x,p.y))return showToast('Support towers must sit beside and behind an attack tower');const target=supportTargetAt(p.x,p.y);const supportPower=(HEROES.find(h=>h.id===save.selectedHero)?.bonus?.support||1)*(1+(inv(c.id).level-1)*.10);const placedSupport={...c,x:p.x,y:p.y,level:1,t:0,supportOnly:true,supportTarget:target,permanentPower:cardPower(c.id),supports:[],power:supportPower};G.towers.push(placedSupport);target.supports=target.supports||[];target.supports.push({id:c.id,name:c.name,icon:c.icon,power:supportPower});burst(p.x+.5,p.y+.5,c.color||'#ffe49a',30);showToast(`${c.name} linked to ${target.name} — support active`);used=true;
+   if(!validSupportTile(p.x,p.y))return showToast('Support towers must sit beside and behind an attack tower');const target=supportTargetAt(p.x,p.y);const supportPower=(HEROES.find(h=>h.id===save.selectedHero)?.bonus?.support||1)*(1+(inv(c.id).level-1)*.10);const placedSupport={...c,x:p.x,y:p.y,level:1,t:0,supportOnly:true,supportTarget:target,permanentPower:cardPower(c.id),supports:[],power:supportPower,infusionTier:c.id==='holy'?holyInfusionTier(inv(c.id).level):1};G.towers.push(placedSupport);save.stats.towersPlaced++;target.supports=target.supports||[];target.supports.push({id:c.id,name:c.name,icon:c.icon,power:supportPower});burst(p.x+.5,p.y+.5,c.color||'#ffe49a',30);showToast(`${c.name} linked to ${target.name} — support active`);used=true;
  } else if(c.type==='trap'){
   if(!validTrapTile(p.x,p.y))return showToast('Ground defenses must be placed on an empty road tile');G.traps.push({...c,x:p.x,y:p.y,t:0,level:1});burst(p.x+.5,p.y+.5,c.color,18);showToast(`${c.name} armed`);used=true;
  } else if(c.type==='roadpiece'){
@@ -1696,15 +1759,41 @@ function finishCardPlacement(){
  if(placed&&G.activeDraftCard?.id===placed.id){const cost=essenceCost(placed);showToast(G.essence>=cost?`${G.essence} Essence left · tap ${placed.name} to place another`:`${placed.name} cycle complete · refill the vial`);}
 }
 
+const HOLY_WATER_RADIUS=2.35;
+function startHolyWaterRain(x,y){
+ const level=Math.max(1,inv('waterSkill').level||1),hits=5,perHit=16+level*4;
+ const targets=G.enemies.filter(e=>!e.dead&&Math.hypot(e.x-x,e.y-y)<HOLY_WATER_RADIUS);
+ G.holyRains=G.holyRains||[];
+ G.holyRains.push({x,y,radius:HOLY_WATER_RADIUS,elapsed:0,nextPulse:0,pulses:0,hits,perHit,targets,level,duration:.76});
+ floatText(x,y-.35,`${hits}x HOLY BARRAGE`,'#c9f4ff');
+}
+function updateHolyWaterRains(dt){
+ if(!G?.holyRains?.length)return;
+ for(const rain of G.holyRains){
+  rain.elapsed+=dt;
+  while(rain.pulses<rain.hits&&rain.elapsed>=rain.nextPulse){
+   for(const e of rain.targets)if(e&&!e.dead)hit(e,rain.perHit,{holy:true,skill:true,noCrit:true,kind:'holyWaterBarrage'});
+   const drops=8+Math.min(4,rain.level);
+   for(let i=0;i<drops;i++){
+    const angle=Math.random()*Math.PI*2,radius=Math.sqrt(Math.random())*rain.radius;
+    const px=rain.x+Math.cos(angle)*radius,py=rain.y+Math.sin(angle)*radius;
+    G.particles.push({x:px,y:py-.65-Math.random()*.45,vx:-.08+Math.random()*.16,vy:4.8+Math.random()*1.8,life:.22+Math.random()*.10,maxLife:.32,color:i%3?'#aeeaff':'#f3fdff',kind:'holyDrop',impactY:py,size:1.4+Math.random()*1.6});
+   }
+   rain.pulses++;rain.nextPulse=rain.pulses*.13;
+   if(rain.pulses===1){for(const e of rain.targets)if(e&&!e.dead)e.burn=Math.max(e.burn||0,7+rain.level)}
+   hitPause(18);
+  }
+ }
+ G.holyRains=G.holyRains.filter(r=>r.elapsed<r.duration);
+ trimParticles();
+}
 function castSkill(c,x,y){
  if(!G.enemies.some(e=>!e.dead)&&['waterSkill','crossSkill','axeRain','grandCross'].includes(c.id)){
   G.queuedSkills.push({...c,target:{x,y}});showToast(`${c.name} armed — it will trigger when the next enemies enter`);floatText(GRID.cols/2,1.45,'SKILL ARMED','#ffe6a3');return;
  }
  if(c.id==='waterSkill'){
-  const level=Math.max(1,inv('waterSkill').level||1),hits=5,perHit=16+level*4;
-  G.enemies.forEach(e=>{if(Math.hypot(e.x-x,e.y-y)<2.35){for(let i=0;i<hits;i++)hit(e,perHit,{holy:true,skill:true,noCrit:true,kind:'holyWaterBarrage'});e.burn=Math.max(e.burn||0,7+level)}});
-  burst(x,y,'#ff6a32',58);hitPause(36);floatText(x,y-.35,`${hits}x HOLY BARRAGE`,'#ffe28a');
-}
+  startHolyWaterRain(x,y);
+ }
  if(c.id==='crossSkill'){G.enemies.forEach(e=>hit(e,38));for(let i=0;i<80;i++)G.particles.push({x:Math.random()*GRID.cols,y:Math.random()*GRID.rows,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2,life:1,color:'#ffe9a8'})}
  if(c.id==='freeze'){G.enemies.forEach(e=>e.freeze=3);G.flash=.35}
  if(c.id==='summon'){G.hero.frenzy=8;G.hp=Math.min(G.maxHp,G.hp+3);burst(G.hero.x,G.hero.y,'#f2d273',35)}
@@ -1757,18 +1846,24 @@ function trimParticles(){
 }
 function floatText(x,y,text,color='#fff'){if(!G)return;if(G.floaters.length>90)G.floaters.shift();G.floaters.push({x,y,text,color,life:1,vy:-.7})}
 const AUDIO=(()=>{
- let ctx=null,master=null,musicBus=null,sfxBus=null,ambBus=null,unlocked=false,state='menu',timer=0,nextNote=0,step=0,noise=null,wind=null;
+ const BATTLE_TRACK_URL=new URL('../../assets/audio/music/battle/battle_01.ogg',import.meta.url).href,BATTLE_FADE_SECONDS=.75,BATTLE_TRACK_LEVEL=.32;
+ let ctx=null,master=null,limiter=null,musicBus=null,sfxBus=null,ambBus=null,unlocked=false,state='menu',timer=0,nextNote=0,step=0,noise=null,wind=null;
+ let battleTrackData=fetch(BATTLE_TRACK_URL).then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.arrayBuffer()}).catch(error=>{console.warn('Battle music preload failed',error);return null});
+ let battleTrackBuffer=null,battleTrackDecode=null,battleTrackSource=null,battleTrackGain=null;
  const progressions={menu:[[48,55,60],[46,53,58],[43,50,55],[41,48,53]],campaign:[[50,57,62],[48,55,60],[45,52,57],[43,50,55]],battle:[[45,52,57],[43,50,55],[41,48,53],[38,45,50]],boss:[[38,45,50],[39,46,51],[36,43,48],[34,41,46]],victory:[[48,55,60],[52,59,64],[55,62,67],[60,64,67]],defeat:[[43,50,55],[41,48,53],[38,45,50],[36,43,48]]};
  const hz=n=>440*Math.pow(2,(n-69)/12);
- function ensure(){if(ctx)return true;try{const AC=window.AudioContext||window.webkitAudioContext;ctx=new AC();master=ctx.createGain();musicBus=ctx.createGain();sfxBus=ctx.createGain();ambBus=ctx.createGain();musicBus.connect(master);sfxBus.connect(master);ambBus.connect(master);master.connect(ctx.destination);noise=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);const d=noise.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*.35;apply();return true}catch(e){console.warn('Web Audio unavailable',e);return false}}
+ function ensure(){if(ctx)return true;try{const AC=window.AudioContext||window.webkitAudioContext;ctx=new AC();master=ctx.createGain();limiter=ctx.createDynamicsCompressor();musicBus=ctx.createGain();sfxBus=ctx.createGain();ambBus=ctx.createGain();limiter.threshold.value=-8;limiter.knee.value=12;limiter.ratio.value=4;limiter.attack.value=.003;limiter.release.value=.18;musicBus.connect(master);sfxBus.connect(master);ambBus.connect(master);master.connect(limiter);limiter.connect(ctx.destination);noise=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);const d=noise.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*.35;apply();return true}catch(e){console.warn('Web Audio unavailable',e);return false}}
   const volume=v=>Math.max(0,Math.min(1,Number(v)||0));
-  function apply(){if(!ctx)return;const enabled=save.settings.audio!==false;master.gain.setTargetAtTime(enabled?1:0,ctx.currentTime,.03);musicBus.gain.setTargetAtTime(save.settings.music===false?0:volume(save.settings.musicVolume??.46),ctx.currentTime,.08);sfxBus.gain.setTargetAtTime(save.settings.sfx===false?0:volume(save.settings.sfxVolume??.72),ctx.currentTime,.03);ambBus.gain.setTargetAtTime(volume(save.settings.ambienceVolume??.34),ctx.currentTime,.1)}
+  function apply(){if(!ctx)return;const enabled=save.settings.audio!==false;master.gain.setTargetAtTime(enabled?1:0,ctx.currentTime,.03);musicBus.gain.setTargetAtTime(save.settings.music===false?0:volume(save.settings.musicVolume??.46),ctx.currentTime,.08);sfxBus.gain.setTargetAtTime(save.settings.sfx===false?0:volume(save.settings.sfxVolume??.72)*2.25,ctx.currentTime,.03);ambBus.gain.setTargetAtTime(volume(save.settings.ambienceVolume??.34),ctx.currentTime,.1)}
   async function unlock(){if(!ensure())return false;try{if(ctx.state!=='running')await ctx.resume();unlocked=ctx.state==='running';if(!unlocked)return false;startWind();setState(state,true);document.querySelector('#audioUnlockHint')?.remove();return true}catch(e){console.warn('Web Audio resume failed',e);unlocked=false;return false}}
  function osc(note,when,dur=.6,type='sine',gain=.025,bus=musicBus,detune=0){if(!ctx||!unlocked)return;const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(hz(note),when);o.detune.value=detune;g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(Math.max(.0002,gain),when+.025);g.gain.exponentialRampToValueAtTime(.0001,when+dur);o.connect(g);g.connect(bus);o.start(when);o.stop(when+dur+.03)}
   function bell(note,when,gain=.018,bus=musicBus){osc(note,when,2.6,'sine',gain,bus);osc(note+12,when,1.8,'sine',gain*.28,bus,4)}
-  function schedule(){if(!ctx||!unlocked||state==='silence')return;if(save.settings.audio===false||save.settings.music===false){nextNote=ctx.currentTime+.08;return}while(nextNote<ctx.currentTime+.22){const chords=progressions[state]||progressions.menu,ch=chords[Math.floor(step/8)%chords.length],beat=step%8;const tense=state==='battle'||state==='boss';if(beat===0){bell(ch[0]-12,nextNote,state==='boss'?.035:.021);osc(ch[1],nextNote,1.6,'triangle',state==='boss'?.028:.016);osc(ch[2],nextNote+.012,1.5,'sine',.012)}if(tense&&beat%2===0)osc(ch[0]-24,nextNote,.13,'square',state==='boss'?.022:.012);if(state==='boss'&&beat%2===1)osc(ch[2]+12,nextNote,.1,'sawtooth',.008);if(state==='victory')osc(ch[beat%3]+12,nextNote,.45,'triangle',.015);if(state==='defeat'&&beat===4)bell(ch[0]-12,nextNote,.014);nextNote+=state==='boss'?.22:state==='battle'?.3:.42;step++}}
+  function schedule(){if(!ctx||!unlocked||state==='silence'||state==='battle')return;if(save.settings.audio===false||save.settings.music===false){nextNote=ctx.currentTime+.08;return}while(nextNote<ctx.currentTime+.22){const chords=progressions[state]||progressions.menu,ch=chords[Math.floor(step/8)%chords.length],beat=step%8;const tense=state==='boss';if(beat===0){bell(ch[0]-12,nextNote,state==='boss'?.035:.021);osc(ch[1],nextNote,1.6,'triangle',state==='boss'?.028:.016);osc(ch[2],nextNote+.012,1.5,'sine',.012)}if(tense&&beat%2===0)osc(ch[0]-24,nextNote,.13,'square',state==='boss'?.022:.012);if(state==='boss'&&beat%2===1)osc(ch[2]+12,nextNote,.1,'sawtooth',.008);if(state==='victory')osc(ch[beat%3]+12,nextNote,.45,'triangle',.015);if(state==='defeat'&&beat===4)bell(ch[0]-12,nextNote,.014);nextNote+=state==='boss'?.22:.42;step++}}
  function startWind(){if(wind||!noise)return;const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),g=ctx.createGain();src.buffer=noise;src.loop=true;filter.type='lowpass';filter.frequency.value=650;g.gain.value=.035;src.connect(filter);filter.connect(g);g.connect(ambBus);src.start();wind={src,g};}
- function setState(next,force=false){state=next||'menu';if(!unlocked)return;if(force||nextNote<ctx.currentTime){nextNote=ctx.currentTime+.05;step=0}clearInterval(timer);if(state==='silence')return;timer=setInterval(schedule,80);schedule()}
+ async function decodeBattleTrack(){if(battleTrackBuffer)return battleTrackBuffer;if(!ctx)return null;if(!battleTrackDecode)battleTrackDecode=(async()=>{const data=await battleTrackData;if(!data)return null;try{battleTrackBuffer=await ctx.decodeAudioData(data.slice(0));return battleTrackBuffer}catch(error){console.warn('Battle music decoding failed',error);return null}})();return battleTrackDecode}
+ function stopBattleTrack(fade=true){const source=battleTrackSource,gain=battleTrackGain;if(!source||!gain||!ctx)return;battleTrackSource=null;battleTrackGain=null;const now=ctx.currentTime,fadeTime=fade?BATTLE_FADE_SECONDS:0;gain.gain.cancelScheduledValues(now);gain.gain.setValueAtTime(Math.max(.0001,gain.gain.value),now);gain.gain.linearRampToValueAtTime(0,now+fadeTime);try{source.stop(now+fadeTime+.02)}catch(_){}}
+ async function startBattleTrack(restart=false){if(!ctx||!unlocked||state!=='battle')return;if(battleTrackSource&&!restart){const now=ctx.currentTime;battleTrackGain.gain.cancelScheduledValues(now);battleTrackGain.gain.setValueAtTime(Math.max(0,battleTrackGain.gain.value),now);battleTrackGain.gain.linearRampToValueAtTime(BATTLE_TRACK_LEVEL,now+BATTLE_FADE_SECONDS);return}if(battleTrackSource)stopBattleTrack(false);const buffer=await decodeBattleTrack();if(!buffer||state!=='battle'||!unlocked||battleTrackSource)return;const source=ctx.createBufferSource(),gain=ctx.createGain(),now=ctx.currentTime;source.buffer=buffer;source.loop=true;gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(BATTLE_TRACK_LEVEL,now+BATTLE_FADE_SECONDS);source.connect(gain);gain.connect(musicBus);battleTrackSource=source;battleTrackGain=gain;source.onended=()=>{if(battleTrackSource===source){battleTrackSource=null;battleTrackGain=null}};source.start(now)}
+ function setState(next,force=false,restartBattle=false){state=next||'menu';if(!unlocked)return;if(state==='battle')startBattleTrack(restartBattle);else stopBattleTrack(true);if(force||nextNote<ctx.currentTime){nextNote=ctx.currentTime+.05;step=0}clearInterval(timer);if(state==='silence'||state==='battle')return;timer=setInterval(schedule,80);schedule()}
   function tone(freq=220,dur=.08,type='sine',gain=.035){if(save.settings.audio===false||save.settings.sfx===false||!ensure())return;if(!unlocked||ctx.state!=='running'){unlock().then(ok=>{if(ok)tone(freq,dur,type,gain)});return}const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=freq;g.gain.value=Math.max(.0001,gain);o.connect(g);g.connect(sfxBus);o.start();g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);o.stop(ctx.currentTime+dur)}
   function sting(kind){if(save.settings.audio===false||save.settings.sfx===false||!ensure()||!unlocked)return;const now=ctx.currentTime+.03;if(kind==='boss'){[38,50,37,49].forEach((n,i)=>osc(n,now+i*.12,.55,'sawtooth',.025,sfxBus));bell(26,now,.045,sfxBus)}else if(kind==='victory'){[48,52,55,60,64].forEach((n,i)=>bell(n,now+i*.16,.026,sfxBus))}else if(kind==='defeat'){[48,45,41,36].forEach((n,i)=>bell(n,now+i*.28,.025,sfxBus))}else if(kind==='wave'){[60,67].forEach((n,i)=>osc(n,now+i*.1,.25,'triangle',.018,sfxBus))}}
  return {unlock,setState,tone,sting,apply,get state(){return state},get unlocked(){return unlocked}};
@@ -1776,6 +1871,16 @@ const AUDIO=(()=>{
 ['pointerdown','touchend','keydown'].forEach(ev=>window.addEventListener(ev,()=>AUDIO.unlock(),{once:true,passive:true}));
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&AUDIO.unlocked)AUDIO.unlock()});
 function playTone(freq=220,dur=.08,type='sine',gain=.035){AUDIO.tone(freq,dur,type,gain)}
+let lastUiClickSound=0;
+function playUiClickSound(event){
+ const control=event.target.closest?.('button,[role="button"]');
+ if(!control||control.disabled||control.getAttribute('aria-disabled')==='true')return;
+ const now=performance.now();if(now-lastUiClickSound<45)return;lastUiClickSound=now;
+ playTone(520,.055,'triangle',.06);
+ playTone(840,.035,'sine',.035);
+}
+document.addEventListener('pointerup',playUiClickSound,true);
+document.addEventListener('click',playUiClickSound,true);
 
 
 
@@ -1911,7 +2016,8 @@ const TOWER_AOE_SCALE=.5; // V32.2.2: all tower attack/AoE radii are reduced by 
 function towerCombatRange(t){
  const syn=synergyFor(t),weather=G.weather.id==='fog'?.88:1;
  const base=Math.max(1.05,Number(t.range)||1.35),rangeUpgrade=Number(t.upgradeRange||0)*.30;
- return (base+rangeUpgrade+Math.min(.20,((t.level||1)-1)*.05))*syn.range*weather*(G.relic?.id==='moonshard'?1.10:1)*TOWER_AOE_SCALE;
+  const candle=G.relic?.id==='candle'&&towerTags(t).holy?1.20:1;
+  return (base+rangeUpgrade+Math.min(.20,((t.level||1)-1)*.05))*syn.range*weather*candle*(G.relic?.id==='moonshard'?1.10:1)*TOWER_AOE_SCALE;
 }
 function enemyInsideTowerAOE(t,e){return !e.dead&&Math.hypot(e.x-(t.x+.5),e.y-(t.y+.5))<=towerCombatRange(t);}
 function cardUpgradeState(id){
@@ -1939,21 +2045,21 @@ function renderBattleUpgradeMenu(forceOpen=false){
  el.innerHTML=`<div class="battle-upgrade-card"><button class="battle-upgrade-close" type="button" aria-label="Close">×</button><div class="battle-upgrade-kicker">BATTLE LEVEL ${G.level}</div><h2>Upgrade an Entire Card Type</h2><p class="battle-upgrade-summary">Available: <b>${points}</b> · Upgrades affect every placed and future copy of that tower for this hunt.</p><div class="battle-upgrade-list">${representatives.length?representatives.map((t,i)=>{const state=cardUpgradeState(t.id),count=G.towers.filter(x=>!x.supportOnly&&!x.destroyed&&x.id===t.id).length;const button=(stat,label)=>{const rank=state[stat]||0,max=towerUpgradeMax(stat),cost=towerUpgradeCost(t,stat),disabled=rank>=max||points<cost;return `<button data-modal-tower="${i}" data-modal-stat="${stat}" ${disabled?'disabled':''}>${label}<small>Lv ${rank}/${max} · ${cost} pt</small></button>`};return `<article class="battle-upgrade-row"><div class="battle-upgrade-name"><span>${t.icon}</span><div><b>All ${t.name}s</b><small>${count} deployed</small></div></div><div class="battle-upgrade-actions">${button('damage','⚔ ATK')}${button('rate','⚡ Speed')}${button('range','◎ Radius')}</div></article>`}).join(''):'<div class="battle-upgrade-empty">Place an attack tower first. Your points remain available.</div>'}</div><div class="battle-tactical-actions"><button class="battle-swap-towers" type="button">⇄ Swap Two Towers</button><button class="battle-move-tower" type="button">✥ Move One Tower</button></div><button class="battle-upgrade-later" type="button">Save Points for Later</button></div>`;
  el.querySelector('.battle-upgrade-close').onclick=closeBattleUpgradeMenu;el.querySelector('.battle-upgrade-later').onclick=closeBattleUpgradeMenu;
  el.querySelector('.battle-swap-towers').onclick=()=>beginTowerEdit('swap');el.querySelector('.battle-move-tower').onclick=()=>beginTowerEdit('move');
- el.querySelectorAll('[data-modal-tower]').forEach(btn=>btn.onclick=()=>{const t=representatives[Number(btn.dataset.modalTower)];if(!t)return;G.selectedTower=t;upgradeSelectedTower(btn.dataset.modalStat);if((G.battlePoints||0)>0)renderBattleUpgradeMenu();else closeBattleUpgradeMenu();});
+ el.querySelectorAll('[data-modal-tower]').forEach(btn=>btn.onclick=()=>{const t=representatives[Number(btn.dataset.modalTower)];if(!t)return;const manuallySelected=G.selectedTower;G.selectedTower=t;upgradeSelectedTower(btn.dataset.modalStat,false);G.selectedTower=manuallySelected;renderInspector();if((G.battlePoints||0)>0)renderBattleUpgradeMenu();else closeBattleUpgradeMenu();});
 }
 
 function openBattleUpgradeMenu(){if(!G)return;if((G.battlePoints||0)<=0)return showToast('Earn Battle XP to gain an Upgrade Point');renderBattleUpgradeMenu(true)}
 function grantBattleXp(amount=1){const mult=G.weather.id==='blood'?1.4:1;G.xp+=amount*mult;let earned=0;while(G.xp>=G.xpNeed){G.xp-=G.xpNeed;G.level++;G.battlePoints=(G.battlePoints||0)+1;earned++;G.xpNeed=Math.ceil(G.xpNeed*1.32);showToast(`Battle Level ${G.level} — choose a card-wide upgrade`);floatText(GRID.cols/2,1.35,'+1 UPGRADE POINT','#ffe28a');playTone(690,.12,'triangle',.04)}if(earned)setTimeout(()=>{if(G&&G.state==='play')renderBattleUpgradeMenu(true)},120)}
-function upgradeSelectedTower(stat){
+function upgradeSelectedTower(stat,showDetails=true){
  const t=G?.selectedTower;if(!t||t.supportOnly)return;const state=cardUpgradeState(t.id),max=towerUpgradeMax(stat),rank=Number(state[stat]||0);if(rank>=max)return showToast(`${stat==='range'?'Radius':stat==='rate'?'Speed':'ATK'} is already Level ${max}`);const cost=towerUpgradeCost(t,stat);if((G.battlePoints||0)<cost)return showToast(`Need ${cost} Upgrade Point${cost===1?'':'s'}`);
  G.battlePoints-=cost;state[stat]=rank+1;
  const affected=G.towers.filter(x=>!x.supportOnly&&!x.destroyed&&x.id===t.id);
  for(const tower of affected){tower.level=1+Math.max(state.damage||0,state.range||0,state.rate||0);if(stat==='damage'){tower.upgradeDamage=(tower.upgradeDamage||0)+1;tower.damage*=1.24}else if(stat==='range')tower.upgradeRange=(tower.upgradeRange||0)+1;else if(stat==='rate'){tower.upgradeRate=(tower.upgradeRate||0)+1;tower.rate=Math.max(.18,tower.rate*.86)}burst(tower.x+.5,tower.y+.5,'#ffe28a',24)}
- showToast(`All ${t.name}s · ${stat==='range'?'Radius':stat==='rate'?'Speed':'ATK'} Level ${state[stat]}/${max}`);renderInspector();const bp=$('#battlePointTxt');if(bp)bp.textContent=G.battlePoints||0;
+ showToast(`All ${t.name}s · ${stat==='range'?'Radius':stat==='rate'?'Speed':'ATK'} Level ${state[stat]}/${max}`);if(showDetails)renderInspector();const bp=$('#battlePointTxt');if(bp)bp.textContent=G.battlePoints||0;
 }
 
 window.upgradeSelectedTower=upgradeSelectedTower;window.openBattleUpgradeMenu=openBattleUpgradeMenu;
-function awardRelic(){const pool=RELICS.filter(r=>!save.unlockedRelics.includes(r.id));const r=pool.length?pool[Math.floor(Math.random()*pool.length)]:RELICS[Math.floor(Math.random()*RELICS.length)];G.relic=r;$('#relicTxt').textContent=r.name;if(r.id==='fang')G.hero.rate*=.82;if(r.id==='candle'){for(const t of G.towers){if(towerTags(t).holy){t.damage*=1.2;t.range*=1.2}}}if(!save.unlockedRelics.includes(r.id))save.unlockedRelics.push(r.id);saveProgress();showToast(`Relic discovered: ${r.name}`)}
+function awardRelic(){const pool=RELICS.filter(r=>!save.unlockedRelics.includes(r.id));const r=pool.length?pool[Math.floor(Math.random()*pool.length)]:RELICS[Math.floor(Math.random()*RELICS.length)];if(G.relic?.id==='fang')G.hero.rate*=1.18;G.relic=r;if(r.id==='fang')G.hero.rate/=1.18;if(r.id==='ring')G.relicKillCount=0;$('#relicTxt').textContent=r.name;if(!save.unlockedRelics.includes(r.id))save.unlockedRelics.push(r.id);saveProgress();showToast(`Relic discovered: ${r.name}`)}
 function enemyDeath(e){if(e.type==='skeleton')for(let i=0;i<18;i++)G.particles.push({x:e.x,y:e.y,vx:(Math.random()-.5)*4,vy:-Math.random()*3,life:.6+Math.random()*.5,color:'#d8d0be'});else if(e.type==='ghost')burst(e.x,e.y,'#bda8ff',28);else if(e.type==='vampire')for(let i=0;i<9;i++)G.particles.push({x:e.x,y:e.y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,life:.8,color:'#632b78'});else burst(e.x,e.y,e.boss?'#d6b1ff':'#ba233e',e.boss?70:14);const motes=e.boss?12:e.elite?7:4;for(let i=0;i<motes;i++)G.particles.push({x:e.x+(Math.random()-.5)*.25,y:e.y+(Math.random()-.5)*.2,vx:(Math.random()-.5)*.25,vy:-.55-Math.random()*.35,life:1.1+Math.random()*.55,color:'#cdb7ff',kind:'soul',phase:Math.random()*6.28})}
 // V32.1 — one place to retune the entire campaign difficulty curve.
 const DIFFICULTY={
@@ -2058,10 +2164,10 @@ function fireScripture(t){
   const target=candidates[i%candidates.length],origin=scriptureOrbitPoint(t,i,count,.12);
   G.shots.push({x:origin.x,y:origin.y,px:origin.x,py:origin.y,target,speed:12,damage:base*(1+.10*(t.level-1)),color:'#ffe58a',aoe:0,pierce:0,slow:supportSlow,burn:shotBurn,holy:true,source:t,kind:'scripture',bibleIndex:i,spin:0,life:1.15,chain:t.level>=3?Math.min(2,t.level-2):0});
  }
- burst(t.x+.5,t.y+.5,'#ffe58a',Math.min(16,4+count*2));G.cameraPulse=Math.min(1,G.cameraPulse+.12);playTone(520+count*24,.07,'triangle',.025);
+ burst(t.x+.5,t.y+.5,'#ffe58a',Math.min(16,4+count*2));G.cameraPulse=Math.min(1,G.cameraPulse+.12);playTone(520+count*24,.07,'triangle',.05);
  t.t=t.rate/(1+.10*(t.level-1))/syn.rate;return true;
 }
-function fire(t,e){towerFireFX(t,e);playTone(t.id==='axe'?145:t.id==='dagger'?520:t.id==='holy'?690:t.id==='bone'?210:330,.035,t.id==='bone'?'sawtooth':'triangle',.012);if(t.id==='scripture'){fireScripture(t);return;}const syn=synergyFor(t),tags=towerTags(t);let shotSupportBurn=0,supportSlow=1;let dmg=t.damage*G.globalDamage*syn.damage*(t.elite?1.5:1)*(t.permanentPower||1)*(G.hero.def?.bonus.tower||1);if(t.id==='familiar')dmg*=G.hero.def?.bonus.familiar||1;const supports=t.supports||[];for(const s of supports){if(s.id==='holy'){dmg*=1.08*s.power;shotSupportBurn=5*s.power}else if(s.id==='freeze'){supportSlow=Math.min(supportSlow,.62)}else if(s.id==='guardian'){dmg*=1.05*s.power}}if(e.air&&['dagger','familiar','cross'].includes(t.id))dmg*=1.45;if(e.type==='armor'&&t.id==='axe')dmg*=1.6;if(G.weather.id==='rain'&&tags.fire)dmg*=.8;if(G.weather.id==='rain'&&(tags.holy||tags.lightning))dmg*=1.18;if(G.relic?.id==='candle'&&tags.holy)dmg*=1.2;
+function fire(t,e){towerFireFX(t,e);const fireFreq=t.id==='axe'?145:t.id==='dagger'?520:t.id==='holy'?690:t.id==='bone'?210:330,fireType=t.id==='bone'?'sawtooth':'triangle';playTone(fireFreq,.06,fireType,.06);playTone(fireFreq*1.55,.03,'square',.028);if(t.id==='scripture'){fireScripture(t);return;}const syn=synergyFor(t),tags=towerTags(t);let shotSupportBurn=0,supportSlow=1;let dmg=t.damage*G.globalDamage*syn.damage*(t.elite?1.5:1)*(t.permanentPower||1)*(G.hero.def?.bonus.tower||1);if(t.id==='familiar')dmg*=G.hero.def?.bonus.familiar||1;const supports=t.supports||[];for(const s of supports){if(s.id==='holy'){dmg*=1.08*s.power;shotSupportBurn=5*s.power}else if(s.id==='freeze'){supportSlow=Math.min(supportSlow,.62)}else if(s.id==='guardian'){dmg*=1.05*s.power}}if(e.air&&['dagger','familiar','cross'].includes(t.id))dmg*=1.45;if(e.type==='armor'&&t.id==='axe')dmg*=1.6;if(G.weather.id==='rain'&&tags.fire)dmg*=.8;if(G.weather.id==='rain'&&(tags.holy||tags.lightning))dmg*=1.18;if(G.relic?.id==='candle'&&tags.holy)dmg*=1.2;
  if(t.id==='dagger'){
   const dir=daggerDirection(t,e),length=daggerLaneLength(t),victims=G.enemies.filter(target=>enemyInDaggerLane(t,target,dir,length));
   for(const target of victims){hit(target,dmg,{holy:tags.holy||syn.holy,source:t,kind:'daggerLane'});if(supportSlow<1)target.slow=Math.min(target.slow,supportSlow);if(shotSupportBurn)target.burn=Math.max(target.burn||0,shotSupportBurn)}
@@ -2086,7 +2192,7 @@ function enemyEssenceReward(e){
 // V32.7.0 damage pipeline: defense/resistance first, critical multiplier second,
 // then a visible skill floor. This prevents criticals and multi-hit holy skills from collapsing to 1.
 function hit(e,d,shot=null){e.hitFlash=.11;if(!e.boss&&!e.attacking&&!e.dead)e.hurtT=ENEMY_ANIM.hurt;e.hitKick=Math.min(.16,(e.hitKick||0)+.055);const rawDamage=Math.max(0,Number(d)||0);if(e.holyOnly&&!shot?.holy)d*=.22;if(e.armor&&!shot?.holy)d*=1-e.armor*(G.relic?.id==='pallbearer'?.5:1);if(e.air&&(G.relic?.id==='voideye'||G.relic?.id==='abyssseal'))d*=1.30;const crit=!shot?.noCrit&&shot?.source==null&&G.hero&&Math.random()<G.hero.crit;if(crit){const critFloor=Math.max(8,rawDamage*.85,(G.hero.damage||10)*.55);d=Math.max(d*1.9,critFloor);G.flash=Math.max(G.flash,.08);hitPause(48)}d=Math.max(shot?.skill?(shot?.holy?5:3):0,d);e.hp-=d;if(e.hp<=0&&e.boss&&G)G.lastBossDeath={x:e.x,y:e.y,form:e.golemForm||1,type:e.type,name:e.name};impactFeedback(e,d,crit,shot);if(e.hp<=0&&!e.dead){e.dead=true;spawnCorpse(e);deathBurst(e);if((e.boss||e.elite)&&navigator.vibrate)navigator.vibrate(e.boss?[35,30,55]:25);G.kills++;grantFamiliarXp(e.boss?18:e.elite?5:2);G.killChain++;G.comboTimer=2.4;G.comboBest=Math.max(G.comboBest||0,G.killChain);const essenceGain=enemyEssenceReward(e);spawnEssencePickup(e,essenceGain);
- const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);floatText(e.x,e.y,`+${battleXp} battle XP`,'#ffe28a');floatText(e.x,e.y+.18,'+'+essenceGain+' essence','#d8c7ff');playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);if(G.relic?.id==='ring'&&G.killChain%5===0)for(const o of G.enemies){if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)o.hp-=24}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
+ const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);floatText(e.x,e.y,`+${battleXp} battle XP`,'#ffe28a');floatText(e.x,e.y+.18,'+'+essenceGain+' essence','#d8c7ff');playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);G.relicKillCount=(G.relicKillCount||0)+1;if(G.relic?.id==='ring'&&G.relicKillCount%5===0){burst(e.x,e.y,'#ffe7a4',32);floatText(e.x,e.y-.25,'RING EXPLOSION','#ffe7a4');playTone(190,.12,'sawtooth',.04);for(const o of [...G.enemies])if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)hit(o,24,{holy:true,noCrit:true,kind:'ringExplosion'})}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
 function weightedChoices(pool,count=3){
  const available=[...pool],out=[];
  while(out.length<count&&available.length){
@@ -2174,6 +2280,7 @@ function update(dt,syncHud=true,visualDt=dt){
  if(G.state!=='play'||G.paused)return;
  G.hitStop=Math.max(0,(G.hitStop||0)-dt);
  G.time+=dt;if(G.comboTimer>0){G.comboTimer-=dt;if(G.comboTimer<=0)G.killChain=0;}G.shake*=Math.exp(-7.67*dt);G.flash=Math.max(0,G.flash-dt);G.cameraPulse=Math.max(0,(G.cameraPulse||0)-dt*2.2);for(const a of G.ambient||[]){a.x+=a.v*dt;if(a.x>GRID.cols+1)a.x=-1;a.phase+=dt*(.5+a.v)}
+ updateHolyWaterRains(dt);
  if(G.weather.id==='rain'){G.rainSplashTimer=(G.rainSplashTimer||0)-dt;if(G.rainSplashTimer<=0){G.rainSplashTimer=.055+Math.random()*.09;const rx=Math.random()*GRID.cols,ry=Math.random()*GRID.rows;G.particles.push({x:rx,y:ry,vx:0,vy:0,life:.22,color:'#b9dcff',kind:'splash',size:3+Math.random()*4});}}
  G.spawnTimer-=dt;if(G.spawnLeft>0&&G.spawnTimer<=0){spawnEnemy();G.spawnLeft--;G.spawnTimer=Math.max(.24,(1.15-G.wave*.025)*.88)}
  if(G.spawnLeft===0&&G.enemies.length===0&&!G.pendingWave&&!G.waveTransition){G.waveDelay-=dt;if(G.waveDelay<=0){if(G.mode!=='endless'&&G.wave>=G.chapterWaves){chapterClear();return;}beginWaveTransition();return;}}
@@ -2236,7 +2343,15 @@ function update(dt,syncHud=true,visualDt=dt){
  for(const lane of G.laneShots||[]){lane.life-=dt;}
  for(const s of G.shots){s.life-=dt;if(!s.target||s.target.dead){s.life=0;continue}const dx=s.target.x-s.x,dy=s.target.y-s.y,d=Math.hypot(dx,dy);if(d<s.speed*dt+.15){if(s.source&&!enemyInsideTowerAOE(s.source,s.target)){s.life=0;continue}if(s.aoe)G.enemies.forEach(e=>{if(!e.dead&&Math.hypot(e.x-s.target.x,e.y-s.target.y)<s.aoe&&(!s.source||enemyInsideTowerAOE(s.source,e))){hit(e,s.damage,s);if(s.burn)e.burn=s.burn}});else {hit(s.target,s.damage,s);if(s.burn)s.target.burn=Math.max(s.target.burn||0,s.burn);if(s.kind==='scripture'&&s.chain>0){let from=s.target;const struck=new Set([s.target]);for(let jump=0;jump<s.chain;jump++){const next=G.enemies.filter(e=>!e.dead&&!struck.has(e)&&(!s.source||enemyInsideTowerAOE(s.source,e))&&Math.hypot(e.x-from.x,e.y-from.y)<1.25).sort((a,b)=>Math.hypot(a.x-from.x,a.y-from.y)-Math.hypot(b.x-from.x,b.y-from.y))[0];if(!next)break;G.shots.push({x:from.x,y:from.y,px:from.x,py:from.y,target:next,speed:15,damage:s.damage*.62,color:'#fff3a6',holy:true,source:s.source,kind:'scripture',life:.75,chain:0});struck.add(next);from=next;}}}if(s.slow)s.target.slow=Math.min(s.target.slow,s.slow);burst(s.target.x,s.target.y,s.color,s.kind==='scripture'?9:5);s.life=0}else{s.px=s.x;s.py=s.y;s.x+=dx/d*s.speed*dt;s.y+=dy/d*s.speed*dt}}
  if(visualDt>0){
-  for(const p of G.particles){p.life-=visualDt;if(p.kind==='soul'){p.phase=(p.phase||0)+visualDt*8;p.x+=((p.vx||0)+Math.sin(p.phase)*.16)*visualDt;p.y+=(p.vy||-.6)*visualDt;p.vy-=.12*visualDt}else{p.x+=p.vx*visualDt;p.y+=p.vy*visualDt;p.vy+=1.3*visualDt}}
+  for(const p of G.particles){
+   p.life-=visualDt;
+   if(p.kind==='soul'){p.phase=(p.phase||0)+visualDt*8;p.x+=((p.vx||0)+Math.sin(p.phase)*.16)*visualDt;p.y+=(p.vy||-.6)*visualDt;p.vy-=.12*visualDt}
+   else if(p.kind==='holyDrop'){
+    p.x+=p.vx*visualDt;p.y+=p.vy*visualDt;
+    if(p.y>=p.impactY){p.y=p.impactY;p.kind='holySplash';p.life=.20;p.maxLife=.20;p.vx=0;p.vy=0;p.size=3+(p.size||2)}
+   }else if(p.kind==='holySplash'||p.kind==='splash'){}
+   else{p.x+=p.vx*visualDt;p.y+=p.vy*visualDt;p.vy+=1.3*visualDt}
+  }
   for(const f of G.floaters){f.life-=visualDt;f.y+=f.vy*visualDt;f.x+=(f.vx||0)*visualDt;f.vy+=.55*visualDt;f.pop=Math.min(1,(f.pop||0)+visualDt*9)}
   G.particles=G.particles.filter(p=>p.life>0);trimParticles();G.floaters=G.floaters.filter(f=>f.life>0);updateCorpses(visualDt);updateJuice(visualDt);updateTowerFX(visualDt);
  }
@@ -2247,11 +2362,11 @@ function update(dt,syncHud=true,visualDt=dt){
  if(syncHud){const boss=G.enemies.find(e=>(e.boss||e.mini)&&!e.dead);
  $('#bossWrap').classList.toggle('hidden',!boss);
  if(boss){$('#bossName').textContent=boss.name;$('#bossHpTxt').textContent=`${Math.ceil(100*boss.hp/boss.max)}%`;$('#bossBar').style.width=`${Math.max(0,100*boss.hp/boss.max)}%`;}
- $('#hpTxt').textContent=Math.max(0,Math.ceil(G.hp));renderEssenceVial();$('#waveTxt').textContent=`${G.wave} / ${G.chapterWaves}`;$('#killTxt').textContent=G.kills;$('#xpBar').style.width=`${100*G.xp/G.xpNeed}%`;const bp=$('#battlePointTxt');if(bp)bp.textContent=G.battlePoints||0;}
+ $('#hpTxt').textContent=Math.max(0,Math.ceil(G.hp));renderEssenceVial();$('#waveTxt').textContent=`${G.wave} / ${G.chapterWaves}`;$('#xpBar').style.width=`${100*G.xp/G.xpNeed}%`;}
 
 }
 function grantEndChest(victory){const quality=victory?'Legendary Eclipse Chest':G.wave>=7?'Epic Reliquary':G.wave>=4?'Rare Coffer':'Common Cache';const count=victory?3:G.wave>=7?2:1;const rewards=[];for(let i=0;i<count;i++){const pool=CARD_POOL.filter(c=>save.unlocked.includes(c.id)&&inv(c.id).copies>0);const c=pool.length?pool[Math.floor(Math.random()*pool.length)]:card(DEFAULT_DECK[0]);if(!c)continue;const item=inv(c.id);item.copies++;item.recent=true;item.lastFound=Date.now();rewards.push('Common '+c.name)}return {quality,rewards}}
-function recordRun(result,earned,chest){const eco=ensureVillageEconomy();const villageLoot={gold:Math.round(G.kills*(result==='victory'?2.4:1.1)),food:Math.round(G.kills*.7),wood:Math.round(G.wave*3),stone:Math.round(G.wave*2),iron:result==='victory'?Math.max(1,Math.floor(G.wave/4)):0,essence:result==='victory'?Math.max(1,Math.floor(G.wave/5)):0};for(const [k,v] of Object.entries(villageLoot))eco[k]=(eco[k]||0)+v;G.villageLoot=villageLoot;save.runHistory.unshift({date:Date.now(),result,wave:G.wave,kills:G.kills,hero:save.selectedHero,deck:[...save.deck],drops:[...G.runDrops],chest:chest.quality,map:G.map.name});save.runHistory=save.runHistory.slice(0,20);save.bestWave=Math.max(save.bestWave,G.wave);save.essence+=earned;save.materials.bloodEssence=save.essence;save.stats.runs++;save.stats.totalKills+=G.kills;save.stats.highestWave=Math.max(save.stats.highestWave,G.wave);if(result==='victory'){save.stats.wins++;save.stats.bosses++;save.materials.eclipseShards+=2;save.materials.ancientRelics+=1;save.materials.hunterMedallions+=1;save.materials.forgeEmbers+=3}else if(G.miniBossDefeated){save.materials.eclipseShards+=1;save.materials.forgeEmbers+=1}saveProgress()}
+function recordRun(result,earned,chest){const eco=ensureVillageEconomy();const villageLoot={gold:Math.round(G.kills*(result==='victory'?2.4:1.1)),food:Math.round(G.kills*.7),wood:Math.round(G.wave*3),stone:Math.round(G.wave*2),iron:result==='victory'?Math.max(1,Math.floor(G.wave/4)):0,essence:result==='victory'?Math.max(1,Math.floor(G.wave/5)):0};for(const [k,v] of Object.entries(villageLoot))eco[k]=(eco[k]||0)+v;G.villageLoot=villageLoot;save.runHistory.unshift({date:Date.now(),result,wave:G.wave,kills:G.kills,hero:save.selectedHero,deck:[...save.deck],drops:[...G.runDrops],chest:chest.quality,map:G.map.name});save.runHistory=save.runHistory.slice(0,20);save.bestWave=Math.max(save.bestWave,G.wave);save.essence+=earned;save.materials.bloodEssence=save.essence;save.stats.runs++;save.stats.totalKills+=G.kills;save.stats.highestWave=Math.max(save.stats.highestWave,G.wave);save.stats.goldEarned+=villageLoot.gold;save.stats.bloodEssenceEarned+=earned;if(result==='victory'){save.stats.wins++;save.stats.bosses++;save.materials.eclipseShards+=2;save.materials.ancientRelics+=1;save.materials.hunterMedallions+=1;save.materials.forgeEmbers+=3}else if(G.miniBossDefeated){save.materials.eclipseShards+=1;save.materials.forgeEmbers+=1}saveProgress()}
 function chapterClear(){
  if(!G||G.chapterCleared)return;
  G.chapterCleared=true;
@@ -2300,7 +2415,8 @@ function finalizeChapterClear(uniqueShadowRewardOverride=false){
  }
  const repaired=reconcileCardUnlocks();
  for(const c of repaired)if(!newlyUnlocked.some(x=>x.id===c.id))newlyUnlocked.push(c);
- const stageId=G.chapter?.id;const jpEarned=firstClear&&stageId&&!save.jpAwardedStages.includes(stageId)?1:0;if(jpEarned){save.jpAwardedStages.push(stageId);save.heroJP[save.selectedHero]=(save.heroJP[save.selectedHero]||0)+1;}
+  const stageId=G.chapter?.id;const jpEarned=firstClear&&stageId&&!save.jpAwardedStages.includes(stageId)?1:0;if(jpEarned){save.jpAwardedStages.push(stageId);save.heroJP[save.selectedHero]=(save.heroJP[save.selectedHero]||0)+1;save.stats.jpEarned++;}
+  if(earnedStars===3)save.stats.perfectVictories++;
  const chest=grantEndChest(true);
  recordRun('victory',earned,chest);
  const unlockHtml=newlyUnlocked.length?`<br><br><strong>NEW CARDS UNLOCKED</strong><br>${newlyUnlocked.map(c=>`${c.icon} ${c.name}`).join('<br>')}`:'<br><br><em>Chapter rewards already owned — duplicate cards added to your chest.</em>';
@@ -2358,7 +2474,8 @@ function drawTowerVisual(t,x,y){
   ctx.save();ctx.globalAlpha=ctx.globalAlpha*.45;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(2,4,16,7,0,0,7);ctx.fill();ctx.restore();
   ctx.save();ctx.globalAlpha=.9;ctx.lineWidth=t.supportOnly?3:2.4;ctx.strokeStyle=t.supportOnly?'#79d9ff':'#f0c875';ctx.fillStyle=t.supportOnly?'rgba(25,95,125,.28)':'rgba(67,41,30,.4)';ctx.beginPath();ctx.arc(0,2,t.supportOnly?24:22,0,Math.PI*2);ctx.fill();ctx.stroke();if(t.supportOnly){ctx.setLineDash([3,4]);ctx.globalAlpha=.75;ctx.beginPath();ctx.arc(0,2,29,0,Math.PI*2);ctx.stroke()}ctx.restore();
  ctx.fillStyle='#0d0a10';ctx.strokeStyle=t.elite?'#ffe16d':t.color;ctx.lineWidth=t.elite?4:2;
- if(t.id==='dagger'){ctx.fillRect(-17,-13,34,31);ctx.strokeRect(-17,-13,34,31);ctx.rotate((G.time||0)*.8);for(let i=0;i<4;i++){ctx.rotate(Math.PI/2);ctx.beginPath();ctx.moveTo(0,-8);ctx.lineTo(0,-26);ctx.stroke()}}
+ if(t.id==='holy'){const tier=holyInfusionTier(t.infusionTier||1);ctx.fillStyle='#dff8ff';ctx.strokeStyle='#73ccef';ctx.beginPath();ctx.moveTo(-9,-16);ctx.lineTo(9,-16);ctx.lineTo(13,15);ctx.quadraticCurveTo(0,23,-13,15);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#64c9ef';ctx.beginPath();ctx.moveTo(-10,5);ctx.quadraticCurveTo(0,-1,10,5);ctx.lineTo(11,15);ctx.quadraticCurveTo(0,20,-11,15);ctx.closePath();ctx.fill();for(let i=0;i<tier;i++){const a=(G.time||0)*1.7+i*Math.PI*2/tier;const dx=Math.cos(a)*(18+i*3),dy=-18+Math.sin(a)*7;drawGlow(dx,dy,'#bff5ff',8,.65);ctx.fillStyle='#e9fdff';ctx.beginPath();ctx.arc(dx,dy,2.3,0,7);ctx.fill()}}
+ else if(t.id==='dagger'){ctx.fillRect(-17,-13,34,31);ctx.strokeRect(-17,-13,34,31);ctx.rotate((G.time||0)*.8);for(let i=0;i<4;i++){ctx.rotate(Math.PI/2);ctx.beginPath();ctx.moveTo(0,-8);ctx.lineTo(0,-26);ctx.stroke()}}
  else if(t.id==='axe'){ctx.fillRect(-18,-12,36,30);ctx.strokeRect(-18,-12,36,30);ctx.rotate(-.25+.08*Math.sin(G.time*4));ctx.fillRect(-3,-30,6,24);ctx.strokeRect(-3,-30,6,24);ctx.beginPath();ctx.arc(6,-30,11,-1.5,1.5);ctx.stroke()}
  else if(t.id==='cross'){ctx.beginPath();ctx.arc(0,3,20,0,7);ctx.fill();ctx.stroke();ctx.globalAlpha=.55+.35*pulse;ctx.fillStyle='#ffe79a';ctx.fillRect(-4,-30,8,40);ctx.fillRect(-14,-18,28,8)}
  else if(t.id==='clock'){ctx.beginPath();ctx.arc(0,0,22,0,7);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-14);ctx.moveTo(0,0);ctx.lineTo(10,5);ctx.stroke();ctx.globalAlpha=.4;ctx.beginPath();ctx.arc(0,0,28+pulse*5,0,7);ctx.stroke()}
@@ -2415,10 +2532,11 @@ function draw(){
   for(const s of G.shots){const px=s.x*64,py=s.y*64,ang=Math.atan2(s.target.y-s.y,s.target.x-s.x);s.spin=(s.spin||0)+.22;ctx.save();ctx.translate(px,py);if(s.px!=null&&s.py!=null){ctx.save();ctx.rotate(-Math.atan2(s.y-s.py,s.x-s.px));ctx.globalAlpha=.24;ctx.fillStyle=s.color;ctx.fillRect(-26,-2,24,4);ctx.restore()}ctx.rotate(['dagger','axe','cross'].includes(s.kind)?s.spin:ang);ctx.strokeStyle=s.color;ctx.fillStyle=s.color;ctx.globalAlpha=.9;ctx.lineWidth=2;if(s.kind==='scripture'){const tx=(s.target.x-s.x)*64,ty=(s.target.y-s.y)*64;ctx.strokeStyle='#fff3a6';ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(0,0);const steps=5;for(let j=1;j<steps;j++){const q=j/steps,off=(j%2?1:-1)*(3+Math.sin((G.time||0)*18+j)*2);ctx.lineTo(tx*q+Math.cos(ang+Math.PI/2)*off,ty*q+Math.sin(ang+Math.PI/2)*off)}ctx.lineTo(tx,ty);ctx.stroke();drawGlow(0,0,'#ffe36e',9,.75);ctx.fillStyle='#fff8cf';ctx.beginPath();ctx.arc(0,0,3.5,0,7);ctx.fill()}else if(s.kind==='whip'){ctx.beginPath();ctx.moveTo(-20,0);ctx.quadraticCurveTo(-7,-10,5,0);ctx.quadraticCurveTo(13,8,20,-2);ctx.stroke()}else if(s.kind==='arrow'){ctx.fillRect(-10,-1,20,2);ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(5,-3);ctx.lineTo(5,3);ctx.closePath();ctx.fill()}else if(s.kind==='familiar'){ctx.beginPath();ctx.arc(0,0,5,0,7);ctx.fill();ctx.globalAlpha=.3;ctx.beginPath();ctx.arc(0,0,10,0,7);ctx.fill()}else if(s.kind==='dagger'){ctx.fillRect(-9,-1.5,18,3);ctx.beginPath();ctx.moveTo(9,0);ctx.lineTo(4,-4);ctx.lineTo(4,4);ctx.closePath();ctx.fill()}else if(s.kind==='axe'){ctx.fillRect(-2,-10,4,20);ctx.beginPath();ctx.arc(3,-8,8,-1.4,1.4);ctx.stroke()}else if(s.kind==='bone'){ctx.beginPath();ctx.arc(0,0,7,0,7);ctx.fill();ctx.globalAlpha=.35;ctx.beginPath();ctx.arc(0,0,13,0,7);ctx.fill()}else if(s.kind==='cross'){ctx.fillRect(-2,-9,4,18);ctx.fillRect(-7,-3,14,5)}else{ctx.beginPath();ctx.arc(0,0,4,0,7);ctx.fill()}ctx.restore();ctx.globalAlpha=1}ctx.lineWidth=1;
   for(const a of G.ambient||[]){const ax=a.x*64,ay=(a.y+.18*Math.sin(a.phase))*64;ctx.globalAlpha=.18+.18*Math.sin(a.phase*1.7);ctx.fillStyle=a.kind===0?'#d8b86f':a.kind===1?'#a9c8d0':'#8b6b93';if(a.kind===2){ctx.beginPath();ctx.arc(ax,ay,2.2,0,7);ctx.fill()}else ctx.fillRect(ax,ay,1.5,4);ctx.globalAlpha=1}
   if(Math.sin(G.time*.35)>0.985){ctx.strokeStyle='#161018aa';ctx.lineWidth=2;for(let i=0;i<3;i++){const rx=((G.time*45+i*90)%gw),ry=45+i*10;ctx.beginPath();ctx.moveTo(rx-10,ry);ctx.quadraticCurveTo(rx,ry-8,rx+10,ry);ctx.quadraticCurveTo(rx+20,ry-8,rx+30,ry);ctx.stroke()}ctx.lineWidth=1}
-  if(G.weather.id==='rain'){ctx.strokeStyle='#b8d9ff66';for(let i=0;i<55;i++){const x=(i*67+G.time*260)%gw,y=(i*89+G.time*430)%gh;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-7,y+18);ctx.stroke()}}
-  if(G.weather.id==='fog'){ctx.fillStyle='#c7d6d722';for(let i=0;i<5;i++){const x=((i*190+G.time*18)%(gw+260))-130;ctx.beginPath();ctx.ellipse(x,gh*(.25+i*.15),150,28,0,0,7);ctx.fill()}}
-  if(G.weather.id==='blood'){ctx.fillStyle='#a9152530';ctx.fillRect(0,0,gw,gh);ctx.fillStyle='#ce324455';ctx.beginPath();ctx.arc(gw-88,68,38,0,7);ctx.fill()}
-  for(const p of G.particles){ctx.globalAlpha=Math.max(0,Math.min(1,p.life));ctx.fillStyle=p.color;if(p.kind==='soul'){const pr=2.2+Math.max(0,p.life);drawGlow(p.x*64,p.y*64,p.color,pr*3.1,.8);ctx.beginPath();ctx.arc(p.x*64,p.y*64,pr,0,7);ctx.fill()}else if(p.kind==='spark'){const k=Math.max(0,Math.min(1,p.life/.4)),sz=(p.size||2)*(.45+k);ctx.fillRect(p.x*64-sz/2,p.y*64-sz/2,sz,sz)}else if(p.kind==='splash'){ctx.strokeStyle=p.color;ctx.lineWidth=1.4;ctx.beginPath();ctx.ellipse(p.x*64,p.y*64,(p.size||4)*(1-p.life),2.2,0,0,7);ctx.stroke()}else if(p.kind==='debris'){const sz=p.size||3;ctx.fillRect(p.x*64-sz/2,p.y*64-sz/2,sz,sz)}else ctx.fillRect(p.x*64,p.y*64,3,3)}for(const f of G.floaters){const pop=1+.55*(1-Math.pow(1-(f.pop??1),3))-.55;const sz=Math.round((f.size||12)*(.55+.45*(f.pop??1))*(1+.18*pop));ctx.globalAlpha=Math.max(0,Math.min(1,f.life*1.4));ctx.font=`bold ${sz}px Georgia`;ctx.textAlign='center';if(f.crit){ctx.lineWidth=3;ctx.strokeStyle='#3a1420';ctx.strokeText(f.text,f.x*64,f.y*64)}ctx.fillStyle=f.color;ctx.fillText(f.text,f.x*64,f.y*64)}ctx.globalAlpha=1;
+   if(G.weather.id==='rain'){ctx.strokeStyle='#b8d9ff66';for(let i=0;i<55;i++){const x=(i*67+G.time*260)%gw,y=(i*89+G.time*430)%gh;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-7,y+18);ctx.stroke()}}
+   if(G.weather.id==='fog'){ctx.fillStyle='#c7d6d722';for(let i=0;i<5;i++){const x=((i*190+G.time*18)%(gw+260))-130;ctx.beginPath();ctx.ellipse(x,gh*(.25+i*.15),150,28,0,0,7);ctx.fill()}}
+   if(G.weather.id==='blood'){ctx.fillStyle='#a9152530';ctx.fillRect(0,0,gw,gh);ctx.fillStyle='#ce324455';ctx.beginPath();ctx.arc(gw-88,68,38,0,7);ctx.fill()}
+  for(const rain of G.holyRains||[]){const q=Math.max(0,1-rain.elapsed/rain.duration),r=rain.radius*64;ctx.save();ctx.globalAlpha=.12+.16*q;ctx.fillStyle='#8edcff';ctx.beginPath();ctx.arc(rain.x*64,rain.y*64,r,0,Math.PI*2);ctx.fill();ctx.globalAlpha=.55*q;ctx.strokeStyle='#dffaff';ctx.lineWidth=2;ctx.setLineDash([7,9]);ctx.beginPath();ctx.arc(rain.x*64,rain.y*64,r,0,Math.PI*2);ctx.stroke();ctx.restore()}
+  for(const p of G.particles){ctx.globalAlpha=Math.max(0,Math.min(1,p.maxLife?p.life/p.maxLife:p.life));ctx.fillStyle=p.color;if(p.kind==='soul'){const pr=2.2+Math.max(0,p.life);drawGlow(p.x*64,p.y*64,p.color,pr*3.1,.8);ctx.beginPath();ctx.arc(p.x*64,p.y*64,pr,0,7);ctx.fill()}else if(p.kind==='spark'){const k=Math.max(0,Math.min(1,p.life/.4)),sz=(p.size||2)*(.45+k);ctx.fillRect(p.x*64-sz/2,p.y*64-sz/2,sz,sz)}else if(p.kind==='holyDrop'){const x=p.x*64,y=p.y*64,len=8+(p.size||2)*3;drawGlow(x,y,p.color,7,.45);ctx.strokeStyle=p.color;ctx.lineWidth=p.size||2;ctx.beginPath();ctx.moveTo(x-2,y-len);ctx.lineTo(x,y);ctx.stroke()}else if(p.kind==='holySplash'){const q=Math.max(0,p.life/(p.maxLife||.2)),radius=(p.size||5)*(1-q);ctx.strokeStyle=p.color;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(p.x*64,p.y*64,radius*2.2,radius*.55,0,0,7);ctx.stroke();ctx.fillStyle='#f3fdff';ctx.beginPath();ctx.arc(p.x*64,p.y*64-2,1.2*q,0,7);ctx.fill()}else if(p.kind==='splash'){ctx.strokeStyle=p.color;ctx.lineWidth=1.4;ctx.beginPath();ctx.ellipse(p.x*64,p.y*64,(p.size||4)*(1-p.life),2.2,0,0,7);ctx.stroke()}else if(p.kind==='debris'){const sz=p.size||3;ctx.fillRect(p.x*64-sz/2,p.y*64-sz/2,sz,sz)}else ctx.fillRect(p.x*64,p.y*64,3,3)}for(const f of G.floaters){const pop=1+.55*(1-Math.pow(1-(f.pop??1),3))-.55;const sz=Math.round((f.size||12)*(.55+.45*(f.pop??1))*(1+.18*pop));ctx.globalAlpha=Math.max(0,Math.min(1,f.life*1.4));ctx.font=`bold ${sz}px Georgia`;ctx.textAlign='center';if(f.crit){ctx.lineWidth=3;ctx.strokeStyle='#3a1420';ctx.strokeText(f.text,f.x*64,f.y*64)}ctx.fillStyle=f.color;ctx.fillText(f.text,f.x*64,f.y*64)}ctx.globalAlpha=1;
  }
  ctx.restore();drawGateVignette();drawRoseWindow();if(G?.flash){ctx.fillStyle=`rgba(220,210,255,${G.flash})`;ctx.fillRect(0,0,W,H)}
 }
@@ -2437,11 +2555,11 @@ function updateBottomNav(screen){
  const deckScreen=$('#deckScreen'),inspectScreen=$('#cardInspectScreen');
  if(!deckScreen||deckScreen.dataset.cardsController==='2722')return;
  deckScreen.dataset.cardsController='2722';
- let lastPointerAction=0;
+ let lastPointerAction=0,pointerGesture=null,suppressCardClickUntil=0;
  const activate=(event)=>{
   const keyboard=event.type==='keydown';
   if(keyboard&&event.key!=='Enter'&&event.key!==' ')return;
-  if(event.type==='click'&&performance.now()-lastPointerAction<500)return;
+   if(event.type==='click'&&(performance.now()-lastPointerAction<500||performance.now()<suppressCardClickUntil))return;
   const target=event.target instanceof Element?event.target:null;if(!target)return;
   const tab=target.closest('.card-file-tab[data-card-filter]');
   if(tab&&deckScreen.contains(tab)){
@@ -2455,19 +2573,32 @@ function updateBottomNav(screen){
   if(action&&deckScreen.contains(action)){
    event.preventDefault();event.stopPropagation();
    if(action.dataset.cardsAction==='empty-slot'){showToast('Choose a card from the collection');return}
-   if(action.dataset.cardsAction==='ground-toggle'){
-    const gid=action.dataset.groundCardId;
-    if(save.groundDefenseSlots.includes(gid))save.groundDefenseSlots=save.groundDefenseSlots.filter(x=>x!==gid);
-    else if(save.groundDefenseSlots.length<2)save.groundDefenseSlots.push(gid);
-    else{save.groundDefenseSlots.shift();save.groundDefenseSlots.push(gid)}
-    saveProgress();renderDeck();showToast(`${groundCardById(gid)?.name||'Ground defense'} ${save.groundDefenseSlots.includes(gid)?'equipped':'removed'}`);return;
+    if(action.dataset.cardsAction==='ground-inspect'){
+     const ground=groundCardById(action.dataset.groundCardId);
+     if(ground)showCardDetail(ground);return;
    }
    const id=action.dataset.cardId,c=id?card(id):null;
    if(action.dataset.cardsAction==='locked'){const unlockAt=unlockChapterForCard(id);showToast(unlockAt?`Defeat Chapter ${unlockAt.number} to unlock ${c?.name||'this card'}`:`${c?.name||'This card'} is still locked`);return}
    if(c)showCardDetail(c);return;
   }
  };
- deckScreen.addEventListener('pointerup',event=>{if(event.pointerType==='mouse'&&event.button!==0)return;lastPointerAction=performance.now();activate(event)},{capture:true,passive:false});
+ deckScreen.addEventListener('pointerdown',event=>{
+  if(event.pointerType==='mouse'&&event.button!==0)return;
+  const target=event.target instanceof Element?event.target.closest('[data-cards-action],.card-file-tab[data-card-filter],#mergeAllBtn'):null;
+  pointerGesture=target?{id:event.pointerId,x:event.clientX,y:event.clientY,moved:false}:null;
+ },{capture:true,passive:true});
+ deckScreen.addEventListener('pointermove',event=>{
+  if(!pointerGesture||pointerGesture.id!==event.pointerId)return;
+  if(Math.hypot(event.clientX-pointerGesture.x,event.clientY-pointerGesture.y)>10)pointerGesture.moved=true;
+ },{capture:true,passive:true});
+ deckScreen.addEventListener('pointerup',event=>{
+  if(event.pointerType==='mouse'&&event.button!==0)return;
+  const gesture=pointerGesture;pointerGesture=null;
+  if(!gesture||gesture.id!==event.pointerId||gesture.moved){suppressCardClickUntil=performance.now()+700;return}
+  lastPointerAction=performance.now();activate(event);
+ },{capture:true,passive:false});
+ deckScreen.addEventListener('pointercancel',()=>{pointerGesture=null;suppressCardClickUntil=performance.now()+700},{capture:true,passive:true});
+ deckScreen.addEventListener('scroll',()=>{if(pointerGesture)pointerGesture.moved=true;suppressCardClickUntil=performance.now()+250},{capture:true,passive:true});
  deckScreen.addEventListener('click',activate,true);
  deckScreen.addEventListener('keydown',activate,true);
  let lastDetailPointer=0;
@@ -2475,11 +2606,14 @@ function updateBottomNav(screen){
   if(event.type==='click'&&performance.now()-lastDetailPointer<500)return;
   const btn=event.target instanceof Element?event.target.closest('[data-detail-action]'):null;if(!btn)return;
   event.preventDefault();event.stopPropagation();
-  const id=btn.dataset.cardId,c=card(id);if(!c)return;
-  if(btn.dataset.detailAction==='deck'){
-   const equipped=save.deck.includes(id);
-   if(setDeckCard(id,!equipped)){openScreen(UI.deck);renderDeck();showToast(equipped?`${c.name} removed from battle deck`:`${c.name} added to battle deck`)}
-  }else if(btn.dataset.detailAction==='merge'){mergeCard(id);showCardDetail(c)}
+   const id=btn.dataset.cardId,c=card(id)||groundCardById(id);if(!c)return;
+   if(btn.dataset.detailAction==='deck'){
+    const equipped=save.deck.includes(id);
+    if(setDeckCard(id,!equipped)){openScreen(UI.deck);renderDeck();showToast(equipped?`${c.name} removed from battle deck`:`${c.name} added to battle deck`)}
+   }else if(btn.dataset.detailAction==='ground'){
+    const equipped=save.groundDefenseSlots.includes(id);
+    if(setGroundDefenseCard(id,!equipped)){openScreen(UI.deck);renderDeck();showToast(equipped?`${c.name} removed from Hero`:`${c.name} added to Hero`)}
+   }else if(btn.dataset.detailAction==='merge'){mergeCard(id);showCardDetail(c)}
  };
  inspectScreen?.addEventListener('pointerup',event=>{if(event.pointerType==='mouse'&&event.button!==0)return;lastDetailPointer=performance.now();activateDetail(event)},{capture:true,passive:false});
  inspectScreen?.addEventListener('click',activateDetail,true);
@@ -2500,8 +2634,27 @@ function attackPattern(c){
  const map={axe:{title:'Rainbow Arc',html:'<div class="arc-demo"><span class="demo-tower">🪓</span><i></i><b>🦇</b><em>●</em></div>',text:'Throws a heavy axe through a high curved arc. It pierces clustered ground enemies and can strike flying bats along the arc.'},dagger:{title:'Rapid Line Volley',html:'<div class="line-demo"><span>🗡️</span><i>➤ ➤ ➤</i><b>●</b></div>',text:'Fires once every 3 seconds in a straight cardinal lane and pierces every enemy in its path. Level 1 reaches 3 tiles, Level 2 reaches 4, and Level 3 reaches 5.'},whip:{title:'Chain Sweep',html:'<div class="line-demo"><span>⛓️</span><i>⌁⌁⌁</i><b>● ●</b></div>',text:'Sweeps a short chain across nearby targets and excels at general defense.'},cross:{title:'Returning Path',html:'<div class="return-demo"><span>✝️</span><i>→ → ↩</i><b>●</b></div>',text:'The holy blade travels outward, then returns through enemies for a possible second hit.'},silver:{title:'Explosive Parabola',html:'<div class="arc-demo"><span>💥</span><i></i><b>●●●</b></div>',text:'Launches a slow shell in an arc that explodes across a clustered group.'},garlic:{title:'Pungent Aura',html:'<div class="line-demo"><span>🧄</span><i>◉ ◉ ◉</i><b>●●●</b></div>',text:'Continuously damages and slows every undead enemy inside its circular aura. Excellent beside bends and crowded road sections.'},familiar:{title:'Seeking Flight',html:'<div class="line-demo"><span>🦇</span><i>⌁ ↗ ⌁</i><b>●</b></div>',text:'Summoned familiars seek distant targets and naturally engage airborne enemies.'},scripture:{title:'Living Word Field',html:'<div class="line-demo"><span>📖</span><i>⚡ ✦ ⚡</i><b>● ● ●</b></div>',text:'Living Bibles orbit the tower and independently strike enemies inside its sacred field. Every level adds another Bible; level 3 and above chains holy lightning.'}};
  return map[c.id]||{title:c.type==='support'?'Tower Infusion':'Attack Profile',html:`<div class="line-demo"><span>${c.icon}</span><i>✦ ✦ ✦</i><b>●</b></div>`,text:c.desc};
 }
-function cardMetrics(c){if(c.type==='tower')return [['Damage',c.damage||0],['Range',(c.range||0).toFixed(1)+' tiles'],['Attack speed',(1/(c.rate||1)).toFixed(2)+'/s'],['Targets',['axe','dagger','cross','familiar'].includes(c.id)?'Ground + Flying':'Ground']];if(c.type==='support')return [['Role','Tower Support'],['Use','Attach once'],['Effect',c.id==='holy'?'Burn + Splash':c.id==='freeze'?'Slow':'Protection']];if(c.type==='skill')return [['Role','One-use Skill'],['Targeting','Battlefield'],['Cost',c.cost+' souls']];return [['Role','Run-only Hero Upgrade'],['Duration','Current run'],['Cost','Free']];}
-function showCardDetail(c){const item=inv(c.id),r=rarityDef(item.rarity),pattern=attackPattern(c),compat=c.type==='support'?'Whip, Dagger, Axe, Cross, Clock, Bone, Familiar, Cannon, Rosary, Garlic, Living Word':c.type==='tower'?'Holy Water Infusion · Chrono Sigil · Guardian Ward':'—',fav=save.favorites.includes(c.id);openScreen($('#cardInspectScreen'));const el=$('#cardDetail');el.innerHTML=`<div class="detail-card-wrap"><article class="card portrait-card detail-card rarity-${item.rarity}">${cardHTML(c,true)}</article></div><div class="detail-copy"><div class="detail-heading"><div class="detail-title-row"><span>${r.name} · Level ${item.level}</span><button id="detailFavorite" class="favorite-button ${fav?'active':''}" type="button">★ ${fav?'Favorited':'Favorite'}</button></div><h2>${c.icon} ${c.name}</h2><p>${c.desc}</p><small class="card-flavor">A relic-bound technique preserved by the last defenders of the kingdom.</small></div><div class="metric-grid">${cardMetrics(c).map(([a,b])=>`<div><small>${a}</small><b>${b}</b></div>`).join('')}<div><small>Copies</small><b>${item.copies}</b></div><div><small>Deck Status</small><b>${save.deck.includes(c.id)?'Equipped':'Reserve'}</b></div></div><section class="attack-panel"><h3>${pattern.title}</h3>${pattern.html}<p>${pattern.text}</p></section><section><h3>Support compatibility</h3><p>${compat}</p></section><div class="detail-actions"><button id="detailEquip" data-detail-action="deck" data-card-id="${c.id}" class="btn primary">${save.deck.includes(c.id)?'Remove from Deck':'Equip to Deck'}</button>${item.copies>=3?`<button id="detailMerge" data-detail-action="merge" data-card-id="${c.id}" class="btn gold">Fuse 3 Copies</button>`:''}</div></div>`;$('#detailFavorite').onclick=()=>{toggleFavorite(c.id);showCardDetail(c)}}
+function cardMetrics(c){
+ if(c.type==='tower')return [['Damage',c.damage||0],['Range',(c.range||0).toFixed(1)+' tiles'],['Attack speed',(1/(c.rate||1)).toFixed(2)+'/s'],['Targets',['axe','dagger','cross','familiar'].includes(c.id)?'Ground + Flying':'Ground']];
+ if(c.type==='support')return [['Role','Tower Support'],['Use','Attach once'],['Effect',c.id==='holy'?'Holy Splash':c.id==='freeze'?'Slow':'Protection']];
+ if(c.type==='skill')return [['Role','One-use Skill'],['Targeting','Battlefield'],['Cost',c.cost+' souls']];
+ if(c.type==='trap')return [['Category','Passive'],['Effect',c.effect||'Defense'],['Damage',c.damage||'—'],['Trigger speed',c.rate?`${(1/c.rate).toFixed(2)}/s`:'—']];
+ return [['Role','Run-only Hero Upgrade'],['Duration','Current run'],['Cost','Free']];
+}
+function showCardDetail(c){
+ const item=inv(c.id),r=rarityDef(item.rarity),ground=c.type==='trap',pattern=attackPattern(c);
+ const compat=ground?'Equips to one of Shadow’s two Passive Card slots.':c.type==='support'?'Whip, Dagger, Axe, Cross, Clock, Bone, Familiar, Cannon, Rosary, Garlic, Living Word':c.type==='tower'?'Holy Water Infusion · Chrono Sigil · Guardian Ward':'—';
+ const fav=save.favorites.includes(c.id),equipped=ground?save.groundDefenseSlots.includes(c.id):save.deck.includes(c.id);
+ const unlockAt=unlockChapterForCard(c.id),owned=item.copies>0;
+ const unlockText=owned?'Unlocked':unlockAt?`Defeat Chapter ${unlockAt.number}: ${unlockAt.name}`:'Campaign reward';
+ const statusLabel=ground?'Hero Status':'Deck Status',statusValue=equipped?'Equipped':owned?'Reserve':'Locked';
+ const action=ground?'ground':'deck',actionText=ground?(equipped?'Remove from Hero':'Add to Hero'):(equipped?'Remove From Deck':'Add To Deck');
+ const favoriteControl=ground?'':`<button id="detailFavorite" class="favorite-button ${fav?'active':''}" type="button">★ ${fav?'Favorited':'Favorite'}</button>`;
+ openScreen($('#cardInspectScreen'));
+ const el=$('#cardDetail');
+ el.innerHTML=`<div class="detail-card-wrap"><article class="card portrait-card detail-card rarity-${item.rarity}">${cardHTML(c,true)}</article></div><div class="detail-copy"><div class="detail-heading"><div class="detail-title-row"><span>${r.name} · Level ${item.level}</span>${favoriteControl}</div><h2>${cardIconHTML(c,item.level)} ${c.name}</h2><p>${c.desc}</p><small class="card-flavor">${ground?'A persistent Passive Card carried by Shadow into every hunt.':'A relic-bound technique preserved by the last defenders of the kingdom.'}</small></div><div class="metric-grid">${cardMetrics(c).map(([a,b])=>`<div><small>${a}</small><b>${b}</b></div>`).join('')}<div><small>Current Level</small><b>${item.level}</b></div><div><small>Rarity</small><b>${r.name}</b></div><div><small>Copies</small><b>${item.copies}</b></div><div><small>${statusLabel}</small><b>${statusValue}</b></div><div><small>Unlock Requirement</small><b>${unlockText}</b></div></div><section class="attack-panel"><h3>${ground?'Passive Effects':pattern.title}</h3>${ground?'':pattern.html}<p>${c.desc}</p></section><section><h3>${ground?'Upgrade Information':'Support compatibility'}</h3><p>${ground?`Level ${item.level} · ${Math.round(cardPower(c.id)*100)}% card power. Fuse matching copies when available to improve this passive.`:compat}</p></section></div><div class="detail-actions"><button id="detailEquip" data-detail-action="${action}" data-card-id="${c.id}" class="btn primary" ${owned?'':'disabled'}>${owned?actionText:'Locked'}</button>${!ground&&item.copies>=3?`<button id="detailMerge" data-detail-action="merge" data-card-id="${c.id}" class="btn gold">Fuse 3 Copies</button>`:''}</div>`;
+ const favoriteButton=$('#detailFavorite');if(favoriteButton)favoriteButton.onclick=()=>{toggleFavorite(c.id);showCardDetail(c)};
+}
 
 function renderCampaign(){
  const box=$('#chapterMap');
@@ -2518,12 +2671,33 @@ function renderCampaign(){
  });
 }
 function renderRelicVault(){const box=$('#relicVaultGrid');const equipped=RELICS.find(r=>r.id===save.equippedRelic);$('#equippedRelicTxt').textContent=equipped?.name||'None';box.innerHTML='';RELICS.forEach((r,i)=>{const unlocked=save.unlockedRelics.includes(r.id),el=document.createElement('button');el.className=`relic-vault-card ${unlocked?'':'locked'} ${save.equippedRelic===r.id?'selected':''}`;el.disabled=!unlocked;el.innerHTML=`<div class="relic-icon">${unlocked?r.icon:'?'}</div><span class="section-kicker">CHAPTER ${i+1} RELIC</span><h3>${unlocked?r.name:'Undiscovered Relic'}</h3><p>${unlocked?r.desc:'Defeat the guardian of this chapter to reveal the relic.'}</p><strong>${save.equippedRelic===r.id?'EQUIPPED':unlocked?'Tap to equip':'LOCKED'}</strong>`;el.onclick=()=>{save.equippedRelic=save.equippedRelic===r.id?null:r.id;saveProgress();renderRelicVault();showToast(save.equippedRelic?`${r.name} equipped`:'Relic unequipped')};box.append(el)})}
-function renderHeroes(){const box=$('#heroCards');box.innerHTML='';const h=HEROES.find(x=>x.id===save.selectedHero)||HEROES[0];const hero=document.createElement('article');hero.className='hero-choice selected';hero.innerHTML=`<div class="hero-avatar">${h.icon}</div><h3>${h.name}</h3><p>${h.desc}</p><div>Hunter level ${save.heroLevels[h.id]||1}</div>`;box.append(hero);const title=document.createElement('div');title.className='familiar-section-title';title.innerHTML='<span>SHADOW FAMILIARS</span><h3>Choose one companion</h3><p>Each familiar follows Shadow and keeps its own XP and level.</p>';box.append(title);for(const f of FAMILIARS){const st=familiarState(f.id),need=familiarXpNeed(st.level),pct=st.level>=20?100:Math.min(100,st.xp/need*100),el=document.createElement('button');el.className=`familiar-choice ${save.familiars.equipped===f.id?'selected':''}`;el.innerHTML=`<div class="familiar-icon">${f.icon}</div><div class="familiar-copy"><h3>${f.name}</h3><p>${f.role}</p><div class="familiar-level"><b>Level ${st.level}</b><span>${st.level>=20?'MAX':`${st.xp} / ${need} XP`}</span></div><div class="familiar-xp"><i style="width:${pct}%"></i></div></div><strong>${save.familiars.equipped===f.id?'EQUIPPED':'EQUIP'}</strong>`;el.onclick=()=>{save.familiars.equipped=f.id;saveProgress();renderHeroes();showToast(`${f.name} now follows Shadow`)};box.append(el)}}
+function renderHeroes(){const box=$('#heroCards');box.innerHTML='';const h=HEROES.find(x=>x.id===save.selectedHero)||HEROES[0],shadowLv=currentShadowLevel();const hero=document.createElement('article');hero.className='hero-choice selected';hero.innerHTML=`<div class="hero-avatar">${h.id==='warden'?shadowPortraitHTML(shadowLv):h.icon}</div><h3>${h.name}</h3><p>${h.desc}</p><div>Hunter level ${save.heroLevels[h.id]||1}</div>`;box.append(hero);const title=document.createElement('div');title.className='familiar-section-title';title.innerHTML='<span>SHADOW FAMILIARS</span><h3>Choose one companion</h3><p>Each familiar follows Shadow and keeps its own XP and level.</p>';box.append(title);for(const f of FAMILIARS){const st=familiarState(f.id),need=familiarXpNeed(st.level),pct=st.level>=20?100:Math.min(100,st.xp/need*100),el=document.createElement('button');el.className=`familiar-choice ${save.familiars.equipped===f.id?'selected':''}`;el.innerHTML=`<div class="familiar-icon">${f.icon}</div><div class="familiar-copy"><h3>${f.name}</h3><p>${f.role}</p><div class="familiar-level"><b>Level ${st.level}</b><span>${st.level>=20?'MAX':`${st.xp} / ${need} XP`}</span></div><div class="familiar-xp"><i style="width:${pct}%"></i></div></div><strong>${save.familiars.equipped===f.id?'EQUIPPED':'EQUIP'}</strong>`;el.onclick=()=>{save.familiars.equipped=f.id;saveProgress();renderHeroes();showToast(`${f.name} now follows Shadow`)};box.append(el)}}
 function renderUpgrades(){const box=$('#upgradeCards');box.innerHTML='';$('#essenceTxt').textContent=save.essence;KEEP_UPGRADES.forEach(u=>{const rank=save.keepUpgrades[u.id]||0,cost=Math.round(u.cost*(1+rank*.45)),el=document.createElement('div');el.className='upgrade-card';el.innerHTML=`<h3>${u.name}</h3><p>${u.desc}</p><div>Rank ${rank} / ${u.max}</div><button class="btn" ${rank>=u.max||save.essence<cost?'disabled':''}>Upgrade · ${cost}</button>`;el.querySelector('button').onclick=()=>{if(save.essence<cost||rank>=u.max)return;save.essence-=cost;save.keepUpgrades[u.id]=rank+1;saveProgress();renderUpgrades();showToast(`${u.name} upgraded`)};box.append(el)})}
 
 function renderKingdom(){const box=$('#kingdomBuildings');const levels=save.kingdom.buildings||{};const power=Object.values(levels).reduce((a,b)=>a+b,0);$('#kingdomRank').textContent=1+Math.floor(power/4);$('#kingdomPopulation').textContent=`Population ${12+power*4}`;$('#kingdomPower').textContent=`Kingdom Power ${power}`;box.innerHTML='';KINGDOM_BUILDINGS.forEach(b=>{const lv=levels[b.id]||0,cost=Math.round(b.cost*(1+lv*.55)),el=document.createElement('article');el.className=`kingdom-building ${lv?'':'unbuilt'}`;el.innerHTML=`<div class="building-icon">${b.icon}</div><h3>${b.name}</h3><p>${b.desc}</p><div>Level <b>${lv} / ${b.max}</b></div><button class="btn ${lv?'gold':''}" ${lv>=b.max||save.essence<cost?'disabled':''}>${lv?'Upgrade':'Construct'} · ${cost} Essence</button>`;el.querySelector('button').onclick=()=>{if(lv>=b.max||save.essence<cost)return;save.essence-=cost;save.materials.bloodEssence=save.essence;save.kingdom.buildings[b.id]=lv+1;save.kingdom.renown++;saveProgress();renderKingdom();showToast(`${b.name} is now level ${lv+1}`)};box.append(el)})}
-function achievementValue(a){return a.custom?a.custom():(save.stats[a.stat]||0)}
-function renderAchievements(){const box=$('#achievementGrid');let done=0;box.innerHTML='';ACHIEVEMENTS.forEach(a=>{const v=achievementValue(a),complete=v>=a.goal,claimed=save.achievements.claimed.includes(a.id);if(complete)done++;const el=document.createElement('article');el.className=`achievement-card ${complete?'done':''} ${claimed?'claimed':''}`;el.innerHTML=`<span class="section-kicker">ROYAL DECREE</span><h3>${complete?'✓ ':''}${a.name}</h3><p>${a.desc}</p><div class="progress"><i style="width:${Math.min(100,v/a.goal*100)}%"></i></div><div class="row spread"><span>${Math.min(v,a.goal)} / ${a.goal}</span><b>🩸 ${a.reward}</b></div><button class="btn ${complete&&!claimed?'gold':''}" ${!complete||claimed?'disabled':''}>${claimed?'Claimed':complete?'Claim Reward':'In Progress'}</button>`;el.querySelector('button').onclick=()=>{if(!complete||claimed)return;save.achievements.claimed.push(a.id);save.essence+=a.reward;save.materials.bloodEssence=save.essence;save.kingdom.renown+=2;saveProgress();renderAchievements();showToast(`${a.name} claimed · +${a.reward} Essence`)};box.append(el)});$('#achievementCount').textContent=`${done} / ${ACHIEVEMENTS.length}`}
+function achievementValue(a){try{return Math.max(0,Number(a.value?.()??0)||0)}catch(_){return 0}}
+function claimAchievement(a){
+ if(save.achievements.claimed.includes(a.id))return;
+ save.achievements.claimed.push(a.id);save.essence+=a.reward;save.materials.bloodEssence=save.essence;save.kingdom.renown+=2;
+ if(a.cosmetic)save.cosmetics[a.cosmetic]=true;
+ saveProgress();renderAchievements();showToast(`${a.name} claimed · ${a.cosmetic?'Dog Tag cosmetic unlocked · ':''}+${a.reward} Essence`);
+}
+function renderAchievements(){
+ const box=$('#achievementGrid');let done=0;box.innerHTML='';
+ for(const a of ACHIEVEMENTS){
+  const v=achievementValue(a),complete=v>=a.goal,claimed=save.achievements.claimed.includes(a.id);if(complete)done++;
+  const el=document.createElement('article');el.className=`achievement-card ${complete?'done':''} ${claimed?'claimed':''}`;
+  el.innerHTML=`<span class="section-kicker">ROYAL DECREE · ${a.category}</span><h3>${complete?'✓ ':''}${a.name}</h3><p>${a.desc}</p><div class="progress"><i style="width:${Math.min(100,v/a.goal*100)}%"></i></div><div class="row spread"><span>${Math.min(v,a.goal).toLocaleString()} / ${a.goal.toLocaleString()}</span><b>🩸 ${a.reward}</b></div><button class="btn ${complete&&!claimed?'gold':''}" ${!complete||claimed?'disabled':''}>${claimed?'Claimed':complete?'Claim Reward':'In Progress'}</button>`;
+  el.querySelector('button').onclick=()=>claimAchievement(a);box.append(el);
+ }
+ for(const a of HIDDEN_ACHIEVEMENTS){
+  const complete=!!a.complete(),claimed=save.achievements.claimed.includes(a.id);if(complete)done++;
+  const el=document.createElement('article');el.className=`achievement-card hidden-decree ${complete?'done revealed':''} ${claimed?'claimed':''}`;
+  el.innerHTML=complete?`<span class="section-kicker">HIDDEN ROYAL DECREE</span><h3>✓ ${a.name}</h3><p>${a.desc}</p><div class="row spread"><span>1 / 1</span><b>🏷️ Dog Tag · 🩸 ${a.reward}</b></div><button class="btn ${!claimed?'gold':''}" ${claimed?'disabled':''}>${claimed?'Claimed':'Claim Secret Reward'}</button>`:`<span class="section-kicker">HIDDEN ROYAL DECREE</span><h3>Hidden Royal Decree</h3><p>Its title and purpose remain concealed.</p><div class="progress"><i style="width:0%"></i></div><div class="row spread"><span>0 / 1</span><b>Reward Hidden</b></div><button class="btn" disabled>Undiscovered</button>`;
+  if(complete)el.querySelector('button').onclick=()=>claimAchievement(a);box.append(el);
+ }
+ $('#achievementCount').textContent=`${done} / ${ACHIEVEMENTS.length+HIDDEN_ACHIEVEMENTS.length}`;
+}
 function renderForge(){const box=$('#forgeCards');box.innerHTML='';$('#embersTxt').textContent=save.materials.forgeEmbers;CARD_POOL.filter(c=>inv(c.id).copies>0).forEach(c=>{const item=inv(c.id),r=rarityDef(item.rarity),next=RARITIES[rarityIndex(item.rarity)+1];const el=document.createElement('article');el.className=`card portrait-card rarity-${item.rarity}`;el.innerHTML=`${cardHTML(c,true)}<div class="forge-line">${item.copies} / 3 copies · ${next?'Next: '+next.name:'Maximum rarity'}</div><button class="btn gold" ${item.copies<3||!next?'disabled':''}>Fuse 3 Copies</button>`;el.querySelector('button').onclick=()=>{mergeCard(c.id);renderForge()};box.append(el)})}
 function renderCodex(){const enemies=[['skeleton','Bone Soldier'],['wolf','Night Wolf'],['bat','Nightwing Bat'],['ghost','Castle Ghost'],['armor','Axe Armor'],['vampire','Vampire Spawn'],['necromancer','Grave Necromancer'],['warden','Eclipse Warden'],['thornbeast','Thornbound Beast'],['bloodcount','Blood Count'],['icebishop','Frozen Bishop'],['bogqueen','Bog Queen'],['siegeknight','Hollow Castellan'],['moonoracle','Fallen Oracle'],['vampireking','Blood King']];const entries=[...CARD_POOL.map(c=>({icon:c.icon,name:c.name,seen:inv(c.id).copies>0,type:'Card'})),...MAPS.map(m=>({icon:'🗺️',name:m.name,seen:!!save.discoveredMaps[m.id],type:'Map'})),...enemies.map(([id,name])=>({icon:'☠️',name,seen:!!save.discoveredEnemies[id],type:'Enemy'}))];const seen=entries.filter(e=>e.seen).length;$('#codexPct').textContent=Math.round(seen/entries.length*100)+'%';$('#codexGrid').innerHTML=entries.map(e=>`<div class="codex-entry ${e.seen?'':'locked'}"><span>${e.seen?e.icon:'?'}</span><b>${e.seen?e.name:'Undiscovered'}</b><small>${e.type}</small></div>`).join('')}
 function renderProfile(){const s=save.stats;$('#profileGrid').innerHTML=[['Total Runs',s.runs],['Victories',s.wins],['Highest Wave',s.highestWave],['Total Kills',s.totalKills],['Common Cards Found',s.totalCards],['Fusions Completed',s.fusions],['Bosses Defeated',s.bosses],['Collection',CARD_POOL.filter(c=>inv(c.id).copies>0).length+'/'+CARD_POOL.length]].map(([a,b])=>`<div><small>${a}</small><strong>${b}</strong></div>`).join('');const labels={bloodEssence:'Blood Essence',eclipseShards:'Eclipse Shards',ancientRelics:'Ancient Relics',hunterMedallions:'Hunter Medallions',forgeEmbers:'Forge Embers'};$('#materialsGrid').innerHTML=Object.entries(labels).map(([k,v])=>`<div><span>${v}</span><b>${save.materials[k]||0}</b></div>`).join('');$('#historyList').innerHTML=save.runHistory.length?save.runHistory.map(r=>`<div class="history-row"><b>${r.result==='victory'?'Victory':'Defeat'} · Wave ${r.wave}</b><span>${r.map||'Unknown Map'} · ${r.kills} kills · ${r.chest}</span></div>`).join(''):'<p class="small">No hunts recorded yet.</p>'}

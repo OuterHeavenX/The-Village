@@ -553,7 +553,8 @@ body.battle-mode #app{height:100dvh;overflow:hidden;}
 .battle-hud{padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;display:flex!important;flex-direction:column;justify-content:space-between;pointer-events:none;}
 .battle-hud.hidden{display:none!important;}
 .battle-topbar{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;pointer-events:none;}
-.battle-status{display:flex;gap:5px;min-width:0;flex-wrap:wrap;}
+.battle-status{display:flex;gap:5px;min-width:0;width:100%;flex-wrap:wrap;}
+.battle-status .essence-pill{margin-left:auto;}
 .battle-pill{height:42px;min-width:64px;padding:5px 8px;border:1px solid #735b3c;border-radius:10px;background:linear-gradient(180deg,#17131de8,#09070ddd);box-shadow:0 4px 16px #0009;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:5px;align-items:center;pointer-events:auto;}
 .battle-pill>span{grid-row:1/3;font-size:18px;}
 .battle-pill small{font-size:8px;letter-spacing:.12em;color:#c9b995;}
@@ -589,7 +590,8 @@ body.battle-mode #app{height:100dvh;overflow:hidden;}
 .synergy-line{margin-top:8px;color:#e2c4ff;padding:7px;border-radius:8px;background:#2c1b2f;}
 @media(max-width:700px){
   .battle-topbar{gap:4px;}
-  .battle-status{display:grid;grid-template-columns:repeat(2,64px);gap:4px;}
+  .battle-status{display:grid;grid-template-columns:64px 64px minmax(118px,1fr);gap:4px;}
+  .battle-status .essence-pill{margin-left:0;justify-self:end;}
   .battle-pill{height:35px;min-width:64px;padding:3px 6px;border-radius:8px;}
   .battle-pill>span{font-size:15px;}
   .battle-pill strong{font-size:12px;}
@@ -1256,7 +1258,7 @@ body.battle-instruction-active .battle-context{opacity:0!important;visibility:hi
 #cardInspectScreen .inspect-panel{width:min(980px,96vw)!important;max-width:980px!important;margin:18px auto 120px!important;padding:18px!important;}
 #cardInspectScreen .card-detail-large{display:grid!important;grid-template-columns:minmax(230px,320px) minmax(0,1fr)!important;gap:24px!important;align-items:start!important;}
 #cardInspectScreen .detail-card{aspect-ratio:5/7!important;height:auto!important;min-height:0!important;}
-#cardInspectScreen .detail-actions{position:sticky!important;bottom:82px!important;z-index:15!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;padding:10px!important;border:1px solid #d0aa6255!important;border-radius:12px!important;background:#100d13f2!important;backdrop-filter:blur(12px)!important;}
+#cardInspectScreen .detail-actions{position:static!important;grid-column:1/-1!important;z-index:auto!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;margin-top:8px!important;padding:10px!important;border:1px solid #d0aa6255!important;border-radius:12px!important;background:#100d13!important;backdrop-filter:none!important;}
 #cardInspectScreen .detail-actions .btn:only-child{grid-column:1/-1!important;}
 @media(max-width:900px){
   #cardInspectScreen .card-detail-large{grid-template-columns:240px minmax(0,1fr)!important;gap:16px!important;}
@@ -1264,7 +1266,7 @@ body.battle-instruction-active .battle-context{opacity:0!important;visibility:hi
 @media(max-width:650px){
   #cardInspectScreen .card-detail-large{grid-template-columns:1fr!important;}
   #cardInspectScreen .detail-card-wrap{width:min(300px,85vw)!important;margin:0 auto!important;}
-  #cardInspectScreen .detail-actions{bottom:74px!important;}
+  #cardInspectScreen .detail-actions{grid-template-columns:1fr!important;}
 }
 #cardInspectScreen .inspect-panel{padding-bottom:110px!important;}
 #inspectBack{position:sticky!important;top:8px!important;z-index:120!important;min-height:46px!important;touch-action:manipulation!important;pointer-events:auto!important;}
@@ -1445,7 +1447,20 @@ body.battle-instruction-active .battle-context{opacity:0!important;visibility:hi
 .rarity-legendary{--rarityglow:rgba(255,74,73,.52);}
 .rarity-mythic{--rarityglow:rgba(255,198,67,.6);}
 .hp-stat i{color:#ff7384!important;}
-.shadow-avatar-sprite{display:block;width:100%;height:100%;min-width:92px;min-height:92px;background-image:var(--shadow-sheet);background-size:1200% 400%;background-position:0 0;background-repeat:no-repeat;image-rendering:pixelated;filter:drop-shadow(0 10px 14px #000);}
+.shadow-avatar-sprite{display:block;position:relative;width:100%;height:100%;min-width:92px;min-height:92px;overflow:hidden;isolation:isolate;}
+.shadow-avatar-sprite>img{position:absolute;left:0;top:0;width:1200%;height:400%;max-width:none;max-height:none;display:block;image-rendering:pixelated;pointer-events:none;user-select:none;-webkit-user-drag:none;}
+.shadow-avatar-sprite.official-portrait>img{inset:0;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;object-position:center;image-rendering:auto;}
+.hero-avatar .shadow-avatar-sprite{width:min(180px,42vw);height:min(180px,42vw);min-width:0;min-height:0;margin:0 auto 8px;}
+.hero-avatar .shadow-avatar-sprite.official-portrait>img{object-fit:contain;}
+.holy-infusion-icon,.holy-barrage-icon{position:relative;display:inline-grid;place-items:center;width:1.25em;height:1.25em;line-height:1;vertical-align:middle;isolation:isolate;}
+.holy-infusion-icon i,.holy-barrage-icon i{font-style:normal;filter:drop-shadow(0 0 .18em #8fe7ff);}
+.holy-infusion-icon b{position:absolute;left:50%;bottom:-.18em;transform:translateX(-50%);font-size:.28em;letter-spacing:.04em;color:#dffbff;text-shadow:0 0 .35em #52cfff;white-space:nowrap;}
+.holy-infusion-icon small{position:absolute;right:-.28em;top:-.22em;display:grid;place-items:center;min-width:1.05em;height:1.05em;border:1px solid #d9faff;border-radius:50%;background:#133449;color:#effdff;font:800 .25em/1 Georgia,serif;box-shadow:0 0 .45em #62d8ff;}
+.holy-infusion-icon.tier-2 i{filter:drop-shadow(0 0 .25em #77dcff) drop-shadow(0 0 .45em #5bbfff);}
+.holy-infusion-icon.tier-3 i{filter:drop-shadow(0 0 .28em #efffff) drop-shadow(0 0 .55em #60d8ff);}
+.holy-barrage-icon b{position:absolute;right:-.12em;bottom:-.05em;font-size:.45em;filter:drop-shadow(0 0 .25em #baf3ff);}
+.holy-barrage-icon small{position:absolute;left:-.05em;top:-.1em;font-size:.34em;color:#f5ffff;text-shadow:0 0 .35em #7cdeff;}
+#deckScreen .card-primary-stats.defense-stats,#deckScreen .deck-card-stats.defense-stats{grid-template-columns:1fr!important;}
 .hero-jp-identity{border:1px solid #8f5d9a;background:linear-gradient(145deg,#25102d,#09080f 68%);border-radius:18px;padding:22px;box-shadow:inset 0 0 35px #7f1b8c22,0 18px 40px #0008;}
 .hero-jp-identity{display:flex;align-items:center;gap:18px;}
 .hero-jp-identity h2{font-size:2.2rem;margin:.2rem 0;}
