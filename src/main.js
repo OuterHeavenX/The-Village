@@ -1,4 +1,7 @@
 import { bootstrapAuthentication } from './online/authGate.js';
+import { applyReleaseMetadata } from './config/release.js';
+
+applyReleaseMetadata();
 
 // V32.6.2 — the decorative atmosphere layer is now conditional.
 //

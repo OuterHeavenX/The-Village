@@ -1,7 +1,9 @@
+import { RELEASE_VERSION } from '../config/release.js';
+
 // V35 ASCENSION content registry. Core systems consume these plain records;
 // future content can be added here without changing combat or save code.
 
-export const ASCENSION_VERSION = '35.0.0';
+export const ASCENSION_VERSION = RELEASE_VERSION;
 export const ASCENSION_SAVE_VERSION = 15;
 
 export const EQUIPMENT_SLOTS = Object.freeze([

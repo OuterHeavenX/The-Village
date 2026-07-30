@@ -1,8 +1,33 @@
 # THE VILLAGE — PROJECT STATE
 
-**Current baseline:** V35.0.0 — ASCENSION
-**Updated:** 2026-07-29
-**Runtime status:** Ascension registries, save migration, equipment, gems, fusion, support capacity, companion abilities, and boss loot integrated; JavaScript syntax and production build validated.
+**Current baseline:** V35.1.0 — VITE NATIVE FOUNDATION
+**Updated:** 2026-07-30
+**Runtime status:** Vite is the primary runtime; Supabase and Three.js use package imports; V34/V35 local and cloud-save compatibility is preserved.
+
+## V35.1.0 VITE NATIVE FOUNDATION
+
+- Vite development, build, and preview are the supported runtime paths.
+- Supabase now uses `@supabase/supabase-js` and the Vite environment variables
+  `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- Removed the Supabase UMD CDN global and obsolete browser configuration module.
+- Three.js 0.128.0 and `GLTFLoader` now use package imports, preserving renderer
+  behavior while removing CDN/global dependencies.
+- `scripts/runtime-assets.mjs` defines the controlled production asset set.
+  Build preparation copies only required PNG/GLB runtime files into Vite's
+  public tree; PSD, Aseprite, TMX, HEIC, and unused variants are excluded.
+- Every build runs `scripts/validate-build.mjs`, which fails on missing dynamic
+  assets, bundled audio/portrait files, incomplete Ascension registry icons, or
+  inconsistent release metadata.
+- `scripts/smoke-production.mjs` validates production preview using isolated
+  test-only Supabase responses across desktop and iPhone-sized viewports.
+- Authentication redirects derive from the current application origin and path.
+- Village economy polling projects production without advancing `lastTick`,
+  mutating resources, or queueing cloud writes.
+- Periodic and foreground-resume cloud checks now queue only when persistent
+  local-save content differs from the last successful synchronization.
+- The five-second debounce, revision protection, retry/backoff, account-local
+  fallback, and one-time local-to-cloud migration remain unchanged.
+- V35.1 changes no save schema. Existing V34 and V35 saves remain compatible.
 
 ## V35.0.0 ASCENSION
 
@@ -54,8 +79,7 @@
 - Added Supabase email/password registration, sign-in, persistent sessions,
   token refresh, password-reset requests, authentication-state restoration, and
   logout.
-- The static browser build loads the official browser-compatible Supabase client
-  without requiring a bare npm module import at runtime.
+- The Vite runtime bundles the official `@supabase/supabase-js` client.
 - Added gothic authentication, loading, setup, failure, and account-status UI.
 - Added `profiles` and `player_saves` SQL migration with owner-only Row Level
   Security policies.
@@ -83,7 +107,8 @@
 
 ### Compatibility and validation
 
-- Project version is `35.0.0 — ASCENSION`.
+- Ascension save compatibility remains schema 15; the application version is
+  `35.1.0 — VITE NATIVE FOUNDATION`.
 - Save schema 15 creates a V35 backup and additively migrates earlier saves
   without removing cards, campaign progress, Village state, settings, Relics,
   Companions, or existing loadouts.

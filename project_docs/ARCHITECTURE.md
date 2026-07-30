@@ -1,23 +1,26 @@
 # THE VILLAGE — ARCHITECTURE
 
-**Baseline:** V34.1.0 Performance, Legibility & Boundary Audit
+**Baseline:** V35.1.0 Vite Native Foundation
 
 ## 1. Runtime Architecture
 
 ```text
 index.html
-  ├─ (CDN) three@0.128.0 + GLTFLoader   → window.THREE
   └─ src/main.js
+      ├─ src/online/authGate.js
+      │  ├─ @supabase/supabase-js
+      │  └─ src/online/cloudSave.js
       ├─ src/villageBootstrap.js
-      │     └─ src/Renderer/villageThreeWorld.js   (the 3D Village)
+      │  └─ src/Renderer/villageThreeWorld.js
+      │     ├─ three@0.128.0
+      │     └─ GLTFLoader package module
       ├─ src/Battle/game.js
-      └─ src/Renderer/threeAtmosphere.js           (desktop only, deferred)
+      └─ src/Renderer/threeAtmosphere.js
 ```
 
-Three.js is loaded as a **classic CDN script**, not an ES module, and is read
-from `window.THREE`. The pinned version is r128, so both renderers must keep
-their `outputEncoding`/`sRGBEncoding` fallbacks alongside the modern
-`outputColorSpace`/`SRGBColorSpace` paths.
+Vite is the supported runtime. Supabase and Three.js are package imports; the
+application no longer depends on CDN or browser globals. Three.js remains
+pinned to r128, so renderers use its `outputEncoding`/`sRGBEncoding` API.
 
 The cleaned project intentionally uses one live file per responsibility. Do not reintroduce parallel versioned runtime files. Version history belongs in ZIP names, Git commits, and patch notes—not duplicate imports.
 
@@ -71,19 +74,15 @@ Owns village/home bootstrap behavior and atmospheric presentation outside the ma
 
 ### `src/Renderer/threeAtmosphere.js`
 
-Optional progressive enhancement. It imports Three.js directly from the jsDelivr
-CDN with a top-level ESM import, so a static import in `main.js` would abort the
-whole module graph if that request failed. `main.js` therefore loads it through
-`import().catch()`; the game runs unchanged when the CDN is offline or blocked.
-
-(Corrected in V32.4.2: this section previously claimed the module checked for
-`window.THREE`, which has not been true since the ESM rewrite.)
+Optional progressive enhancement. It imports the pinned `three` package and is
+loaded through `import().catch()` so an atmosphere-specific WebGL failure does
+not prevent the rest of the game from starting.
 
 ## 3. Data and Save Contract
 
 - Canonical storage key: `relicsEclipseSave`.
 - Legacy fallback key: `gateRunnerSave`.
-- Current schema: `saveVersion = 14`.
+- Current schema: `saveVersion = 15`.
 - Major persistent branches include inventory, deck, unlocked cards, favorites, UI filter/sort state, selected hero, hero levels/equipment, ground-defense slots, upgrades, materials, stats, campaign, relics, kingdom, achievements, codex discoveries, settings, and run history.
 
 Never rename persistent IDs casually. Content IDs are foreign keys across saves and render logic. Migrations must merge and repair data rather than erase legitimate unlocks.

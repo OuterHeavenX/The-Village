@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient.js';
+import { RELEASE_VERSION } from '../config/release.js';
 
-export const GAME_VERSION = '35.0.0';
+export const GAME_VERSION = RELEASE_VERSION;
 export const CLOUD_SAVE_SCHEMA_VERSION = 1;
 const CLOUD_FORMAT = 'the-village-cloud-save';
 const CLOUD_DEBOUNCE_MS = 5000;
@@ -21,6 +22,8 @@ let pendingReason = '';
 let lastSuccessfulSync = null;
 let sessionStartedAt = Date.now();
 let profilePlayTimeBase = 0;
+let autosaveListenersStarted = false;
+let lastSyncedFingerprint = '';
 let status = { state: 'idle', message: 'Cloud save unavailable', lastSuccessfulSync: null };
 
 function emitStatus(state, message) {
@@ -68,6 +71,10 @@ function validPrimarySave(entries) {
   }
 }
 
+function saveFingerprint(entries = collectLocalSaveEntries()) {
+  return Object.keys(entries).sort().map(key => `${key}\u0000${entries[key]}`).join('\u0001');
+}
+
 function makeCloudPayload() {
   return {
     format: CLOUD_FORMAT,
@@ -111,7 +118,10 @@ function migrationKey(userId) {
 }
 
 function isNetworkFailure(error) {
-  return !navigator.onLine || /failed to fetch|network|load failed|fetch/i.test(String(error?.message || error || ''));
+  return !navigator.onLine ||
+    error?.name === 'AbortError' ||
+    error?.name === 'TimeoutError' ||
+    /failed to fetch|network|load failed|fetch|abort|timed out/i.test(String(error?.message || error || ''));
 }
 
 function canUseOfflineFallback(userId) {
@@ -183,6 +193,7 @@ async function createInitialCloudSave(userId, payload) {
   if (error) throw error;
   revision = Number(data.revision) || 1;
   lastSuccessfulSync = data.updated_at || new Date().toISOString();
+  lastSyncedFingerprint = saveFingerprint(payload.entries);
 }
 
 export async function initializeCloudForSession(session, displayName = '') {
@@ -225,7 +236,8 @@ export async function initializeCloudForSession(session, displayName = '') {
     revision = Number(cloudRow.revision) || 1;
     lastSuccessfulSync = cloudRow.updated_at || null;
     localStorage.setItem(migrationKey(activeUser.id), 'cloud-loaded');
-    emitStatus('saved', 'Saved');
+    lastSyncedFingerprint = saveFingerprint();
+    emitStatus('saved', 'Synced');
     return { mode: 'cloud', profile: activeProfile };
   }
 
@@ -239,7 +251,7 @@ export async function initializeCloudForSession(session, displayName = '') {
       entries: localEntries
     });
     localStorage.setItem(migrationKey(activeUser.id), 'local-uploaded');
-    emitStatus('saved', 'Saved');
+    emitStatus('saved', 'Synced');
     return { mode: 'migrated-local', profile: activeProfile };
   }
 
@@ -289,6 +301,7 @@ async function writeCloudSave(reason) {
   }
   revision = Number(data.revision) || nextRevision;
   lastSuccessfulSync = data.updated_at || now;
+  lastSyncedFingerprint = saveFingerprint(payload.entries);
   if (reason !== 'presence') await updateProfilePresence();
 }
 
@@ -296,9 +309,18 @@ export function queueCloudSave(reason = 'progress') {
   if (!activeUser) return;
   pendingReason = reason;
   saveQueued = true;
-  emitStatus(navigator.onLine ? 'saving' : 'offline', navigator.onLine ? 'Saving…' : 'Offline — saved locally');
+  emitStatus(
+    navigator.onLine ? 'pending' : 'offline',
+    navigator.onLine ? 'Saved locally — cloud sync pending' : 'Offline — saved locally'
+  );
   clearTimeout(debounceTimer);
   debounceTimer = window.setTimeout(() => flushCloudSave(reason), CLOUD_DEBOUNCE_MS);
+}
+
+function queueCloudSaveIfChanged(reason) {
+  if (!activeUser || saveFingerprint() === lastSyncedFingerprint) return false;
+  queueCloudSave(reason);
+  return true;
 }
 
 export async function flushCloudSave(reason = 'flush') {
@@ -321,7 +343,7 @@ export async function flushCloudSave(reason = 'flush') {
     await writeCloudSave(writeReason);
     retryAttempt = 0;
     lastSuccessfulSync = lastSuccessfulSync || new Date().toISOString();
-    emitStatus('saved', 'Saved');
+    emitStatus('saved', 'Synced');
     return true;
   } catch (error) {
     saveQueued = true;
@@ -345,15 +367,16 @@ export async function flushCloudSave(reason = 'flush') {
 
 export function startCloudAutosave() {
   clearInterval(periodicTimer);
-  periodicTimer = window.setInterval(() => queueCloudSave('periodic'), 45000);
+  periodicTimer = window.setInterval(() => queueCloudSaveIfChanged('periodic'), 45000);
+  if (autosaveListenersStarted) return;
+  autosaveListenersStarted = true;
   window.addEventListener('online', () => {
-    emitStatus('pending', 'Cloud sync pending');
-    queueCloudSave('reconnected');
-    flushCloudSave('reconnected');
+    if (queueCloudSaveIfChanged('reconnected')) flushCloudSave('reconnected');
+    else emitStatus('saved', 'Synced');
   });
   window.addEventListener('offline', () => emitStatus('offline', 'Offline — saved locally'));
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) queueCloudSave('resume');
+    if (!document.hidden) queueCloudSaveIfChanged('resume');
     else flushCloudSave('background');
   });
 }
@@ -375,6 +398,7 @@ export function clearCloudRuntime() {
   saveProvider = null;
   saveQueued = false;
   saveRunning = false;
+  lastSyncedFingerprint = '';
   clearTimeout(debounceTimer);
   clearTimeout(retryTimer);
   clearInterval(periodicTimer);

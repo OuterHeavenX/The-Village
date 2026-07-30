@@ -1,8 +1,8 @@
-const THREE = window.THREE;
-if (!THREE || !THREE.WebGLRenderer) throw new Error('Three.js runtime unavailable');
+import * as THREE from 'three';
+
 const canvas=document.getElementById('threeBg');
 const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));if('outputColorSpace' in renderer&&THREE.SRGBColorSpace)renderer.outputColorSpace=THREE.SRGBColorSpace;else if('outputEncoding' in renderer&&THREE.sRGBEncoding)renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));if('outputEncoding' in renderer&&THREE.sRGBEncoding)renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(52,1,.1,100);camera.position.set(0,1.2,9);
 scene.add(new THREE.HemisphereLight(0x8095c7,0x140910,.58));
 const moon=new THREE.PointLight(0xbfd0ff,3.1,40);moon.position.set(4.5,5.8,2);scene.add(moon);

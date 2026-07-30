@@ -1339,17 +1339,31 @@ function ensureVillageEconomy(){
  save.villageEconomy.lastTick=Number(save.villageEconomy.lastTick)||Date.now();
  return save.villageEconomy;
 }
-function updateVillageEconomy(persist=true){
- const eco=ensureVillageEconomy(),rates=villageRates(),now=Date.now();
+function updateVillageEconomy(persist=true,commit=true){
+ const stored=save.villageEconomy||{};
+ const eco=commit?ensureVillageEconomy():{
+  food:Math.max(0,Number(stored.food)||0),
+  wood:Math.max(0,Number(stored.wood)||0),
+  stone:Math.max(0,Number(stored.stone)||0),
+  iron:Math.max(0,Number(stored.iron)||0),
+  essence:Math.max(0,Number(stored.essence)||0),
+  gold:Math.max(0,Number(stored.gold)||0),
+  lastTick:Number(stored.lastTick)||Date.now(),
+  lastReport:stored.lastReport||null
+ };
+ const rates=villageRates(),now=Date.now();
  const elapsedMs=Math.max(0,Math.min(now-eco.lastTick,VILLAGE_ECONOMY_MAX_OFFLINE_HOURS*3600000));
  const hours=elapsedMs/3600000;
  const gain={food:rates.food*hours,wood:rates.wood*hours,stone:rates.stone*hours,iron:rates.iron*hours,essence:rates.essence*hours,gold:rates.gold*hours,hours};
- eco.food+=gain.food;eco.wood+=gain.wood;eco.stone+=gain.stone;eco.iron+=gain.iron;eco.essence+=gain.essence;eco.gold+=gain.gold;eco.lastTick=now;
- if(elapsedMs>=60000&&(gain.food+gain.wood+gain.stone+gain.iron+gain.essence+gain.gold)>=.1)eco.lastReport={food:gain.food,wood:gain.wood,stone:gain.stone,gold:gain.gold,hours,at:now};
- if(persist)saveProgress();
+ const projected={food:eco.food+gain.food,wood:eco.wood+gain.wood,stone:eco.stone+gain.stone,iron:eco.iron+gain.iron,essence:eco.essence+gain.essence,gold:eco.gold+gain.gold};
+ if(commit){
+  Object.assign(eco,projected,{lastTick:now});
+  if(elapsedMs>=60000&&(gain.food+gain.wood+gain.stone+gain.iron+gain.essence+gain.gold)>=.1)eco.lastReport={food:gain.food,wood:gain.wood,stone:gain.stone,gold:gain.gold,hours,at:now};
+  if(persist)saveProgress();
+ }
  const level=1+Math.floor(rates.buildings/2);
  const happiness=Math.max(55,Math.min(100,75+(rates.counts.house||0)*3+(rates.counts.farm||0)*2-rates.buildings));
- return {food:eco.food,wood:eco.wood,stone:eco.stone,iron:eco.iron,essence:eco.essence,gold:eco.gold,goldRate:rates.gold,ironRate:rates.iron,essenceRate:rates.essence,population:rates.population,capacity:rates.capacity,foodRate:rates.food,woodRate:rates.wood,stoneRate:rates.stone,totalRate:rates.food+rates.wood+rates.stone+rates.iron+rates.essence+rates.gold,counts:rates.counts,buildings:rates.buildings,level,happiness,maxOfflineHours:VILLAGE_ECONOMY_MAX_OFFLINE_HOURS,lastReport:eco.lastReport};
+ return {...projected,goldRate:rates.gold,ironRate:rates.iron,essenceRate:rates.essence,population:rates.population,capacity:rates.capacity,foodRate:rates.food,woodRate:rates.wood,stoneRate:rates.stone,totalRate:rates.food+rates.wood+rates.stone+rates.iron+rates.essence+rates.gold,counts:rates.counts,buildings:rates.buildings,level,happiness,maxOfflineHours:VILLAGE_ECONOMY_MAX_OFFLINE_HOURS,lastReport:eco.lastReport};
 }
 ensureVillageEconomy();
 if(!save.villageProgression.flags.starterTreasury){const eco=ensureVillageEconomy();eco.gold+=1200;eco.food+=300;eco.wood+=500;eco.stone+=400;eco.iron+=25;eco.essence+=15;save.villageProgression.flags.starterTreasury=true;villageChronicle('Shadow founded a settlement beneath the Cathedral.','founding');saveProgress();}
@@ -1404,7 +1418,10 @@ window.ROTKGameBridge={
   getVillageResearch(){return {available:availableVillageResearch(),completed:VILLAGE_RESEARCH.filter(r=>save.villageProgression.researched.includes(r.id)),stage:villageCompletedStage()};},
   completeVillageResearch(id){const r=availableVillageResearch().find(x=>x.id===id);if(!r)return {ok:false,reason:'locked'};if(!this.spendVillageResources(r.cost))return {ok:false,reason:'resources'};save.villageProgression.researched.push(r.id);villageChronicle(`${r.name} was researched, unlocking ${r.unlocks.map(x=>x.replace(/([A-Z])/g,' $1')).join(', ')}.`,'research');saveProgress();return {ok:true,research:r};},
   completeShadowAwakening(){if(!save.villageProgression.pendingShadowAwakening)return false;save.villageProgression.pendingShadowAwakening=false;save.villageProgression.shadowAwakeningComplete=true;save.shadowLevel=Math.max(2,save.shadowLevel||1);save.heroLevels[save.selectedHero]=Math.max(2,save.heroLevels[save.selectedHero]||1);villageChronicle('The Heart of the Golem awakened Shadow to Level II.','awakening');saveProgress();renderRoyalHome();return true;},
-  getVillageEconomy(){return updateVillageEconomy(true)},
+  // The 15-second Village HUD poll is a projection only. Production is
+  // committed by real economy/progression actions, so an idle screen does not
+  // mutate lastTick or repeatedly put cloud synchronization back into pending.
+  getVillageEconomy(){return updateVillageEconomy(false,false)},
   villageBuildingConstructed(){
     const result=updateVillageEconomy(true);renderRoyalHome();return result;
   },
@@ -3074,7 +3091,7 @@ function downloadJsonFile(filename,data){
 function exportVillageSave(){
  try{
   saveProgress();
-  const bundle={format:'the-village-save-bundle',version:SAVE_BUNDLE_VERSION,gameVersion:'V33.0.2',exportedAt:new Date().toISOString(),entries:collectVillageStorage()};
+  const bundle={format:'the-village-save-bundle',version:SAVE_BUNDLE_VERSION,gameVersion:ASCENSION_VERSION,exportedAt:new Date().toISOString(),entries:collectVillageStorage()};
   const stamp=new Date().toISOString().replace(/[:.]/g,'-');
   downloadJsonFile(`The_Village_Save_${stamp}.json`,bundle);
   showToast('Save backup exported');
@@ -3123,7 +3140,7 @@ function getSaveSummary(){
  const towers=data.unlockedTowers||data.towersUnlocked||data.towerUnlocks||data.collection?.towers;
  const towerCount=Array.isArray(towers)?towers.length:(towers&&typeof towers==='object'?Object.keys(towers).filter(k=>towers[k]!==false).length:'—');
  return {
-  version:'V33.0.2',
+  version:ASCENSION_VERSION,
   saveVersion:data.saveVersion||data.version||'Legacy compatible',
   highestLevel:highest||data.currentLevel||data.stage||'—',
   hunterLevel:data.hunterLevel||data.playerLevel||data.shadowLevel||data.hero?.level||'—',

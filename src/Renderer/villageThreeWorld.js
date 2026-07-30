@@ -4,6 +4,9 @@
 // V32.6.2 — Three.js loaders reject with a DOM ErrorEvent, which has no
 // `.message`. Reading `.message` blindly produced the misleading
 // "Unknown WebGL error" banner for what was really a 404 on an art file.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
 export function describeLoadError(err){
   if(!err)return 'unknown error';
   if(typeof err==='string')return err;
@@ -14,9 +17,6 @@ export function describeLoadError(err){
 }
 
 export async function createVillageThreeWorld({ viewport, world, getShadowState, readPlots, buildingDefs, getBuildState, onPlotSelected }) {
-  const THREE = window.THREE;
-  if (!THREE || !THREE.WebGLRenderer) throw new Error('Three.js runtime was not initialized (the CDN script did not load)');
-
   // V32.6.2 — pre-flight the GPU before Three.js does. iOS Safari enforces a
   // browser-wide WebGL context budget; with several tabs open, context creation
   // simply returns null and Three throws an opaque internal error. Asking first
@@ -53,8 +53,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   // requestShadowUpdate() must be called whenever a caster is added or moved.
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.type = MOBILE_GPU ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-  if ('outputColorSpace' in renderer && THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
-  else if ('outputEncoding' in renderer && THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+  if ('outputEncoding' in renderer && THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.04;
 
@@ -155,7 +154,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     const ctx=c.getContext('2d');painter(ctx,size);
     const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeatX,repeatY);
     t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;
-    if('colorSpace' in t&&THREE.SRGBColorSpace)t.colorSpace=THREE.SRGBColorSpace;
+    if('encoding' in t&&THREE.sRGBEncoding)t.encoding=THREE.sRGBEncoding;
     return t;
   }
   const grassTexture=canvasTexture(256,(ctx,n)=>{
@@ -182,8 +181,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     texture.magFilter=THREE.LinearFilter;
     texture.minFilter=THREE.LinearMipmapLinearFilter;
     texture.generateMipmaps=true;
-    if('colorSpace' in texture&&THREE.SRGBColorSpace)texture.colorSpace=THREE.SRGBColorSpace;
-    else if('encoding' in texture&&THREE.sRGBEncoding)texture.encoding=THREE.sRGBEncoding;
+    if('encoding' in texture&&THREE.sRGBEncoding)texture.encoding=THREE.sRGBEncoding;
     return texture;
   }
   function loadTextureOnce(url){
@@ -205,9 +203,8 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     return tuneArtTexture(procedural());
   }
   function loadGLB(url){
-    if(!THREE.GLTFLoader) throw new Error('GLTFLoader runtime was not initialized (the loader script did not load)');
     return new Promise((resolve,reject)=>{
-      new THREE.GLTFLoader().load(url,gltf=>resolve(gltf.scene),undefined,reject);
+      new GLTFLoader().load(url,gltf=>resolve(gltf.scene),undefined,reject);
     });
   }
 
@@ -643,8 +640,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
         tex.repeat.set(1/4,1/8);tex.offset.set(0,7/8);
         tex.magFilter=THREE.NearestFilter;tex.minFilter=THREE.NearestFilter;
         tex.generateMipmaps=false;tex.matrixAutoUpdate=true;tex.needsUpdate=true;
-        if('colorSpace' in tex&&THREE.SRGBColorSpace)tex.colorSpace=THREE.SRGBColorSpace;
-        else if('encoding' in tex&&THREE.sRGBEncoding)tex.encoding=THREE.sRGBEncoding;
+        if('encoding' in tex&&THREE.sRGBEncoding)tex.encoding=THREE.sRGBEncoding;
       }
       return {body,shade,index};
     }catch(error){
@@ -750,8 +746,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   shadowTexture.magFilter=THREE.NearestFilter;
   shadowTexture.minFilter=THREE.NearestFilter;
   shadowTexture.generateMipmaps=false;
-  if ('colorSpace' in shadowTexture && THREE.SRGBColorSpace) shadowTexture.colorSpace=THREE.SRGBColorSpace;
-  else if ('encoding' in shadowTexture && THREE.sRGBEncoding) shadowTexture.encoding=THREE.sRGBEncoding;
+  if ('encoding' in shadowTexture && THREE.sRGBEncoding) shadowTexture.encoding=THREE.sRGBEncoding;
 
   const shadowMaterial=new THREE.SpriteMaterial({
     map:shadowTexture,

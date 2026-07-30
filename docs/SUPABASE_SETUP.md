@@ -1,105 +1,124 @@
 # The Village Supabase setup
 
-## Client configuration
+## Vite client configuration
 
-The active launch path is a plain static browser project. `index.html` loads
-the official Supabase UMD browser client before `src/main.js`.
-`src/online/supabaseClient.js` initializes it with the public settings in
-`src/online/supabaseBrowserConfig.js`.
+Vite is the supported development and production runtime. The application
+imports `createClient` from `@supabase/supabase-js` in
+`src/online/supabaseClient.js`; it does not load Supabase from a CDN or browser
+global.
 
-No npm install or Vite transformation is required when the game is served at
-`http://127.0.0.1:5500`. Do not use a bare package import in modules loaded
-directly by the browser.
+Copy `.env.example` to `.env` and provide:
 
-A publishable key is expected to be visible in a browser application;
-authentication and Row Level Security protect data.
-Never put a secret key, `service_role` key, database password, or JWT signing
-secret in this repository or browser code.
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_publishable_key
+```
+
+Only the browser-safe publishable/anon key belongs in the client. Never add a
+secret key, `service_role` key, database password, or JWT signing secret.
+`.env` is ignored by Git. Vite embeds `VITE_*` values into the browser bundle,
+so security is enforced by authentication and Row Level Security rather than
+by treating the publishable key as a secret.
 
 ## Apply the database migration
 
 1. Open the Supabase project.
-2. Open **SQL Editor** and create a new query.
+2. Open **SQL Editor** and create a query.
 3. Paste all of `supabase/migrations/001_auth_and_cloud_saves.sql`.
 4. Run the query once.
-5. In **Table Editor**, confirm `profiles` and `player_saves` exist.
-6. In each table's RLS view, confirm RLS is enabled and only the own-row
-   authenticated policies exist.
-7. In **Authentication → URL Configuration**, add the local Vite URL
-   (normally `http://localhost:5173`) and the production game URL to the
-   redirect allow list.
-8. In **Authentication → Providers → Email**, choose whether tester accounts
-   require email confirmation. Both modes are supported.
+5. Confirm `profiles` and `player_saves` exist.
+6. Confirm RLS is enabled and only the authenticated own-row policies exist.
+7. Do not add public read/write policies and do not disable RLS.
 
-Do not add public read/write policies and do not disable RLS.
+The migration is unchanged for V35.1. Existing cloud rows must not be reset.
+
+## Authentication redirects
+
+In **Authentication → URL Configuration**:
+
+- Set the local Site URL to `http://localhost:5173` while developing.
+- Add `http://localhost:5173/**` to the redirect allow list.
+- Add the preview address, normally `http://localhost:4173/**`, when testing
+  password recovery against `npm run preview`.
+- Add the final HTTPS Cloudflare Pages production URL and its `/**` pattern
+  before deployment.
+- If Cloudflare preview deployments will handle authentication callbacks, add
+  only the specific trusted preview patterns required by the project.
+
+Registration confirmation and password recovery use the current application
+origin and pathname. No deployment domain is hard-coded into application code.
+The root application route handles the callback query/hash and Supabase session
+restoration.
 
 ## Run locally
 
-Serve the project directory with Live Server and open
-`http://127.0.0.1:5500`. Vite remains an optional production build tool.
+```bash
+npm install
+npm run dev
+```
 
-Do not open `index.html` through a `file://` URL because browser module
-security requires an HTTP server.
+Open `http://localhost:5173`. Live Server and `127.0.0.1:5500` are no longer
+supported launch paths.
+
+Build and preview production output:
+
+```bash
+npm run build
+npm run preview
+```
+
+Vite writes deployable files to `dist/`. Configure Cloudflare Pages to run
+`npm run build`, publish `dist`, and provide both `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` as build environment variables.
+
+The build also stages the controlled runtime asset set and validates every
+dynamic asset and release-version consumer. After starting preview,
+`npm run test:production` performs an isolated browser smoke test without
+writing tester records to the real Supabase project.
 
 ## Authentication flow
 
-`src/main.js` starts `src/online/authGate.js` before importing the Village or
-battle modules. During session restoration, only the account loading screen is
-visible. A valid session loads the profile and correct cloud save before the
-game initializes. Supabase manages passwords, session persistence, refresh
-tokens, email confirmation, and recovery links.
+`src/main.js` starts `src/online/authGate.js` before importing Village or battle
+modules. Session restoration and cloud-save selection complete before gameplay
+appears. Supabase manages passwords, persistence, refresh tokens, email
+confirmation, and recovery sessions.
 
 The Account section under **More** shows display name, email, cloud status, last
-sync, and logout. Logout attempts to flush progress, signs out through
-Supabase, saves the account-specific local fallback, and reloads into the
-authentication gate.
+sync, and logout. Logout flushes pending progress when possible, signs out,
+caches the account-specific local fallback, and returns to authentication.
 
-## Save and migration behavior
+## Save compatibility and migration
 
-`src/online/cloudSave.js` snapshots the existing recognized Village
-localStorage records into `player_saves.save_data`. It does not serialize DOM
-nodes, audio objects, functions, transient battle visuals, passwords, sessions,
-or tokens.
+`src/online/cloudSave.js` wraps the existing localStorage save format. V35.1
+does not change the game save schema, storage keys, cloud payload format, or
+database tables.
 
 On first login:
 
-- Existing cloud save: load it; do not merge or overwrite it with local data.
+- Existing cloud save: load cloud data without merging local data over it.
 - No cloud save plus valid local progress: upload local progress once.
-- Neither exists: initialize the normal game defaults and create a cloud save.
+- Neither exists: initialize a normal new save and create its cloud row.
 
-Migration markers and local fallback caches are per Supabase user UUID. Local
-progress is retained while cloud saving is tested. Switching accounts caches
-the previous account's local state before restoring the next account, so saves
-do not leak between users.
+Migration markers and local fallbacks remain per Supabase user UUID. Cloud
+writes retain the five-second debounce, serialized requests, revision checks,
+retry/backoff, and offline fallback.
 
-Local saves remain immediate. Cloud writes are debounced for five seconds,
-serialized one at a time, revision-checked, and retried with backoff. The game
-also queues periodic saves and flushes at safe battle/menu/logout transitions.
-When offline after a successful account load, gameplay continues against the
-local fallback and the newest state retries on reconnection.
+Village economy display polling is read-only. Periodic and resume checks compare
+persistent save content with the last successful cloud snapshot and do not
+queue a write while the player is idle. The status therefore remains `Synced`
+until material persistent state changes.
 
-## Testing
+## Validation checklist
 
-### Authentication
-
-1. Create a tester account and check validation for invalid email, a password
-   shorter than eight characters, and mismatched confirmation.
-2. If email confirmation is enabled, confirm the account before signing in.
-3. Test wrong-password feedback, sign out/in, session restoration after reload,
-   recovery email, and setting a new password through the recovery link.
-
-### Cloud saves
-
-1. Back up an existing local save, then sign into a new account and confirm it
-   migrates once.
-2. Win or lose a battle, edit the deck, claim a decree, modify Village
-   buildings/resources, wait for “Saved,” and reload.
-3. Sign into Account B and verify it has different progression.
-4. Return to Account A and verify its cloud/local fallback returns.
-5. Sign into the same account on a second device and confirm the cloud state.
-6. Disable networking after a successful load, make progress, confirm the
-   offline/pending status, reconnect, and wait for “Saved.”
-7. Confirm `player_saves` has exactly one row per user and revisions increase.
-
-Use desktop Chrome/Edge and physical Safari on iPhone/iPad for final session,
-keyboard, safe-area, rotation, and recovery-link verification.
+- Register, confirm email when enabled, sign in, sign out, and restore a session.
+- Test an invalid login and a password-recovery link through the Vite origin.
+- Load an existing local save and verify one-time migration.
+- Load an existing cloud save without blank/local overwrite.
+- Make progression, wait for `Synced`, reload, and verify restoration.
+- Leave the Village idle through multiple economy and periodic checks; confirm
+  the status remains `Synced`.
+- Test two accounts and verify their local fallbacks and cloud rows stay separate.
+- Test offline changes, reconnection, and revision conflict behavior.
+- Verify desktop Chrome, Edge, and Firefox.
+- Verify physical iPhone/iPad Safari for session restoration, recovery links,
+  audio unlock, keyboard/safe areas, rotation, and background/resume behavior.
