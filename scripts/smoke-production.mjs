@@ -57,7 +57,7 @@ async function mockSupabase(context) {
         total_play_time_seconds: 0,
         last_login_at: updatedAt,
         last_seen_at: updatedAt,
-        game_version: '35.1.0',
+        game_version: '35.1.1',
         updated_at: updatedAt
       };
       return route.fulfill({
@@ -127,7 +127,7 @@ async function runViewport(browser, viewport, mobile = false) {
   }
 
   const release = await page.locator('[data-release-label]').textContent();
-  if (!release?.includes('35.1.0')) errors.push(`Visible release label is incorrect: ${release}`);
+  if (!release?.includes('35.1.1')) errors.push(`Visible release label is incorrect: ${release}`);
 
   if (mobile) {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
