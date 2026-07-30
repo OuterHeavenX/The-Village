@@ -1,8 +1,94 @@
 # THE VILLAGE — PROJECT STATE
 
-**Current baseline:** V34.1.0 — Performance, Legibility & Boundary Audit  
-**Updated:** 2026-07-28  
-**Runtime status:** All JavaScript syntax validated; the 3D Village verified to initialise and dispose cleanly even with a missing texture and a failed GLB; per-frame localStorage reads eliminated; every referenced asset present.
+**Current baseline:** V35.0.0 — ASCENSION
+**Updated:** 2026-07-29
+**Runtime status:** Ascension registries, save migration, equipment, gems, fusion, support capacity, companion abilities, and boss loot integrated; JavaScript syntax and production build validated.
+
+## V35.0.0 ASCENSION
+
+### Data-driven progression foundation
+
+- Added `src/Ascension/registry.js` as the configuration source for Equipment,
+  equipment slots, Elements, Gems, Fusion recipes, Relics, Companions, Support
+  Cards, support effects, companion behavior, and Boss Loot.
+- Gameplay consumes generic effect maps and companion behavior types rather than
+  adding item-specific branches for new Ascension content.
+- Added a modular three-tier equipment registry containing progression-scaled
+  weapons, helmets, armor, gloves, boots, shields, books, rings, and named gear.
+- Shadow has seven equipment positions: Weapon, Helmet, Armor, Gloves, Boots,
+  Accessory 1, and Accessory 2.
+- Equipment supports extensible primary and secondary stat maps, rarity, tier,
+  chapter and boss requirements, Faith, Bravery, sell value, flavor text, drop
+  weight, and placeholder icon metadata.
+
+### Faith, Bravery, Gems, and Fusion
+
+- Faith strengthens nearby towers through attack speed, range, critical,
+  status, boss, XP, and reward-oriented leadership bonuses.
+- Bravery strengthens Shadow and contributes offensive leadership bonuses to
+  nearby towers.
+- Added six modular elements with three Gem levels each.
+- Tower cards persist two permanent Gem sockets and visibly show empty or filled
+  circular sockets in both the collection and equipped Battle Deck.
+- Added elemental fragments, Gem crafting, Gem upgrades, socketing, removal,
+  passive effects, and data-driven upgrade paths.
+- Added known and hidden Fusion recipes. Hidden recipes are permanently revealed
+  when successfully discovered.
+
+### Boss loot, Supports, Companions, and balance
+
+- Chapters 5, 8, and 10 grant guaranteed first-clear Gems.
+- Bosses grant tier-appropriate equipment and elemental fragments through the
+  configurable Boss Loot registry.
+- Support Cards affect one to four attack towers in the surrounding eight tiles,
+  with capacity determined by rarity.
+- Added six gothic tactical Support Cards and generic support-effect processing.
+- Companions now have distinct targeting AI, passive effects, active abilities,
+  cooldowns, projectile behavior, battlefield presentation, and independent
+  scaling.
+- Reduced every campaign boss maximum-health value by exactly 10%; no other
+  requested balance values were changed.
+
+### Authentication and cloud saves
+
+- Added Supabase email/password registration, sign-in, persistent sessions,
+  token refresh, password-reset requests, authentication-state restoration, and
+  logout.
+- The static browser build loads the official browser-compatible Supabase client
+  without requiring a bare npm module import at runtime.
+- Added gothic authentication, loading, setup, failure, and account-status UI.
+- Added `profiles` and `player_saves` SQL migration with owner-only Row Level
+  Security policies.
+- Added cloud-save loading, per-user local migration, revision tracking,
+  debounced writes, pending-write serialization, local fallback, retry/backoff,
+  reconnect synchronization, save-status indicators, and logout flushing.
+- Existing local progression is retained as a fallback and is never silently
+  merged over an existing cloud save.
+- Browser-safe configuration examples and Supabase setup documentation are
+  included; privileged credentials are not stored in the client.
+
+### Audio and interface polish
+
+- Registered looping standard-battle, boss-battle, and Village music states with
+  duplicate-instance prevention, fade transitions, mute/volume support, browser
+  suspension recovery, and preserved sound effects.
+- Boss music begins when a boss appears; Village music follows the Village menu;
+  battle music persists between waves and stops when leaving a battle.
+- Increased battle SFX presence and separation from music while retaining the
+  existing master, music, SFX, and mute controls.
+- Repaired the Ascension Equipment, Gems, Fragments, Fusion, and Hero collection
+  layouts so complex records no longer inherit narrow collectible-card columns.
+- Battle Deck cards now reserve visible space for artwork, title, Gem sockets,
+  stats, footer, and controls across desktop, laptop, tablet, and mobile widths.
+
+### Compatibility and validation
+
+- Project version is `35.0.0 — ASCENSION`.
+- Save schema 15 creates a V35 backup and additively migrates earlier saves
+  without removing cards, campaign progress, Village state, settings, Relics,
+  Companions, or existing loadouts.
+- V35 documentation lives in `docs/ASCENSION_V35.md`; Supabase setup and migration
+  instructions live in `docs/SUPABASE_SETUP.md` and `supabase/migrations/`.
 
 ## Post-V34.1.0 battle-camera recovery
 
@@ -235,7 +321,7 @@ Three presentation-only homages joining the existing Vampire Killer tribute. Non
 - **Main concept:** Defend the last safe village from escalating waves. The player brings a six-card deck, receives roads automatically during runs, places defenses and supports, earns permanent cards and currencies, selects hunters and relics, and restores the kingdom between hunts.
 - **Build system:** Vite 7 (`npm run dev`, `npm run build`).
 - **Primary target:** Touch-first browser play, especially iPad landscape, with desktop mouse/keyboard compatibility.
-- **Save system:** Browser `localStorage`, canonical key `relicsEclipseSave`; legacy fallback key `gateRunnerSave`; current schema `saveVersion = 14`.
+- **Save system:** Browser `localStorage` plus authenticated Supabase cloud synchronization; canonical local key `relicsEclipseSave`; legacy fallback key `gateRunnerSave`; current schema `saveVersion = 15`.
 
 
 ## Village World Branch — Current State

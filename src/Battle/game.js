@@ -1,4 +1,28 @@
 
+import { flushCloudSave, queueCloudSave, registerSaveProvider } from '../online/cloudSave.js';
+import {
+  ASCENSION_SAVE_VERSION,
+  ASCENSION_VERSION,
+  BOSS_LOOT_REGISTRY,
+  COMPANION_ASCENSION,
+  COMPANION_BEHAVIOR_REGISTRY,
+  COMPANION_REGISTRY,
+  ELEMENT_REGISTRY,
+  EQUIPMENT_REGISTRY,
+  EQUIPMENT_SLOTS,
+  FUSION_REGISTRY,
+  GEM_REGISTRY,
+  RELIC_REGISTRY,
+  SUPPORT_EFFECT_REGISTRY,
+  SUPPORT_REGISTRY,
+  combinedEquipmentStats,
+  bossLootTier,
+  eligibleBossEquipment,
+  equipmentById,
+  gemById,
+  supportCapacity
+} from '../Ascension/registry.js';
+
 'use strict';
 // V32.4.1 — Stability audit, cleanup, Shadow Familiars and evolving battle Keep.
 // V27.4 Split Roads: connected branching routes and multi-front enemy assaults.
@@ -25,13 +49,8 @@ function currentShadowLevel(){return Math.max(1,Math.min(9,Number(save?.shadowLe
 
 // V32.4 — Shadow Familiars. One equipped companion follows Shadow, gains its
 // own persistent XP, and contributes a distinct autonomous battle ability.
-const FAMILIARS=[
- {id:'bat',name:'Night Bat',icon:'🦇',role:'Fast strikes',color:'#b98cff',rate:2.2,damage:8,range:3.2},
- {id:'sword',name:'Giant Sword',icon:'⚔️',role:'Heavy slashes',color:'#dcecff',rate:3.0,damage:16,range:2.2},
- {id:'demon',name:'Demon',icon:'👹',role:'Burning blasts',color:'#ff785f',rate:3.8,damage:22,range:3.5},
- {id:'ghost',name:'Ghost',icon:'👻',role:'Slows enemies',color:'#cbbcff',rate:3.2,damage:10,range:3.8},
- {id:'faerie',name:'Faerie',icon:'🧚',role:'Radiant Guidance — Gain 10% more Essence from defeated enemies.',color:'#fff2a6',rate:4.0,damage:7,range:3.0}
-];
+const FAMILIARS=COMPANION_REGISTRY;
+for(const familiar of FAMILIARS){const ascension=COMPANION_ASCENSION[familiar.id];if(ascension)familiar.role=`${ascension.ai} Passive: ${ascension.passive} Active: ${ascension.active} (${ascension.cooldown}s).`}
 function familiarDef(id=save?.familiars?.equipped){return FAMILIARS.find(f=>f.id===id)||FAMILIARS[0]}
 function familiarState(id){
  save.familiars=save.familiars&&typeof save.familiars==='object'?save.familiars:{equipped:'bat',unlocked:FAMILIARS.map(f=>f.id),progress:{}};
@@ -52,6 +71,17 @@ function grantFamiliarXp(amount){
  if(st.level>=20)st.xp=0;
  if(leveled)showToast(`${familiarDef().name} reached Level ${st.level}`);
  saveProgress();
+}
+function updateAscensionCompanion(dt){
+ const fam=G?.familiar;if(!fam)return;
+ const config=COMPANION_ASCENSION[fam.id]||COMPANION_ASCENSION.bat,behavior=COMPANION_BEHAVIOR_REGISTRY[fam.id]||COMPANION_BEHAVIOR_REGISTRY.bat,level=Math.max(1,fam.level||1);
+ fam.ascension=config;fam.angle=(fam.angle||0)+dt*(behavior.visual?.orbitSpeed||.8);fam.t-=dt;fam.activeT=(fam.activeT??config.cooldown*.55)-dt;
+ const inRange=G.enemies.filter(e=>!e.dead&&Math.hypot(e.x-G.hero.x,e.y-G.hero.y)<fam.range+level*.035);
+ const progress=e=>(e.seg||0)+(e.prog||0);
+ const density=e=>G.enemies.filter(other=>!other.dead&&Math.hypot(other.x-e.x,other.y-e.y)<1).length;
+ const targets=[...inRange].sort((a,b)=>behavior.targeting==='armored'?(Number(b.armor||b.elite||b.boss)-Number(a.armor||a.elite||a.boss)):behavior.targeting==='progress'?progress(b)-progress(a):behavior.targeting==='clustered'?density(b)-density(a):b.speed-a.speed);
+ if(fam.activeT<=0&&targets.length){const target=targets[0],power=fam.damage*(2.2+(level-1)*.16),active=behavior.activeEffect||{};if(active.type==='multiHit'){for(const e of targets.slice(0,active.targets||1))hit(e,power*(active.multiplier||1),{kind:'companionActive',noCrit:true})}else if(active.type==='heavyHit')hit(target,power*(active.multiplier||1),{kind:'companionActive',holy:active.holy});else if(active.type==='areaHit'){for(const e of G.enemies.filter(e=>!e.dead&&Math.hypot(e.x-target.x,e.y-target.y)<(active.radius||1))){hit(e,power,{kind:'companionActive'});e.burn=Math.max(e.burn||0,active.burn||0)}}else if(active.type==='control'){for(const e of targets){e.freeze=Math.max(e.freeze||0,active.freeze||0);e.slow=Math.min(e.slow||1,active.slow||1)}}else if(active.type==='support'){G.faerieGuidance=active.duration||0;G.essence=Math.min(G.maxEssence,G.essence+(active.essenceBase||0)+Math.floor(level/(active.essenceLevelsPerBonus||Infinity)))}burst(target.x,target.y,fam.color,28);floatText(target.x,target.y-.35,config.active.toUpperCase(),fam.color);fam.activeT=config.cooldown}
+ if(fam.t<=0){const target=targets[0];if(target){const scaling=config.scaling||{},projectile=behavior.projectile||{},dmg=fam.damage*(1+(level-1)*(scaling.damagePerLevel||.09));G.shots.push({x:G.hero.x+Math.cos(fam.angle)*.45,y:G.hero.y-.25+Math.sin(fam.angle)*.18,target,speed:projectile.speed||8.5,damage:dmg,color:fam.color,holy:!!projectile.holy,life:2,kind:'familiar',familiarId:fam.id,slow:projectile.slow?Math.max(.35,projectile.slow-level*(scaling.slowPerLevel||0)):0,burn:projectile.burn?projectile.burn+level*(scaling.burnPerLevel||0):0});fam.t=Math.max(.65,fam.rate-level*.045)}else fam.t=.2}
 }
 function keepBattleLevel(){const walls=Number(save?.keepUpgrades?.walls)||0,town=Number(save?.kingdom?.buildings?.townhall)||0;return Math.max(1,Math.min(5,1+Math.floor(walls/2)+Math.min(2,town)))}
 // V32.4.2 — a dead per-type Walk-sheet lookup table was removed from here. It
@@ -702,7 +732,11 @@ const CARD_POOL=[
  {id:'soulPact',name:'Relic Edge',type:'hero',icon:'🗡️',cost:0,desc:'Hero damage +25% for this run.',rarity:'Rare',heroStat:'damage'},
  {id:'sharpen',name:'Quickened Reflexes',type:'hero',icon:'⚡',cost:0,desc:'Hero attacks 18% faster for this run.',rarity:'Epic',heroStat:'rate'},
  {id:'fortify',name:"Hunter’s Reach",type:'hero',icon:'⛓️',cost:0,desc:'Hero attack range +20% for this run.',rarity:'Rare',heroStat:'range'},
- {id:'moonBlessing',name:'Eclipse Consecration',type:'hero',icon:'✨',cost:0,desc:'Hero attacks become holy and can critically strike.',rarity:'Legendary',heroStat:'holy'}
+ {id:'moonBlessing',name:'Eclipse Consecration',type:'hero',icon:'✨',cost:0,desc:'Hero attacks become holy and can critically strike.',rarity:'Legendary',heroStat:'holy'},
+ ...SUPPORT_REGISTRY.map(s=>({
+  id:s.id,name:s.name,type:'support',icon:s.icon,cost:44,desc:s.description,
+  rarity:s.rarity,range:1.5,damage:0,rate:1.2,color:'#bca2d8',supportEffect:s.effect
+ }))
 ];
 
 const ROAD_PIECES=[
@@ -734,20 +768,8 @@ const WEATHERS=[
  {id:'fog',name:'Grave Fog',desc:'Tower range -12%; enemy rewards +20%.'},
  {id:'blood',name:'Blood Moon',desc:'Enemies +18% HP; shared Battle XP +40%; rewards +30%.'}
 ];
-const RELICS=[
- {id:'fang',name:'Nightfang Sigil',icon:'🦇',desc:'Hero attacks 18% faster.'},
- {id:'candle',name:'Eclipse Candle',icon:'🕯️',desc:'Holy towers gain +20% range and damage.'},
- {id:'chalice',name:'Crimson Reliquary',icon:'🏆',desc:'Restore 2 gate HP after every wave.'},
- {id:'ring',name:'Ring of the Eclipse',icon:'💍',desc:'Every fifth kill explodes around the victim.'},
- {id:'thorn',name:'Thornheart Crown',icon:'👑',desc:'Begin each hunt with 1 bonus Upgrade Point.'},
- {id:'banner',name:'Banner of Blackstone',icon:'🚩',desc:'The gate begins with +5 health.'},
- {id:'moon',name:'Moon Oracle Lens',icon:'🔭',desc:'Hero critical chance +12%.'},
- {id:'bloodseal',name:'Royal Blood Seal',icon:'🩸',desc:'All damage +12%, but enemies gain 8% health.'},
- {id:'tidebell',name:'Bell of the Drowned',icon:'🔔',desc:'Every tenth kill briefly slows all enemies.'},
- {id:'ashcenser',name:'Ashen Censer',icon:'🏺',desc:'Burn effects last 35% longer.'},
- {id:'underkey',name:'Key of the Underking',icon:'🗝️',desc:'Elite enemies award 30% more Essence.'},
- {id:'graveseal',name:'Grave Seal',icon:'⚰️',desc:'Restore 3 gate HP after every wave.'},{id:'voideye',name:'The Void Eye',icon:'👁️',desc:'Flying enemies take 30% more damage.'},{id:'rotcrown',name:'Crown of Rot',icon:'🥀',desc:'Blood Essence gained is increased by 20%.'},{id:'ossuary',name:'Ossuary Key',icon:'🔑',desc:'Gate begins each hunt with 8 extra HP.'},{id:'pallbearer',name:"Pallbearer's Oath",icon:'🕯️',desc:'Armoured enemies lose half their armour.'},{id:'sunless',name:'Sunless Lantern',icon:'🏮',desc:'All towers gain 10% damage.'},{id:'moonshard',name:'Moon Shard',icon:'🌙',desc:'All towers gain 10% range.'},{id:'abyssseal',name:'Seal of the Abyss',icon:'🕳️',desc:'Flying enemies take 30% more damage and towers gain 8% damage.'},{id:'eclipsecrown',name:'Crown of Final Night',icon:'♛',desc:'Hero and towers deal +15% damage on boss waves.'}
-];
+const RELICS=RELIC_REGISTRY;
+const relicEffect=(key,relic=G?.relic)=>Number(relic?.effect?.[key])||0;
 const CHAPTERS=[
  {id:'cemetery',number:1,name:'The Forgotten Cemetery',map:'cemetery',waves:8,boss:{id:'warden',name:'Eclipse Warden',hp:500,speed:.28,reward:140,power:'Raises three Bone Soldiers every five seconds.'},relic:'fang',lore:'The first royal road ends beneath graves that refuse to sleep.'},
  {id:'forest',number:2,name:'The Moonlit Forest',map:'forest',waves:10,boss:{id:'thornbeast',name:'The Thornbound Beast',hp:680,speed:.34,reward:175,power:'Moves faster and releases Night Wolves.'},relic:'candle',lore:'A black forest has swallowed the northern watch road.'},
@@ -762,11 +784,15 @@ const CHAPTERS=[
  {id:'underkingdom',number:11,name:'The Underkingdom',map:'underkingdom',waves:21,boss:{id:'underking',name:'The Hollow Underking',hp:3750,speed:.23,reward:860,power:'Summons armored dead and bends the road beneath the earth.'},relic:'underkey',lore:'Below the royal roads lies a kingdom older than the living crown.'},
  {id:'sunlessvault',number:12,name:'The Sunless Vault',map:'sunlessvault',waves:22,boss:{id:'hollowsaint',name:'The Hollow Saint',hp:4200,speed:0.26,reward:880,power:'Splits into lesser saints as its light fails.'},relic:'graveseal',lore:'Beneath the underkingdom, a vault that never knew the sun.'},{id:'catacombs',number:13,name:'The Rotting Catacombs',map:'catacombs',waves:23,boss:{id:'rotmarshal',name:'The Rot Marshal',hp:4700,speed:0.24,reward:960,power:'Raises Plague Revenants from every corpse on the road.'},relic:'voideye',lore:'The dead here were buried standing, facing the gate.'},{id:'hollowcathedral',number:14,name:'The Hollow Cathedral',map:'hollowcathedral',waves:24,boss:{id:'plaguechoir',name:'The Plague Choir',hp:5300,speed:0.28,reward:1050,power:'Its hymn rots defenses from the inside.'},relic:'rotcrown',lore:'A cathedral emptied of everything but its song.'},{id:'weepingspire',number:15,name:'The Weeping Spire',map:'weepingspire',waves:25,boss:{id:'voidprelate',name:'The Void Prelate',hp:5900,speed:0.3,reward:1160,power:'Opens eyes across the battlefield that strike from above.'},relic:'ossuary',lore:'The spire wept for a century. Something answered.'},{id:'bonecathedral',number:16,name:'The Bone Cathedral',map:'bonecathedral',waves:26,boss:{id:'grandossuary',name:'The Grand Ossuary',hp:6600,speed:0.22,reward:1280,power:'Armours every enemy that passes beneath it.'},relic:'pallbearer',lore:'Built from the fallen of the first ten roads.'},{id:'observatory',number:17,name:'Crimson Observatory',map:'observatory',waves:27,boss:{id:'duskempress',name:'The Dusk Empress',hp:7400,speed:0.32,reward:1410,power:'Reads the moon and calls elites in threes.'},relic:'sunless',lore:'She charted the eclipse before anyone knew to fear it.'},{id:'shatteredmoon',number:18,name:'The Shattered Moon',map:'shatteredmoon',waves:28,boss:{id:'eclipseherald',name:'Herald of the Shattered Moon',hp:8300,speed:0.29,reward:1560,power:'Falling moonlight damages towers directly.'},relic:'moonshard',lore:'The moon broke, and the pieces are still falling.'},{id:'abyssgate',number:19,name:'The Abyssal Gate',map:'abyssgate',waves:29,boss:{id:'lastsentinel',name:'The Last Sentinel',hp:9300,speed:0.25,reward:1720,power:'The final guard. Nothing has ever passed it.'},relic:'abyssseal',lore:'One gate remains between the road and the throne.'},{id:'throne',number:20,name:'The Eclipse Throne',map:'throne',waves:30,boss:{id:'eclipselord',name:'The Lord of Final Night',hp:11000,speed:.29,reward:2400,power:'Changes phases, summons elites, and darkens the battlefield.'},relic:'eclipsecrown',lore:'At the end of every road, the Eclipse waits upon its throne.'}
 ];
+// Campaign rewards consume registry order; relic content and effects live in
+// the Ascension registry rather than in battle-system branches.
+for(const chapter of CHAPTERS)chapter.relic=RELIC_REGISTRY[chapter.number-1]?.id||null;
 // V28.0: The first ten campaign levels form the Golem arc. Existing map, wave, reward, and unlock data remain intact.
 for(const chapter of CHAPTERS.slice(0,10)){chapter.boss={...chapter.boss,id:'golem',name:chapter.number===10?'Golem of Three Forms':(chapter.number>=5?'Awakened Golem':'Stone Golem'),power:chapter.number===10?'Transforms twice; its final form destroys one tower every six seconds.':chapter.number>=5?'Remains in its awakened second form.':'Remains in its first stone form.'};}
+for(const chapter of CHAPTERS)chapter.boss.hp=Math.max(1,Math.round(chapter.boss.hp*.90));
 const RARITIES=[
  {id:'common',name:'Common',mult:1,color:'#8c8c95'},
- {id:'good',name:'Good',mult:1.04,color:'#58ba62'},
+ {id:'good',name:'Uncommon',mult:1.04,color:'#58ba62'},
  {id:'rare',name:'Rare',mult:1.09,color:'#4f87e8'},
  {id:'epic',name:'Epic',mult:1.15,color:'#9b5de5'},
  {id:'epicplus',name:'Epic+',mult:1.22,color:'#b06ae8'},
@@ -854,6 +880,7 @@ const CHAPTER_CARD_UNLOCKS={
  castle:['grandCross','soulLantern'],
  harbor:[],monastery:[],underkingdom:[],throne:[]
 };
+for(const support of SUPPORT_REGISTRY){if(support.unlockChapter)(CHAPTER_CARD_UNLOCKS[support.unlockChapter]||=[]).push(support.id)}
 const unlockChapterForCard=id=>CHAPTERS.find(ch=>(CHAPTER_CARD_UNLOCKS[ch.id]||[]).includes(id));
 const progressionUnlockedIds=completed=>{const ids=new Set(DEFAULT_DECK);for(const chapterId of completed||[])for(const id of CHAPTER_CARD_UNLOCKS[chapterId]||[])ids.add(id);return [...ids]};
 
@@ -889,7 +916,7 @@ const STORAGE={
 };
 let loadedSave=null;
 try{loadedSave=JSON.parse(STORAGE.get('relicsEclipseSave')||STORAGE.get('gateRunnerSave')||'null')}catch(err){console.warn('Invalid save ignored.',err)}
-function defaultInventory(){return Object.fromEntries(CARD_POOL.map((c,i)=>[c.id,{copies:DEFAULT_DECK.includes(c.id)?2:0,rarity:'common',level:1,recent:DEFAULT_DECK.includes(c.id)&&i<3,lastFound:0}]));}
+function defaultInventory(){return Object.fromEntries(CARD_POOL.map((c,i)=>[c.id,{copies:DEFAULT_DECK.includes(c.id)?2:0,rarity:String(c.rarity||'common').toLowerCase(),level:1,xp:0,recent:DEFAULT_DECK.includes(c.id)&&i<3,lastFound:0,gemSlots:[null,null]}]));}
 // V33.0.1 — save safety: never erase an existing Village save on startup.
 // Older builds used a one-time fresh-start token that removed campaign, card,
 // tower, plot, and Village keys. Keep the token only as historical metadata.
@@ -901,9 +928,21 @@ try{
 }catch(_){}
 let save=loadedSave||{};
 const previousSaveVersion=Number(save.saveVersion)||0;
-if(loadedSave&&previousSaveVersion<12){try{STORAGE.set('relicsEclipseSave_backup_v12',JSON.stringify(loadedSave))}catch{}}
+if(loadedSave&&previousSaveVersion<ASCENSION_SAVE_VERSION){try{STORAGE.set('relicsEclipseSave_backup_v35',JSON.stringify(loadedSave))}catch{}}
 save.saveVersion=14;save.familiars=save.familiars&&typeof save.familiars==='object'?save.familiars:{equipped:'bat',unlocked:FAMILIARS.map(f=>f.id),progress:{}};save.familiars.unlocked=Array.isArray(save.familiars.unlocked)?save.familiars.unlocked:FAMILIARS.map(f=>f.id);save.familiars.progress=save.familiars.progress&&typeof save.familiars.progress==='object'?save.familiars.progress:{};if(!save.familiars.unlocked.includes(save.familiars.equipped))save.familiars.equipped=save.familiars.unlocked[0]||'bat';for(const f of FAMILIARS)familiarState(f.id);save.villageProgression=save.villageProgression&&typeof save.villageProgression==='object'?save.villageProgression:{};save.villageProgression.era=save.villageProgression.era||'settlement';save.villageProgression.researched=Array.isArray(save.villageProgression.researched)?save.villageProgression.researched:[];save.villageProgression.artifacts=Array.isArray(save.villageProgression.artifacts)?save.villageProgression.artifacts:[];save.villageProgression.chronicle=Array.isArray(save.villageProgression.chronicle)?save.villageProgression.chronicle:[];save.villageProgression.pendingShadowAwakening=!!save.villageProgression.pendingShadowAwakening;save.villageProgression.shadowAwakeningComplete=!!save.villageProgression.shadowAwakeningComplete;save.villageProgression.flags=save.villageProgression.flags&&typeof save.villageProgression.flags==='object'?save.villageProgression.flags:{};save.bestWave=save.bestWave||0;save.essence=save.essence||0;save.tutorialSeen=!!save.tutorialSeen;
 save.inventory={...defaultInventory(),...(save.inventory||{})};for(const oldRoad of ['pathS','pathL','bloodTile','ironTile','cryptTile'])delete save.inventory[oldRoad];save.selectedHero=save.selectedHero||'warden';save.heroLevels=save.heroLevels||Object.fromEntries(HEROES.map(h=>[h.id,1]));save.keepUpgrades=save.keepUpgrades||{};save.runHistory=save.runHistory||[];save.settings={audio:true,music:true,sfx:true,musicVolume:.46,sfxVolume:.72,ambienceVolume:.34,...(save.settings||{})};save.materials={eclipseShards:0,bloodEssence:save.essence||0,ancientRelics:0,hunterMedallions:0,forgeEmbers:0,...(save.materials||{})};save.stats={runs:0,wins:0,totalKills:0,totalCards:0,fusions:0,bosses:0,highestWave:save.bestWave||0,towerMerges:0,towersPlaced:0,goldEarned:0,bloodEssenceEarned:save.essence||0,jpEarned:0,perfectVictories:0,...(save.stats||{})};save.discoveredEnemies=save.discoveredEnemies||{};save.discoveredMaps=save.discoveredMaps||{};save.campaign=save.campaign&&typeof save.campaign==='object'?save.campaign:{unlocked:1,completed:[],selected:'cemetery'};save.campaign.unlocked=Math.max(1,Math.min(CHAPTERS.length,Number(save.campaign.unlocked)||1));save.campaign.completed=Array.isArray(save.campaign.completed)?save.campaign.completed.filter(id=>CHAPTERS.some(c=>c.id===id)):[];save.campaign.selected=CHAPTERS.some(c=>c.id===save.campaign.selected)?save.campaign.selected:'cemetery';save.campaign.stars=save.campaign.stars&&typeof save.campaign.stars==='object'?save.campaign.stars:{};save.shadowLevel=Math.max(1,Math.min(9,Number(save.shadowLevel)||Number(save.heroLevels?.[save.selectedHero])||1));save.uniqueBossDrops=save.uniqueBossDrops&&typeof save.uniqueBossDrops==='object'?save.uniqueBossDrops:{};save.unlockedRelics=Array.isArray(save.unlockedRelics)?save.unlockedRelics:[];save.equippedRelic=save.equippedRelic||null;save.kingdom=save.kingdom||{buildings:{},renown:0};save.achievements=save.achievements&&typeof save.achievements==='object'?save.achievements:{claimed:[]};save.achievements.claimed=Array.isArray(save.achievements.claimed)?save.achievements.claimed:[];save.cosmetics=save.cosmetics&&typeof save.cosmetics==='object'?save.cosmetics:{};save.unlockedRelics=save.unlockedRelics.filter(id=>RELICS.some(r=>r.id===id));if(save.equippedRelic&&!save.unlockedRelics.includes(save.equippedRelic))save.equippedRelic=null;
+save.saveVersion=ASCENSION_SAVE_VERSION;save.gameVersion=ASCENSION_VERSION;
+save.ascension=save.ascension&&typeof save.ascension==='object'?save.ascension:{};
+save.ascension.fragments=save.ascension.fragments&&typeof save.ascension.fragments==='object'?save.ascension.fragments:{};
+for(const element of ELEMENT_REGISTRY)save.ascension.fragments[element.id]=Math.max(0,Number(save.ascension.fragments[element.id])||0);
+save.ascension.gems=save.ascension.gems&&typeof save.ascension.gems==='object'?save.ascension.gems:{};
+for(const gem of GEM_REGISTRY)save.ascension.gems[gem.id]=Math.max(0,Number(save.ascension.gems[gem.id])||0);
+for(const recipe of FUSION_REGISTRY)save.ascension.gems[recipe.id]=Math.max(0,Number(save.ascension.gems[recipe.id])||0);
+save.ascension.discoveredFusions=Array.isArray(save.ascension.discoveredFusions)?save.ascension.discoveredFusions.filter(id=>FUSION_REGISTRY.some(r=>r.id===id)):[];
+save.ascension.equipmentInventory=Array.isArray(save.ascension.equipmentInventory)?save.ascension.equipmentInventory.filter(entry=>equipmentById(entry?.itemId)).map(entry=>({uid:String(entry.uid||`${entry.itemId}-${Date.now()}-${Math.random()}`),itemId:entry.itemId,locked:!!entry.locked})): [];
+save.ascension.equipped=save.ascension.equipped&&typeof save.ascension.equipped==='object'?save.ascension.equipped:{};
+for(const slot of EQUIPMENT_SLOTS)if(!equipmentById(save.ascension.equipped[slot]))save.ascension.equipped[slot]=null;
+save.ascension.chapterGemRewards=Array.isArray(save.ascension.chapterGemRewards)?save.ascension.chapterGemRewards:[];
 // Repair older saves that advanced the campaign counter without recording completed chapter IDs.
 for(const ch of CHAPTERS){if(ch.number<save.campaign.unlocked&&!save.campaign.completed.includes(ch.id))save.campaign.completed.push(ch.id)}
 const progressionIds=progressionUnlockedIds(save.campaign.completed);
@@ -919,17 +958,19 @@ save.favorites=Array.isArray(save.favorites)?save.favorites.filter(id=>CARD_POOL
 if((save.campaign?.completed||[]).includes('cemetery')&&!save.unlocked.includes('garlic'))save.unlocked.push('garlic');const garlicItem=save.inventory.garlic||(save.inventory.garlic={copies:0,rarity:'common',level:1,recent:false,lastFound:0});if((save.campaign?.completed||[]).includes('cemetery')&&garlicItem.copies<2)garlicItem.copies=2;
 // V15.3 Scripture Tower preview: grant the new signature defense to every existing kingdom.
 if((save.campaign?.completed||[]).includes('cathedral')&&!save.unlocked.includes('scripture'))save.unlocked.push('scripture');const scriptureItem=save.inventory.scripture||(save.inventory.scripture={copies:0,rarity:'legendary',level:1,recent:true,lastFound:Date.now()});if(scriptureItem.copies<2&&(save.campaign?.completed||[]).includes('cathedral'))scriptureItem.copies=2;if(scriptureItem.rarity==='common')scriptureItem.rarity='legendary';
-save.ui=save.ui&&typeof save.ui==='object'?save.ui:{};save.ui.cardFilter=['all','tower','support','skill','hero','heroProfile','ground'].includes(save.ui.cardFilter)?save.ui.cardFilter:'all';save.ui.cardSort=['type','rarity','strength','level','name','recent'].includes(save.ui.cardSort)?save.ui.cardSort:'type';
+save.ui=save.ui&&typeof save.ui==='object'?save.ui:{};save.ui.cardFilter=['all','tower','support','skill','hero','heroProfile','ground','equipment','gems','fragments','fusion','consumables'].includes(save.ui.cardFilter)?save.ui.cardFilter:'all';save.ui.cardSort=['type','rarity','strength','level','name','recent'].includes(save.ui.cardSort)?save.ui.cardSort:'type';
 save.heroJP=save.heroJP&&typeof save.heroJP==='object'?save.heroJP:{};for(const h of HEROES)save.heroJP[h.id]=Math.max(0,Number(save.heroJP[h.id])||0);save.heroJobs=save.heroJobs&&typeof save.heroJobs==='object'?save.heroJobs:{};save.jpAwardedStages=Array.isArray(save.jpAwardedStages)?save.jpAwardedStages.filter(id=>CHAPTERS.some(c=>c.id===id)):[];if(!save.jpRetroGrantV1){save.heroJP[save.selectedHero]=(save.heroJP[save.selectedHero]||0)+10;save.jpRetroGrantV1=true;save.jpAwardedStages=[...new Set([...save.jpAwardedStages,...save.campaign.completed])];}save.stats.jpEarned=Math.max(save.stats.jpEarned||0,save.jpAwardedStages.length+(save.jpRetroGrantV1?10:0));for(const h of HEROES){const existing=save.heroJobs[h.id]&&typeof save.heroJobs[h.id]==='object'?save.heroJobs[h.id]:{};save.heroJobs[h.id]={vanguardRank:Math.max(0,Math.min(10,Number(existing.vanguardRank)||0)),...existing};}save.heroEquipment=save.heroEquipment&&typeof save.heroEquipment==='object'?save.heroEquipment:{};save.groundDefenseSlots=Array.isArray(save.groundDefenseSlots)?save.groundDefenseSlots.filter(id=>HERO_GROUND_DEFENSES.some(c=>c.id===id)).slice(0,2):HERO_GROUND_DEFENSES.slice(0,2).map(c=>c.id);// Existing arrays are intentional loadouts; only legacy saves with no field receive defaults.
 // slots. The other seven are earned on the road (see CHAPTER_CARD_UNLOCKS).
 const STARTER_GROUND=HERO_GROUND_DEFENSES.slice(0,2).map(c=>c.id);
 const groundUnlocked=new Set([...STARTER_GROUND,...progressionUnlockedIds(save.campaign?.completed||[])]);
 for(const passive of HERO_GROUND_DEFENSES){const item=save.inventory[passive.id]||(save.inventory[passive.id]={copies:groundUnlocked.has(passive.id)?1:0,rarity:passive.rarity||'common',level:1,recent:false,lastFound:0});if(groundUnlocked.has(passive.id)){if(item.copies<1)item.copies=1;}if(!item.rarity||item.rarity==='Good')item.rarity=passive.rarity||'common';}
 const card=id=>CARD_POOL.find(c=>c.id===id);
+const ascensionGemDef=id=>gemById(id)||FUSION_REGISTRY.find(recipe=>recipe.id===id)||null;
 const rarityIndex=id=>Math.max(0,RARITIES.findIndex(r=>r.id===id));
 const rarityDef=id=>RARITIES[rarityIndex(id)]||RARITIES[0];
-const inv=id=>save.inventory[id]||(save.inventory[id]={copies:0,rarity:'common',level:1,recent:false,lastFound:0});
+const inv=id=>{const item=save.inventory[id]||(save.inventory[id]={copies:0,rarity:'common',level:1,xp:0,recent:false,lastFound:0,gemSlots:[null,null]});item.xp=Math.max(0,Number(item.xp)||0);item.gemSlots=Array.isArray(item.gemSlots)?item.gemSlots.slice(0,2):[];while(item.gemSlots.length<2)item.gemSlots.push(null);item.gemSlots=item.gemSlots.map(id=>ascensionGemDef(id)?id:null);return item};
 const cardPower=id=>rarityDef(inv(id).rarity).mult*(1+(Math.max(1,inv(id).level)-1)*.10);
+registerSaveProvider(()=>save);
 
 let G;
 
@@ -1201,8 +1242,8 @@ function beginNextWaveAfterExpansion(){
 }
 function beginWaveTransition(){
  if(!G||G.waveTransition)return;G.waveTransition=true;G.pendingWave=true;G.paused=true;
- if(G.relic?.id==='chalice')G.hp=Math.min(G.maxHp,G.hp+2);if(G.relic?.id==='graveseal')G.hp=Math.min(G.maxHp,G.hp+3);
- const guardianCount=G.towers.filter(t=>t.supportOnly&&t.id==='guardian').length;if(guardianCount){const heal=Math.min(6,guardianCount*2);G.hp=Math.min(G.maxHp,G.hp+heal);showToast(`Guardian Ward restores ${heal} Cathedral health`);}
+ const relicHealing=relicEffect('waveGateHealing');if(relicHealing)G.hp=Math.min(G.maxHp,G.hp+relicHealing);
+ const supportHealing=G.towers.filter(t=>t.supportOnly).reduce((sum,t)=>sum+(Number((t.supportEffect||SUPPORT_EFFECT_REGISTRY[t.id])?.waveGateHealing)||0),0);if(supportHealing){const heal=Math.min(6,supportHealing);G.hp=Math.min(G.maxHp,G.hp+heal);showToast(`Support wards restore ${heal} Cathedral health`);}
  const added=growRoadAfterWave(G.wave);
  startRoadReveal(added,()=>setTimeout(beginNextWaveAfterExpansion,220));
 }
@@ -1219,15 +1260,16 @@ function freshGame(mode='chapter',chapterId=null){
  const weather=WEATHERS[Math.floor(Math.random()*WEATHERS.length)];
  const villageBonus=villageBattleBonuses();
  const map=chapter?(MAPS.find(m=>m.id===chapter.map)||MAPS[0]):MAPS[Math.floor(Math.random()*MAPS.length)];save.discoveredMaps[map.id]=true;
- const heroDef=HEROES.find(h=>h.id===save.selectedHero)||HEROES[0];const up=save.keepUpgrades,kb=save.kingdom.buildings||{};
- G={mode,map,state:'play',paused:true,speed:1,time:0,last:performance.now(),hp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp+(save.equippedRelic==='ossuary'?8:0),maxHp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp+(save.equippedRelic==='ossuary'?8:0),essence:40,maxEssence:40,pendingEssence:0,essenceCarry:0,faerieEssenceRemainder:0,wave:1,kills:0,xp:0,xpNeed:8,level:1,battlePoints:0,cardUpgrades:{},path,towers:[],traps:[],enemies:[],shots:[],laneShots:[],particles:[],floaters:[],corpses:[],selected:null,selectedTower:null,towerEditMode:null,towerEditFirst:null,towerEditWasPaused:null,hand:[...save.deck.map(id=>({...card(id),coolLeft:0})),...save.groundDefenseSlots.map(groundCardById).filter(Boolean).map(c=>({...c,coolLeft:0}))],drawWeights:{},pickCounts:{},spawnLeft:5,spawnTimer:0,waveDelay:2,chapterWaves:mode==='endless'?999:chapter.waves,chapter,chapterCleared:false,roadPattern:roadSetup.pattern,roadPlans,routes,branchWaves:roadPlans.slice(1).map((_,i)=>5+i*4+Math.floor(Math.random()*3)),branchActive:false,spawnMode:'single',spawnPattern:'single',spawnSequence:0,rushRoute:0,hero:{x:CATHEDRAL.gateX-1.25,y:3.35,facing:'down',walking:false,anim:0,hp:100,max:100,rate:.48,t:0,damage:22*(1+(up.hunter||0)*.03+(kb.library||0)*.03)*villageBonus.heroDamage,range:2.5,holy:false,crit:.05,frenzy:0,def:heroDef},shake:0,flash:0,boss:false,globalDamage:(1+(kb.forge||0)*.02)*villageBonus.towerDamage*(save.equippedRelic==='sunless'?1.10:save.equippedRelic==='abyssseal'?1.08:1),pendingWave:true,pendingCard:null,placementRotation:0,hoverTile:null,weather,relic:RELICS.find(r=>r.id===save.equippedRelic)||null,relicKillCount:0,killChain:0,miniBossDefeated:false,openingDraft:false,activeDraftCard:null,draftChoices:null,draftChoiceCommitted:false,runDrops:[],roadMisses:0,lastDropAt:0,bossIntroPlayed:false,ambient:Array.from({length:42},(_,i)=>({x:Math.random()*GRID.cols,y:Math.random()*GRID.rows,v:.08+Math.random()*.18,phase:Math.random()*6.28,kind:i%3})),familiar:{...familiarDef(),...familiarState(save.familiars.equipped),t:1.1,angle:0},keepLevel:keepBattleLevel(),archerTimers:Array.from({length:Math.max(0,keepBattleLevel()-1)},(_,i)=>.6+i*.45),camera:{zoom:1,panX:0,panY:0},cameraPulse:0,hitStop:0,bossImpactWindow:false,rainSplashTimer:0,holyRains:[],queuedSkills:[],comboTimer:0,comboBest:0,weatherFlash:0,waveTransition:false,cameraTour:null};
+ const heroDef=HEROES.find(h=>h.id===save.selectedHero)||HEROES[0];const up=save.keepUpgrades,kb=save.kingdom.buildings||{},equippedRelic=RELICS.find(r=>r.id===save.equippedRelic)||null;
+ G={mode,map,state:'play',paused:true,speed:1,time:0,last:performance.now(),hp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp,maxHp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp,essence:40,maxEssence:40,pendingEssence:0,essenceCarry:0,faerieEssenceRemainder:0,wave:1,kills:0,xp:0,xpNeed:8,level:1,battlePoints:0,cardUpgrades:{},path,towers:[],traps:[],enemies:[],shots:[],laneShots:[],particles:[],floaters:[],corpses:[],selected:null,selectedTower:null,towerEditMode:null,towerEditFirst:null,towerEditWasPaused:null,hand:[...save.deck.map(id=>({...card(id),coolLeft:0})),...save.groundDefenseSlots.map(groundCardById).filter(Boolean).map(c=>({...c,coolLeft:0}))],drawWeights:{},pickCounts:{},spawnLeft:5,spawnTimer:0,waveDelay:2,chapterWaves:mode==='endless'?999:chapter.waves,chapter,chapterCleared:false,roadPattern:roadSetup.pattern,roadPlans,routes,branchWaves:roadPlans.slice(1).map((_,i)=>5+i*4+Math.floor(Math.random()*3)),branchActive:false,spawnMode:'single',spawnPattern:'single',spawnSequence:0,rushRoute:0,hero:{x:CATHEDRAL.gateX-1.25,y:3.35,facing:'down',walking:false,anim:0,hp:100,max:100,rate:.48,t:0,damage:22*(1+(up.hunter||0)*.03+(kb.library||0)*.03)*villageBonus.heroDamage,range:2.5,holy:false,crit:.05,frenzy:0,def:heroDef},shake:0,flash:0,boss:false,globalDamage:(1+(kb.forge||0)*.02)*villageBonus.towerDamage,pendingWave:true,pendingCard:null,placementRotation:0,hoverTile:null,weather,relic:equippedRelic,relicKillCount:0,killChain:0,miniBossDefeated:false,openingDraft:false,activeDraftCard:null,draftChoices:null,draftChoiceCommitted:false,runDrops:[],roadMisses:0,lastDropAt:0,bossIntroPlayed:false,ambient:Array.from({length:42},(_,i)=>({x:Math.random()*GRID.cols,y:Math.random()*GRID.rows,v:.08+Math.random()*.18,phase:Math.random()*6.28,kind:i%3})),familiar:{...familiarDef(),...familiarState(save.familiars.equipped),t:1.1,angle:0},keepLevel:keepBattleLevel(),archerTimers:Array.from({length:Math.max(0,keepBattleLevel()-1)},(_,i)=>.6+i*.45),camera:{zoom:1,panX:0,panY:0},cameraPulse:0,hitStop:0,bossImpactWindow:false,rainSplashTimer:0,holyRains:[],queuedSkills:[],comboTimer:0,comboBest:0,weatherFlash:0,waveTransition:false,cameraTour:null};
  applyVanguardBonuses();
+ applyAscensionBonuses();
  $('#weatherTxt').textContent=map.name+' · '+weather.name;$('#relicTxt').textContent=G.relic?.name||'None';applyEquippedRelic();showToast((chapter?chapter.name:map.name)+' — '+weather.name+': '+weather.desc);
  [UI.menu,UI.deck,$('#campaignScreen'),$('#relicVaultScreen'),$('#heroesScreen'),$('#upgradesScreen'),$('#forgeScreen'),$('#codexScreen'),$('#profileScreen'),$('#cardInspectScreen'),$('#kingdomScreen'),$('#achievementsScreen'),$('#moreScreen')].forEach(s=>s?.classList.add('hidden'));UI.over.classList.add('hidden');UI.choices.classList.add('hidden');UI.hud.classList.remove('hidden');setBattleMode(true);UI.tutorial.classList.add('hidden');renderHand();
  if(visualDebug())console.info('[Battle visuals] stage initialized',{session,chapter:chapter?.id||'endless',index:chapter?chapter.number-1:null,map:map.id,camera:{...G.camera},weather:weather.id,overlays:document.querySelectorAll('.battle-cinematic:not(.hidden),.wave-banner:not(.hidden)').length});
  setTimeout(()=>{if(session===battleSessionId)beginLivingBattle(session)},450);
 }
-function applyEquippedRelic(){if(!G?.relic)return;const r=G.relic;if(r.id==='fang')G.hero.rate/=1.18;if(r.id==='thorn')G.battlePoints=(G.battlePoints||0)+1;if(r.id==='banner'){G.hp+=5;G.maxHp+=5}if(r.id==='moon')G.hero.crit+=.12;if(r.id==='bloodseal')G.globalDamage*=1.12}
+function applyEquippedRelic(){if(!G?.relic)return;const attackSpeed=relicEffect('heroAttackSpeed'),points=relicEffect('startingUpgradePoints'),gateHp=relicEffect('gateHp'),heroCrit=relicEffect('heroCriticalChance'),globalDamage=relicEffect('globalDamage')+relicEffect('towerDamage');if(attackSpeed)G.hero.rate/=1+attackSpeed;if(points)G.battlePoints=(G.battlePoints||0)+points;if(gateHp){G.hp+=gateHp;G.maxHp+=gateHp}if(heroCrit)G.hero.crit+=heroCrit;if(globalDamage)G.globalDamage*=1+globalDamage}
 
 function showBattleCinematic(kicker,title,subtitle,duration=2350){
  const el=$('#battleCinematic');if(!el)return;
@@ -1254,7 +1296,7 @@ function showWaveBanner(wave,kicker='WAVE'){
 }
 
 function showToast(t,duration=1400){UI.toast.textContent=t;UI.toast.style.opacity=1;clearTimeout(showToast.t);showToast.t=setTimeout(()=>UI.toast.style.opacity=0,duration)}
-function saveProgress(){STORAGE.set('relicsEclipseSave',JSON.stringify(save))}
+function saveProgress(reason='progress'){STORAGE.set('relicsEclipseSave',JSON.stringify(save));queueCloudSave(reason)}
 // THE VILLAGE V23.0 bridge: live construction, persistent village economy,
 // offline production, and backward-compatible access to the existing hunt save.
 const VILLAGE_ECONOMY_MAX_OFFLINE_HOURS=12;
@@ -1445,7 +1487,7 @@ function miniCardHTML(c){
  const atk=c.damage?Math.max(1,Math.round(c.damage*power)):c.type==='support'?Math.round(10*power):c.type==='skill'?Math.round((c.cost||30)*power):Math.round(8*power);
  const hp=c.type==='tower'?Math.round((90+(c.cost||30)*4)*power):c.type==='support'?Math.round(120*power):c.type==='hero'?Math.round(100*power):Math.round(70*power);
  const defenseCard=c.type==='tower'||c.type==='trap';
- return `<span class="deck-card-level">LV ${item.level}</span><div class="deck-card-art"><span>${cardIconHTML(c,item.level)}</span></div><strong class="deck-card-name">${c.name}</strong><div class="deck-card-stats ${defenseCard?'defense-stats':''}"><span>⚔ ${atk}</span>${defenseCard?'':`<span>♥ ${hp}</span>`}</div>`;
+ return `<span class="deck-card-level">LV ${item.level}</span><div class="deck-card-art"><span>${cardIconHTML(c,item.level)}</span></div><strong class="deck-card-name">${c.name}</strong>${cardGemSlotsHTML(c)}<div class="deck-card-stats ${defenseCard?'defense-stats':''}"><span>⚔ ${atk}</span>${defenseCard?'':`<span>♥ ${hp}</span>`}</div>`;
 }
 function groundCardById(id){return HERO_GROUND_DEFENSES.find(c=>c.id===id)}
 function renderGroundDefenseSlots(){
@@ -1464,14 +1506,44 @@ function shadowPortraitHTML(level){
  const src=n===1?SHADOW_LEVEL_ONE_PORTRAIT:shadowAsset(n,'Idle');
  return `<span class="shadow-avatar-sprite shadow-lv-${n} ${n===1?'official-portrait':''}"><img src="${src}" alt="Shadow level ${n}" draggable="false" decoding="async"></span>`;
 }
+function renderAscensionInventory(box,filter){
+ box.className='ascension-inventory-grid';box.innerHTML='';
+ const stats=ascensionEquipmentStats();
+ if(filter==='equipment'){
+  box.innerHTML=`<section class="ascension-summary"><span class="section-kicker">SHADOW EQUIPMENT</span><h2>Faith ${Math.round(stats.faith||0)} · Bravery ${Math.round(stats.bravery||0)}</h2><p>Faith empowers defenses. Bravery strengthens Shadow and inspires nearby towers.</p><div class="equipment-slots">${EQUIPMENT_SLOTS.map(slot=>{const item=equipmentById(save.ascension.equipped[slot]);return `<div><small>${slot.replace(/\d/,' ')}</small><b>${item?`${item.icon} ${item.name}`:'Empty'}</b></div>`}).join('')}</div></section>`;
+  for(const entry of save.ascension.equipmentInventory){const item=equipmentById(entry.itemId);if(!item)continue;const el=document.createElement('article');el.className=`ascension-item tier-${item.tier}`;el.innerHTML=`<span class="ascension-item-icon">${item.icon}</span><div><small>${item.rarity} · Tier ${item.tier} · ${item.slot}</small><h3>${item.name}</h3><p>${item.flavor}</p><div class="ascension-stats"><span>Faith +${item.faith}</span><span>Bravery +${item.bravery}</span>${Object.entries({...item.primaryStat,...item.secondaryStats}).map(([k,v])=>`<span>${k} ${Number(v)<1?`+${Math.round(Number(v)*100)}%`:`+${v}`}</span>`).join('')}</div></div><button type="button">${save.ascension.equipped[item.slot]===item.id?'Equipped':'Equip'}</button>`;el.querySelector('button').onclick=()=>{save.ascension.equipped[item.slot]=item.id;saveProgress('equipment-change');renderDeck();showToast(`${item.name} equipped`)};box.append(el)}
+  if(!save.ascension.equipmentInventory.length)box.insertAdjacentHTML('beforeend','<p class="ascension-empty">Defeat chapter bosses to recover equipment.</p>');
+  return;
+ }
+ if(filter==='gems'){
+  const towers=CARD_POOL.filter(c=>c.type==='tower'&&inv(c.id).copies>0);
+  for(const gem of [...GEM_REGISTRY,...FUSION_REGISTRY]){
+   const count=save.ascension.gems[gem.id]||0;if(!count)continue;
+   const upgrade=gem.element&&gem.level<3?gemById(gem.upgradePath):null,fragmentCost=gem.level*10,canUpgrade=!!upgrade&&count>=2&&(save.ascension.fragments[gem.element]||0)>=fragmentCost;
+   const el=document.createElement('article');el.className='ascension-item gem-item';
+   el.innerHTML=`<span class="ascension-item-icon">${gem.icon}</span><div><small>${gem.element||'Fused'} · ${count} owned</small><h3>${gem.name}</h3><p>${gem.description||Object.keys(gem.effects||{}).join(' · ')}</p></div><select>${towers.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</select><button type="button" data-socket-gem ${towers.length?'':'disabled'}>Socket</button>${upgrade?`<button type="button" data-upgrade-gem ${canUpgrade?'':'disabled'}>Upgrade · 2 Gems + ${fragmentCost} Fragments</button>`:''}`;
+   el.querySelector('[data-socket-gem]').onclick=()=>{const towerId=el.querySelector('select').value,item=inv(towerId),slot=item.gemSlots.findIndex(id=>!id);if(slot<0)return showToast('That tower already has two gems. Remove one in card details first.');item.gemSlots[slot]=gem.id;save.ascension.gems[gem.id]--;saveProgress('gem-socket');renderDeck();showToast(`${gem.name} socketed into ${card(towerId).name}`)};
+   const upgradeButton=el.querySelector('[data-upgrade-gem]');if(upgradeButton)upgradeButton.onclick=()=>{if(!canUpgrade)return;save.ascension.gems[gem.id]-=2;save.ascension.fragments[gem.element]-=fragmentCost;save.ascension.gems[upgrade.id]++;saveProgress('gem-upgrade');renderDeck();showToast(`${upgrade.name} forged`)};
+   box.append(el);
+  }
+  if(!box.children.length)box.innerHTML='<p class="ascension-empty">Gems begin appearing with the Chapter 5 reward.</p>';return;
+ }
+ if(filter==='fragments'){
+  for(const element of ELEMENT_REGISTRY){const count=save.ascension.fragments[element.id]||0,el=document.createElement('article');el.className='ascension-item fragment-item';el.innerHTML=`<span class="ascension-item-icon">${element.icon}</span><div><small>ELEMENTAL FRAGMENT</small><h3>${element.name} Fragments</h3><p>${count} owned · 10 craft a ${element.name} Gem I</p></div><button type="button" ${count<10?'disabled':''}>Craft Gem</button>`;el.querySelector('button').onclick=()=>{if(save.ascension.fragments[element.id]<10)return;save.ascension.fragments[element.id]-=10;save.ascension.gems[`${element.id}_1`]++;saveProgress('gem-craft');renderDeck();showToast(`${element.name} Gem I forged`)};box.append(el)}return;
+ }
+ if(filter==='fusion'){
+  for(const recipe of FUSION_REGISTRY){const discovered=!recipe.hidden||save.ascension.discoveredFusions.includes(recipe.id),ready=recipe.inputs.every(id=>(save.ascension.gems[`${id}_1`]||0)>0),el=document.createElement('article');el.className=`ascension-item fusion-item ${discovered?'':'unknown'}`;el.innerHTML=`<span class="ascension-item-icon">${discovered?recipe.icon:'❔'}</span><div><small>${recipe.hidden?'HIDDEN RECIPE':'KNOWN RECIPE'}</small><h3>${discovered?recipe.name:'Unknown Fusion'}</h3><p>${discovered?`${recipe.inputs.map(id=>(ELEMENT_REGISTRY.find(e=>e.id===id)?.icon||'◆')).join(' + ')} · ${Object.keys(recipe.effects).join(', ')}`:'❔ + ❔ · Gather elemental Gems and experiment to reveal'}</p></div><button type="button" ${ready?'':'disabled'}>${discovered?'Fuse':'Experiment'}</button>`;el.querySelector('button').onclick=()=>{if(!ready)return;for(const id of recipe.inputs)save.ascension.gems[`${id}_1`]--;save.ascension.gems[recipe.id]++;if(!save.ascension.discoveredFusions.includes(recipe.id))save.ascension.discoveredFusions.push(recipe.id);save.stats.fusions++;saveProgress('gem-fusion');renderDeck();showToast(`${recipe.name} discovered`)};box.append(el)}return;
+ }
+ box.innerHTML='<p class="ascension-empty">Consumables are reserved for a future Ascension content drop.</p>';
+}
 function renderDeck(){save.favorites=Array.isArray(save.favorites)?save.favorites:[];save.ui=save.ui||{cardFilter:'all',cardSort:'type'};ensureVisibleCardCollection();const repairedUnlocks=reconcileCardUnlocks();if(repairedUnlocks.length)setTimeout(()=>showToast(`Recovered unlocks: ${repairedUnlocks.map(c=>c.name).join(' + ')}`),100);
- const equipped=$('#equippedDeck'),box=$('#collectionCards');equipped.innerHTML='';box.innerHTML='';renderGroundDefenseSlots();
+ const equipped=$('#equippedDeck'),box=$('#collectionCards');equipped.innerHTML='';box.innerHTML='';box.className='cards portrait-grid';renderGroundDefenseSlots();
  const selectedHero=HEROES.find(h=>h.id===save.selectedHero)||HEROES[0];
  const heroLevel=Math.max(1,save.heroLevels?.[selectedHero.id]||1);
  const heroPortrait=$('#deckHeroPortrait'),heroName=$('#deckHeroName'),heroLevelEl=$('#deckHeroLevel'),heroCard=$('#deckHeroCard');
- if(heroPortrait){const shadowLv=currentShadowLevel();heroPortrait.innerHTML=shadowPortraitHTML(shadowLv);heroPortrait.title=`Shadow · Level ${shadowLv}`;}if(heroName)heroName.textContent=selectedHero.name;if(heroLevelEl)heroLevelEl.textContent=`Lv ${heroLevel} · ${save.heroJP[selectedHero.id]||0} JP`;
+ if(heroPortrait){const shadowLv=currentShadowLevel();heroPortrait.innerHTML=shadowPortraitHTML(shadowLv);heroPortrait.title=`Shadow · Level ${shadowLv}`;}if(heroName)heroName.textContent=selectedHero.name;if(heroLevelEl){const stats=ascensionEquipmentStats();heroLevelEl.textContent=`Lv ${heroLevel} · ${save.heroJP[selectedHero.id]||0} JP · Faith ${Math.round(stats.faith||0)} · Bravery ${Math.round(stats.bravery||0)}`}
  const xp=$('#deckHeroXP');if(xp){const pct=Math.min(100,((heroLevel*37)%100));xp.title=`Mastery ${pct}%`;xp.querySelector('i').style.width=pct+'%'}
- const gear=$('#deckHeroGear');if(gear)gear.innerHTML=heroGear(selectedHero.id).map(([slot,name,icon])=>`<span title="${slot}: ${name}"><i>${icon}</i><small>${slot}</small></span>`).join('');
+ const gear=$('#deckHeroGear');if(gear)gear.innerHTML=EQUIPMENT_SLOTS.map(slot=>{const item=equipmentById(save.ascension.equipped[slot]);return `<span title="${slot}: ${item?.name||'Empty'}"><i>${item?.icon||'◇'}</i><small>${slot.replace(/\d/,'')}</small></span>`}).join('');
  const heroSupports=$('#deckHeroSupports');if(heroSupports){
   const supportIds=save.deck.filter(id=>card(id)?.type==='support').slice(0,2);
   heroSupports.innerHTML=[0,1].map(i=>{const id=supportIds[i],c=id?card(id):null;return c?`<span class="hero-support-card rarity-${inv(id).rarity}" title="${c.name}"><i>${c.icon}</i><b>${c.name}</b><small>Lv ${inv(id).level}</small></span>`:`<span class="hero-support-card empty"><i>+</i><b>Support</b><small>Empty</small></span>`}).join('');
@@ -1485,6 +1557,7 @@ function renderDeck(){save.favorites=Array.isArray(save.favorites)?save.favorite
  }
  const filter=$('#deckTypeFilter')?.value||save.ui.cardFilter||'all',sort=$('#deckSort')?.value||save.ui.cardSort||'type',mergeOnly=$('#mergeOnly')?.checked||false;
  save.ui.cardFilter=filter;save.ui.cardSort=sort;
+ if(['equipment','gems','fragments','fusion','consumables'].includes(filter)){renderAscensionInventory(box,filter);$('#deckCounter').textContent=`${save.deck.length} / 6`;document.querySelectorAll('.card-file-tab').forEach(t=>{const on=t.dataset.cardFilter===filter;t.classList.toggle('active',on);t.setAttribute('aria-selected',String(on))});saveProgress();return;}
  if(filter==='heroProfile'){renderHeroJPPanel(box,selectedHero);$('#deckCounter').textContent=`${save.deck.length} / 6`;document.querySelectorAll('.card-file-tab').forEach(t=>{const on=t.dataset.cardFilter===filter;t.classList.toggle('active',on);t.setAttribute('aria-selected',String(on))});saveProgress();return;}
  let cards=filter==='ground'?HERO_GROUND_DEFENSES:CARD_POOL.filter(c=>(filter==='all'||c.type===filter)&&(!mergeOnly||inv(c.id).copies>=3));
  if(filter!=='ground')cards=sortCards(cards,sort);
@@ -1524,6 +1597,35 @@ function applyVanguardBonuses(){
  G.hero.damage*=damageMult;G.hero.max=Math.round(G.hero.max*hpMult);G.hero.hp=G.hero.max;
  if(rank>=3)G.hero.rate*=.94;if(rank>=4)G.hero.range+=.25;if(rank>=6)G.hero.crit+=.05;if(rank>=8)G.hero.holy=true;G.hero.executeBonus=rank>=10?.20:0;
 }
+function ascensionEquipmentStats(){return combinedEquipmentStats(save.ascension?.equipped||{})}
+function towerGemEffects(t){
+ const effects={};
+ for(const id of inv(t.id).gemSlots){const gem=ascensionGemDef(id);if(!gem)continue;for(const [key,value] of Object.entries(gem.passiveEffects||gem.effects||{}))effects[key]=(effects[key]||0)+Number(value||0)}
+ return effects;
+}
+function linkedSupportEffects(t){const effects={};for(const support of t.supports||[])for(const [key,value] of Object.entries(support.effect||{}))effects[key]=(effects[key]||0)+Number(value||0)*(support.power||1);return effects}
+function applyAscensionBonuses(){
+ if(!G?.hero)return;
+ const stats=ascensionEquipmentStats(),faith=Math.max(0,Number(stats.faith)||0),bravery=Math.max(0,Number(stats.bravery)||0);
+ G.ascensionStats=stats;G.faith=faith;G.bravery=bravery;
+ G.hero.damage*=1+(Number(stats.attack)||0)/100+bravery*.006;
+ G.hero.max+=Number(stats.hp)||0;G.hero.hp=G.hero.max;
+ G.hero.crit+=(Number(stats.criticalChance)||0)+bravery*.0015;
+ G.hero.critDamage=1.9+(Number(stats.criticalDamage)||0)+bravery*.003;
+ G.hero.rate/=1+(Number(stats.attackSpeed)||0)+bravery*.002;
+ G.hero.moveSpeed=1+(Number(stats.movement)||0)+bravery*.0015;
+ G.globalDamage*=1+(Number(stats.towerDamage)||0);
+ G.towerRateBonus=Number(stats.towerAttackSpeed)||0;
+ G.towerRangeBonus=Number(stats.towerRange)||0;
+ G.towerCritChance=Number(stats.towerCriticalChance)||0;
+ G.towerBossDamage=Number(stats.towerBossDamage)||0;
+ G.goldGain=(Number(stats.goldGain)||0)+faith*.001;
+ G.xpGain=(Number(stats.xpGain)||0)+faith*.001;
+ const familiarPassives=COMPANION_BEHAVIOR_REGISTRY[G.familiar?.id]?.passiveEffects||{};
+ G.towerCritChance+=Number(familiarPassives.towerCriticalChance)||0;
+ G.towerRangeBonus+=Number(familiarPassives.towerRange)||0;
+}
+function leadershipForTower(t){const near=G?.hero&&Math.hypot((t.x+.5)-G.hero.x,(t.y+.5)-G.hero.y)<=4.5;if(!near)return{damage:0,rate:0,range:0,crit:0,boss:0,status:0};return{damage:(G.faith||0)*.0025+(G.bravery||0)*.0015,rate:(G.faith||0)*.0018,range:(G.faith||0)*.001,crit:(G.faith||0)*.0012+(G.bravery||0)*.0008,boss:(G.faith||0)*.0015+(G.bravery||0)*.0012,status:(G.faith||0)*.001}}
 function purchaseVanguardRank(heroId){
  const rank=vanguardRank(heroId),jp=save.heroJP[heroId]||0;if(rank>=10)return showToast('Shadow Vanguard is fully mastered');if(jp<1)return showToast('You need 1 JP');
  save.heroJP[heroId]=jp-1;save.heroJobs[heroId]=save.heroJobs[heroId]||{};save.heroJobs[heroId].vanguardRank=rank+1;saveProgress();showToast(`${VANGUARD_SKILLS[rank].name} unlocked`);renderDeck();
@@ -1536,13 +1638,17 @@ function renderHeroJPPanel(box,hero){
 }
 
 function renderDeckAnalysis(){const el=$('#deckAnalysis');if(!el)return;const d=save.deck.map(card).filter(Boolean),support=d.filter(c=>c.type==='support').length,towers=d.filter(c=>c.type==='tower').length,skills=d.filter(c=>c.type==='skill').length,hero=d.filter(c=>c.type==='hero').length;const notes=[];if(!towers)notes.push('<span class="warning">⚠ No defense card equipped</span>');if(!support)notes.push('<span class="warning">⚠ No support card equipped</span>');notes.push('<span class="good-note">✓ Road System always included</span>');el.innerHTML=`<b>Deck profile</b> · Defense ${towers} · Supports ${support} · Skills ${skills} · Run upgrades ${hero}<br>${notes.join(' · ')}`}
+function cardGemSlotsHTML(c){
+ if(c.type!=='tower')return '';
+ return `<div class="ascension-gem-slots" aria-label="${c.name} Gem sockets">${inv(c.id).gemSlots.map((id,index)=>{const gem=ascensionGemDef(id);return `<span class="${gem?'filled':'empty'}" title="${gem?gem.name:`Empty Gem Slot ${index+1}`}" aria-label="${gem?gem.name:`Empty Gem Slot ${index+1}`}">${gem?gem.icon:''}</span>`}).join('')}</div>`;
+}
 function cardHTML(c,collection=false){
  if(c.hiddenSystem)return `<span class="card-level">SYSTEM</span><span class="tag">Road</span><div class="card-art system-road-art">${c.icon}</div><h3>${c.name}</h3><p>${c.desc}</p><div class="card-footer"><span>Hidden run feature</span><span>Weight ${Math.round((c.drawWeight??1)*100)}%</span></div>`;
  const item=inv(c.id),r=rarityDef(item.rarity),power=cardPower(c.id),owned=c.type==='tower'&&G?G.towers.filter(t=>t.id===c.id).length:0;
  const atk=c.damage?Math.max(1,Math.round(c.damage*power)):c.type==='support'?Math.round(10*power):c.type==='skill'?Math.round((c.cost||30)*power):Math.round(8*power);
  const hp=c.type==='tower'?Math.round((90+(c.cost||30)*4)*power):c.type==='support'?Math.round(120*power):c.type==='hero'?Math.round(100*power):Math.round(70*power);
  const defenseCard=c.type==='tower'||c.type==='trap';
- return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art"><div class="art-sigil">${cardIconHTML(c,item.level)}</div></div><div class="card-copy"><h3>${c.name}</h3></div><div class="card-primary-stats ${defenseCard?'defense-stats':''}"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span>${defenseCard?'':`<span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span>`}</div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
+ return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art"><div class="art-sigil">${cardIconHTML(c,item.level)}</div></div><div class="card-copy"><h3>${c.name}</h3></div>${cardGemSlotsHTML(c)}<div class="ascension-card-xp" title="${Math.min(100,item.xp)}% card XP"><i style="width:${Math.min(100,item.xp)}%"></i></div><div class="card-primary-stats ${defenseCard?'defense-stats':''}"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span>${defenseCard?'':`<span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span>`}</div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
 }
 function draftCardHTML(c){
  if(c.hiddenSystem)return `<span class="draft-level">SYSTEM</span><span class="draft-type">ROAD</span><div class="draft-art"><div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>SYSTEM EFFECT</small><p>${c.desc}</p></div><div class="draft-stat-grid"><div><small>ROLE</small><b>Road</b></div><div><small>DRAW WEIGHT</small><b>${Math.round((c.drawWeight??1)*100)}%</b></div></div>`;
@@ -1606,8 +1712,13 @@ function validTowerTile(x,y){
  return adjacent4(x,y).some(n=>pathSet().has(key(n.x,n.y))||occupied(n.x,n.y));
 }
 
-function supportTargetAt(x,y){return G.towers.filter(t=>!t.supportOnly).find(t=>Math.abs(t.x-x)+Math.abs(t.y-y)===1)||null}
-function validSupportTile(x,y){return inside(x,y)&&!pathSet().has(key(x,y))&&!occupied(x,y)&&!!supportTargetAt(x,y)}
+function supportTargetsAt(x,y,cardDef=null){
+ const rarity=inv(cardDef?.id||G?.pendingCard?.id).rarity||cardDef?.rarity||'common',cap=supportCapacity(rarity);
+ return G.towers.filter(t=>!t.supportOnly&&!t.destroyed&&Math.max(Math.abs(t.x-x),Math.abs(t.y-y))===1)
+  .sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y)).slice(0,cap);
+}
+function supportTargetAt(x,y){return supportTargetsAt(x,y)[0]||null}
+function validSupportTile(x,y){return inside(x,y)&&!pathSet().has(key(x,y))&&!occupied(x,y)&&supportTargetsAt(x,y).length>0}
 
 function firstValidRoadPlacement(c){
  const end=G.path.at(-1);
@@ -1713,7 +1824,7 @@ function handleBattleTap(e){
    if(existing){if(existing.id!==c.id||existing.level>=3)return showToast('Only identical towers can merge');existing.level++;existing.damage*=1.7;existing.range+=.18;save.stats.towerMerges++;burst(p.x+.5,p.y+.5,c.color,24);showToast(`Merged to level ${existing.level}`);used=true;}
    else {const tower={...c,x:p.x,y:p.y,level:1,t:0,upgradeDamage:0,upgradeRange:0,upgradeRate:0,elite:!!c.elite,permanentPower:cardPower(c.id),supports:[]};applyCardBattleUpgradesToTower(tower);G.towers.push(tower);save.stats.towersPlaced++;used=true;}
  } else if(c.type==='support'){
-   if(!validSupportTile(p.x,p.y))return showToast('Support towers must sit beside and behind an attack tower');const target=supportTargetAt(p.x,p.y);const supportPower=(HEROES.find(h=>h.id===save.selectedHero)?.bonus?.support||1)*(1+(inv(c.id).level-1)*.10);const placedSupport={...c,x:p.x,y:p.y,level:1,t:0,supportOnly:true,supportTarget:target,permanentPower:cardPower(c.id),supports:[],power:supportPower,infusionTier:c.id==='holy'?holyInfusionTier(inv(c.id).level):1};G.towers.push(placedSupport);save.stats.towersPlaced++;target.supports=target.supports||[];target.supports.push({id:c.id,name:c.name,icon:c.icon,power:supportPower});burst(p.x+.5,p.y+.5,c.color||'#ffe49a',30);showToast(`${c.name} linked to ${target.name} — support active`);used=true;
+   if(!validSupportTile(p.x,p.y))return showToast('Support structures must be within one of the surrounding eight tiles of an attack tower');const targets=supportTargetsAt(p.x,p.y,c),target=targets[0],supportEffect=c.supportEffect||SUPPORT_EFFECT_REGISTRY[c.id]||{};const supportPower=(HEROES.find(h=>h.id===save.selectedHero)?.bonus?.support||1)*(1+(inv(c.id).level-1)*.10);const placedSupport={...c,x:p.x,y:p.y,level:1,t:0,supportOnly:true,supportTarget:target,supportTargets:targets,permanentPower:cardPower(c.id),supports:[],power:supportPower,supportEffect,infusionTier:supportEffect.visual==='holy'?holyInfusionTier(inv(c.id).level):1};G.towers.push(placedSupport);save.stats.towersPlaced++;for(const linked of targets){linked.supports=linked.supports||[];linked.supports.push({id:c.id,name:c.name,icon:c.icon,power:supportPower,effect:supportEffect})}burst(p.x+.5,p.y+.5,c.color||'#ffe49a',30);showToast(`${c.name} supports ${targets.length} tower${targets.length===1?'':'s'}`);used=true;
  } else if(c.type==='trap'){
   if(!validTrapTile(p.x,p.y))return showToast('Ground defenses must be placed on an empty road tile');G.traps.push({...c,x:p.x,y:p.y,t:0,level:1});burst(p.x+.5,p.y+.5,c.color,18);showToast(`${c.name} armed`);used=true;
  } else if(c.type==='roadpiece'){
@@ -1846,10 +1957,14 @@ function trimParticles(){
 }
 function floatText(x,y,text,color='#fff'){if(!G)return;if(G.floaters.length>90)G.floaters.shift();G.floaters.push({x,y,text,color,life:1,vy:-.7})}
 const AUDIO=(()=>{
- const BATTLE_TRACK_URL=new URL('../../assets/audio/music/battle/battle_01.ogg',import.meta.url).href,BATTLE_FADE_SECONDS=.75,BATTLE_TRACK_LEVEL=.32;
+ const MUSIC_FADE_SECONDS=.75;
+ const fileTracks={
+  battle:{url:new URL('../../assets/audio/music/battle/battle_01.ogg',import.meta.url).href,level:.32,label:'Battle'},
+  boss:{url:new URL('../../assets/audio/music/boss/boss_battle_01.ogg',import.meta.url).href,level:.38,label:'Boss battle'},
+  menu:{url:new URL('../../assets/audio/music/village/untitled.ogg',import.meta.url).href,level:.55,label:'Village'}
+ };
  let ctx=null,master=null,limiter=null,musicBus=null,sfxBus=null,ambBus=null,unlocked=false,state='menu',timer=0,nextNote=0,step=0,noise=null,wind=null;
- let battleTrackData=fetch(BATTLE_TRACK_URL).then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.arrayBuffer()}).catch(error=>{console.warn('Battle music preload failed',error);return null});
- let battleTrackBuffer=null,battleTrackDecode=null,battleTrackSource=null,battleTrackGain=null;
+ for(const track of Object.values(fileTracks))track.data=fetch(track.url).then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.arrayBuffer()}).catch(error=>{console.warn(`${track.label} music preload failed`,error);return null});
  const progressions={menu:[[48,55,60],[46,53,58],[43,50,55],[41,48,53]],campaign:[[50,57,62],[48,55,60],[45,52,57],[43,50,55]],battle:[[45,52,57],[43,50,55],[41,48,53],[38,45,50]],boss:[[38,45,50],[39,46,51],[36,43,48],[34,41,46]],victory:[[48,55,60],[52,59,64],[55,62,67],[60,64,67]],defeat:[[43,50,55],[41,48,53],[38,45,50],[36,43,48]]};
  const hz=n=>440*Math.pow(2,(n-69)/12);
  function ensure(){if(ctx)return true;try{const AC=window.AudioContext||window.webkitAudioContext;ctx=new AC();master=ctx.createGain();limiter=ctx.createDynamicsCompressor();musicBus=ctx.createGain();sfxBus=ctx.createGain();ambBus=ctx.createGain();limiter.threshold.value=-8;limiter.knee.value=12;limiter.ratio.value=4;limiter.attack.value=.003;limiter.release.value=.18;musicBus.connect(master);sfxBus.connect(master);ambBus.connect(master);master.connect(limiter);limiter.connect(ctx.destination);noise=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);const d=noise.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*.35;apply();return true}catch(e){console.warn('Web Audio unavailable',e);return false}}
@@ -1858,12 +1973,12 @@ const AUDIO=(()=>{
   async function unlock(){if(!ensure())return false;try{if(ctx.state!=='running')await ctx.resume();unlocked=ctx.state==='running';if(!unlocked)return false;startWind();setState(state,true);document.querySelector('#audioUnlockHint')?.remove();return true}catch(e){console.warn('Web Audio resume failed',e);unlocked=false;return false}}
  function osc(note,when,dur=.6,type='sine',gain=.025,bus=musicBus,detune=0){if(!ctx||!unlocked)return;const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(hz(note),when);o.detune.value=detune;g.gain.setValueAtTime(.0001,when);g.gain.exponentialRampToValueAtTime(Math.max(.0002,gain),when+.025);g.gain.exponentialRampToValueAtTime(.0001,when+dur);o.connect(g);g.connect(bus);o.start(when);o.stop(when+dur+.03)}
   function bell(note,when,gain=.018,bus=musicBus){osc(note,when,2.6,'sine',gain,bus);osc(note+12,when,1.8,'sine',gain*.28,bus,4)}
-  function schedule(){if(!ctx||!unlocked||state==='silence'||state==='battle')return;if(save.settings.audio===false||save.settings.music===false){nextNote=ctx.currentTime+.08;return}while(nextNote<ctx.currentTime+.22){const chords=progressions[state]||progressions.menu,ch=chords[Math.floor(step/8)%chords.length],beat=step%8;const tense=state==='boss';if(beat===0){bell(ch[0]-12,nextNote,state==='boss'?.035:.021);osc(ch[1],nextNote,1.6,'triangle',state==='boss'?.028:.016);osc(ch[2],nextNote+.012,1.5,'sine',.012)}if(tense&&beat%2===0)osc(ch[0]-24,nextNote,.13,'square',state==='boss'?.022:.012);if(state==='boss'&&beat%2===1)osc(ch[2]+12,nextNote,.1,'sawtooth',.008);if(state==='victory')osc(ch[beat%3]+12,nextNote,.45,'triangle',.015);if(state==='defeat'&&beat===4)bell(ch[0]-12,nextNote,.014);nextNote+=state==='boss'?.22:.42;step++}}
+  function schedule(){if(!ctx||!unlocked||state==='silence'||fileTracks[state])return;if(save.settings.audio===false||save.settings.music===false){nextNote=ctx.currentTime+.08;return}while(nextNote<ctx.currentTime+.22){const chords=progressions[state]||progressions.menu,ch=chords[Math.floor(step/8)%chords.length],beat=step%8;if(beat===0){bell(ch[0]-12,nextNote,.021);osc(ch[1],nextNote,1.6,'triangle',.016);osc(ch[2],nextNote+.012,1.5,'sine',.012)}if(state==='victory')osc(ch[beat%3]+12,nextNote,.45,'triangle',.015);if(state==='defeat'&&beat===4)bell(ch[0]-12,nextNote,.014);nextNote+=.42;step++}}
  function startWind(){if(wind||!noise)return;const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),g=ctx.createGain();src.buffer=noise;src.loop=true;filter.type='lowpass';filter.frequency.value=650;g.gain.value=.035;src.connect(filter);filter.connect(g);g.connect(ambBus);src.start();wind={src,g};}
- async function decodeBattleTrack(){if(battleTrackBuffer)return battleTrackBuffer;if(!ctx)return null;if(!battleTrackDecode)battleTrackDecode=(async()=>{const data=await battleTrackData;if(!data)return null;try{battleTrackBuffer=await ctx.decodeAudioData(data.slice(0));return battleTrackBuffer}catch(error){console.warn('Battle music decoding failed',error);return null}})();return battleTrackDecode}
- function stopBattleTrack(fade=true){const source=battleTrackSource,gain=battleTrackGain;if(!source||!gain||!ctx)return;battleTrackSource=null;battleTrackGain=null;const now=ctx.currentTime,fadeTime=fade?BATTLE_FADE_SECONDS:0;gain.gain.cancelScheduledValues(now);gain.gain.setValueAtTime(Math.max(.0001,gain.gain.value),now);gain.gain.linearRampToValueAtTime(0,now+fadeTime);try{source.stop(now+fadeTime+.02)}catch(_){}}
- async function startBattleTrack(restart=false){if(!ctx||!unlocked||state!=='battle')return;if(battleTrackSource&&!restart){const now=ctx.currentTime;battleTrackGain.gain.cancelScheduledValues(now);battleTrackGain.gain.setValueAtTime(Math.max(0,battleTrackGain.gain.value),now);battleTrackGain.gain.linearRampToValueAtTime(BATTLE_TRACK_LEVEL,now+BATTLE_FADE_SECONDS);return}if(battleTrackSource)stopBattleTrack(false);const buffer=await decodeBattleTrack();if(!buffer||state!=='battle'||!unlocked||battleTrackSource)return;const source=ctx.createBufferSource(),gain=ctx.createGain(),now=ctx.currentTime;source.buffer=buffer;source.loop=true;gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(BATTLE_TRACK_LEVEL,now+BATTLE_FADE_SECONDS);source.connect(gain);gain.connect(musicBus);battleTrackSource=source;battleTrackGain=gain;source.onended=()=>{if(battleTrackSource===source){battleTrackSource=null;battleTrackGain=null}};source.start(now)}
- function setState(next,force=false,restartBattle=false){state=next||'menu';if(!unlocked)return;if(state==='battle')startBattleTrack(restartBattle);else stopBattleTrack(true);if(force||nextNote<ctx.currentTime){nextNote=ctx.currentTime+.05;step=0}clearInterval(timer);if(state==='silence'||state==='battle')return;timer=setInterval(schedule,80);schedule()}
+ async function decodeFileTrack(track){if(track.buffer)return track.buffer;if(!ctx)return null;if(!track.decode)track.decode=(async()=>{const data=await track.data;if(!data)return null;try{track.buffer=await ctx.decodeAudioData(data.slice(0));return track.buffer}catch(error){console.warn(`${track.label} music decoding failed`,error);return null}})();return track.decode}
+ function stopFileTrack(track,fade=true){const source=track.source,gain=track.gain;if(!source||!gain||!ctx)return;track.source=null;track.gain=null;const now=ctx.currentTime,fadeTime=fade?MUSIC_FADE_SECONDS:0;gain.gain.cancelScheduledValues(now);gain.gain.setValueAtTime(Math.max(.0001,gain.gain.value),now);gain.gain.linearRampToValueAtTime(0,now+fadeTime);try{source.stop(now+fadeTime+.02)}catch(_){}}
+ async function startFileTrack(name,restart=false){const track=fileTracks[name];if(!track||!ctx||!unlocked||state!==name)return;if(track.source&&!restart){const now=ctx.currentTime;track.gain.gain.cancelScheduledValues(now);track.gain.gain.setValueAtTime(Math.max(0,track.gain.gain.value),now);track.gain.gain.linearRampToValueAtTime(track.level,now+MUSIC_FADE_SECONDS);return}if(track.source)stopFileTrack(track,false);const buffer=await decodeFileTrack(track);if(!buffer||state!==name||!unlocked||track.source)return;const source=ctx.createBufferSource(),gain=ctx.createGain(),now=ctx.currentTime;source.buffer=buffer;source.loop=true;gain.gain.setValueAtTime(0,now);gain.gain.linearRampToValueAtTime(track.level,now+MUSIC_FADE_SECONDS);source.connect(gain);gain.connect(musicBus);track.source=source;track.gain=gain;source.onended=()=>{if(track.source===source){track.source=null;track.gain=null}};source.start(now)}
+ function setState(next,force=false,restartBattle=false){state=next||'menu';if(!unlocked)return;for(const [name,track] of Object.entries(fileTracks)){if(name===state)startFileTrack(name,name==='battle'&&restartBattle);else stopFileTrack(track,true)}if(force||nextNote<ctx.currentTime){nextNote=ctx.currentTime+.05;step=0}clearInterval(timer);if(state==='silence'||fileTracks[state])return;timer=setInterval(schedule,80);schedule()}
   function tone(freq=220,dur=.08,type='sine',gain=.035){if(save.settings.audio===false||save.settings.sfx===false||!ensure())return;if(!unlocked||ctx.state!=='running'){unlock().then(ok=>{if(ok)tone(freq,dur,type,gain)});return}const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.value=freq;g.gain.value=Math.max(.0001,gain);o.connect(g);g.connect(sfxBus);o.start();g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);o.stop(ctx.currentTime+dur)}
   function sting(kind){if(save.settings.audio===false||save.settings.sfx===false||!ensure()||!unlocked)return;const now=ctx.currentTime+.03;if(kind==='boss'){[38,50,37,49].forEach((n,i)=>osc(n,now+i*.12,.55,'sawtooth',.025,sfxBus));bell(26,now,.045,sfxBus)}else if(kind==='victory'){[48,52,55,60,64].forEach((n,i)=>bell(n,now+i*.16,.026,sfxBus))}else if(kind==='defeat'){[48,45,41,36].forEach((n,i)=>bell(n,now+i*.28,.025,sfxBus))}else if(kind==='wave'){[60,67].forEach((n,i)=>osc(n,now+i*.1,.25,'triangle',.018,sfxBus))}}
  return {unlock,setState,tone,sting,apply,get state(){return state},get unlocked(){return unlocked}};
@@ -2010,14 +2125,14 @@ function spawnEssencePickup(e,amount){
  setTimeout(()=>{mote.remove();if(!G||G.state!=='play'||G.completionStarted)return;G.pendingEssence=Math.max(0,G.pendingEssence-amount);const total=G.essence+amount;G.essence=Math.min(G.maxEssence,total);G.essenceCarry+=Math.max(0,total-G.maxEssence);renderEssenceVial();playTone(610,.045,'triangle',.018);if(G.essence>=G.maxEssence&&!G.draftOpen&&!G.pendingCard)triggerEssenceDraft(false)},430);
 }
 function towerTags(t){return {holy:['holy','cross','rosary','garlic','scripture'].includes(t.id),fire:['holy','bone'].includes(t.id),lightning:['clock','scripture'].includes(t.id)};}
-function synergyFor(t){let damage=1,range=1,rate=1,holy=false,ignite=false;for(const n of G.towers){if(n===t)continue;const d=Math.abs(n.x-t.x)+Math.abs(n.y-t.y);if(d!==1)continue;if(n.supportOnly){if(n.id==='holy'){damage*=1.42;rate*=1.22;holy=true}if(n.id==='freeze'){rate*=1.30;range*=1.14}if(n.id==='guardian'){damage*=1.22;rate*=1.18}continue;}if(t.id==='dagger'&&n.id==='holy'){holy=true;damage*=1.22}if(t.id==='clock'&&n.id==='holy'){range*=1.18;damage*=1.12}if(t.id==='axe'&&n.id==='bone'){ignite=true;damage*=1.2}if(t.id==='whip'&&n.id==='rosary'){rate*=1.18}}
+function synergyFor(t){let damage=1,range=1,rate=1,holy=false,ignite=false;for(const n of G.towers){if(n===t)continue;const d=Math.abs(n.x-t.x)+Math.abs(n.y-t.y);if(d!==1)continue;if(n.supportOnly){const effect=n.supportEffect||SUPPORT_EFFECT_REGISTRY[n.id]||{};damage*=1+(Number(effect.damage)||0);rate*=1+(Number(effect.attackSpeed)||0);range*=1+(Number(effect.range)||0);holy=holy||!!effect.holy;continue;}if(t.id==='dagger'&&n.id==='holy'){holy=true;damage*=1.22}if(t.id==='clock'&&n.id==='holy'){range*=1.18;damage*=1.12}if(t.id==='axe'&&n.id==='bone'){ignite=true;damage*=1.2}if(t.id==='whip'&&n.id==='rosary'){rate*=1.18}}
  return {damage,range,rate,holy,ignite};}
 const TOWER_AOE_SCALE=.5; // V32.2.2: all tower attack/AoE radii are reduced by half.
 function towerCombatRange(t){
  const syn=synergyFor(t),weather=G.weather.id==='fog'?.88:1;
  const base=Math.max(1.05,Number(t.range)||1.35),rangeUpgrade=Number(t.upgradeRange||0)*.30;
-  const candle=G.relic?.id==='candle'&&towerTags(t).holy?1.20:1;
-  return (base+rangeUpgrade+Math.min(.20,((t.level||1)-1)*.05))*syn.range*weather*candle*(G.relic?.id==='moonshard'?1.10:1)*TOWER_AOE_SCALE;
+  const holyRange=towerTags(t).holy?relicEffect('holyTowerRange'):0;
+  return (base+rangeUpgrade+Math.min(.20,((t.level||1)-1)*.05))*syn.range*weather*(1+holyRange+relicEffect('towerRange'))*(1+(G.towerRangeBonus||0)+(linkedSupportEffects(t).range||0)+leadershipForTower(t).range)*TOWER_AOE_SCALE;
 }
 function enemyInsideTowerAOE(t,e){return !e.dead&&Math.hypot(e.x-(t.x+.5),e.y-(t.y+.5))<=towerCombatRange(t);}
 function cardUpgradeState(id){
@@ -2059,7 +2174,7 @@ function upgradeSelectedTower(stat,showDetails=true){
 }
 
 window.upgradeSelectedTower=upgradeSelectedTower;window.openBattleUpgradeMenu=openBattleUpgradeMenu;
-function awardRelic(){const pool=RELICS.filter(r=>!save.unlockedRelics.includes(r.id));const r=pool.length?pool[Math.floor(Math.random()*pool.length)]:RELICS[Math.floor(Math.random()*RELICS.length)];if(G.relic?.id==='fang')G.hero.rate*=1.18;G.relic=r;if(r.id==='fang')G.hero.rate/=1.18;if(r.id==='ring')G.relicKillCount=0;$('#relicTxt').textContent=r.name;if(!save.unlockedRelics.includes(r.id))save.unlockedRelics.push(r.id);saveProgress();showToast(`Relic discovered: ${r.name}`)}
+function awardRelic(){const pool=RELICS.filter(r=>!save.unlockedRelics.includes(r.id)),r=pool.length?pool[Math.floor(Math.random()*pool.length)]:RELICS[Math.floor(Math.random()*RELICS.length)],oldAttackSpeed=relicEffect('heroAttackSpeed');if(oldAttackSpeed)G.hero.rate*=1+oldAttackSpeed;G.relic=r;const newAttackSpeed=relicEffect('heroAttackSpeed');if(newAttackSpeed)G.hero.rate/=1+newAttackSpeed;if(relicEffect('killExplosionEvery'))G.relicKillCount=0;$('#relicTxt').textContent=r.name;if(!save.unlockedRelics.includes(r.id))save.unlockedRelics.push(r.id);saveProgress();showToast(`Relic discovered: ${r.name}`)}
 function enemyDeath(e){if(e.type==='skeleton')for(let i=0;i<18;i++)G.particles.push({x:e.x,y:e.y,vx:(Math.random()-.5)*4,vy:-Math.random()*3,life:.6+Math.random()*.5,color:'#d8d0be'});else if(e.type==='ghost')burst(e.x,e.y,'#bda8ff',28);else if(e.type==='vampire')for(let i=0;i<9;i++)G.particles.push({x:e.x,y:e.y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,life:.8,color:'#632b78'});else burst(e.x,e.y,e.boss?'#d6b1ff':'#ba233e',e.boss?70:14);const motes=e.boss?12:e.elite?7:4;for(let i=0;i<motes;i++)G.particles.push({x:e.x+(Math.random()-.5)*.25,y:e.y+(Math.random()-.5)*.2,vx:(Math.random()-.5)*.25,vy:-.55-Math.random()*.35,life:1.1+Math.random()*.55,color:'#cdb7ff',kind:'soul',phase:Math.random()*6.28})}
 // V32.1 — one place to retune the entire campaign difficulty curve.
 const DIFFICULTY={
@@ -2088,7 +2203,7 @@ function spawnEnemy(){
  const chapterNum=Math.max(1,G.chapter?.number||1);
  const chapterCurve=Math.pow(DIFFICULTY.perChapter,chapterNum-1);
  const waveCurve=1+Math.pow(Math.max(0,G.wave-1),DIFFICULTY.waveEase)*DIFFICULTY.perWave;
- let hp=base*waveCurve*chapterCurve*(G.weather.id==='blood'?1.18:1)*DIFFICULTY.baseline;
+ let hp=base*waveCurve*chapterCurve*(G.weather.id==='blood'?1.18:1)*DIFFICULTY.baseline*(1+relicEffect('enemyHealth'));
  // Enemies also hit a little harder as the roads darken.
  const damageCurve=1+(chapterNum-1)*DIFFICULTY.perChapterDamage;
  const elite=!boss&&!mini&&G.wave>=3&&Math.random()<Math.min(.25,.06+G.wave*.014);if(elite){hp*=1.65;speed*=1.10;reward=Math.round(reward*1.70);name='Elite '+name;}
@@ -2158,7 +2273,7 @@ function fireScripture(t){
  const candidates=G.enemies.filter(e=>!e.dead&&Math.hypot(e.x-(t.x+.5),e.y-(t.y+.5))<=range).sort((a,b)=>(b.seg+b.prog)-(a.seg+a.prog));
  if(!candidates.length)return false;
  let base=t.damage*G.globalDamage*syn.damage*(t.elite?1.5:1)*(t.permanentPower||1)*(G.hero.def?.bonus.tower||1);
- if(G.weather.id==='rain')base*=1.18;if(G.relic?.id==='candle')base*=1.2;
+ if(G.weather.id==='rain')base*=1.18;base*=1+relicEffect('holyTowerDamage');
  const supports=t.supports||[];let supportSlow=1,shotBurn=0;for(const sp of supports){if(sp.id==='holy'){base*=1.08*sp.power;shotBurn=5*sp.power}else if(sp.id==='freeze')supportSlow=Math.min(supportSlow,.62);else if(sp.id==='guardian')base*=1.05*sp.power;}
  for(let i=0;i<count;i++){
   const target=candidates[i%candidates.length],origin=scriptureOrbitPoint(t,i,count,.12);
@@ -2167,7 +2282,16 @@ function fireScripture(t){
  burst(t.x+.5,t.y+.5,'#ffe58a',Math.min(16,4+count*2));G.cameraPulse=Math.min(1,G.cameraPulse+.12);playTone(520+count*24,.07,'triangle',.05);
  t.t=t.rate/(1+.10*(t.level-1))/syn.rate;return true;
 }
-function fire(t,e){towerFireFX(t,e);const fireFreq=t.id==='axe'?145:t.id==='dagger'?520:t.id==='holy'?690:t.id==='bone'?210:330,fireType=t.id==='bone'?'sawtooth':'triangle';playTone(fireFreq,.06,fireType,.06);playTone(fireFreq*1.55,.03,'square',.028);if(t.id==='scripture'){fireScripture(t);return;}const syn=synergyFor(t),tags=towerTags(t);let shotSupportBurn=0,supportSlow=1;let dmg=t.damage*G.globalDamage*syn.damage*(t.elite?1.5:1)*(t.permanentPower||1)*(G.hero.def?.bonus.tower||1);if(t.id==='familiar')dmg*=G.hero.def?.bonus.familiar||1;const supports=t.supports||[];for(const s of supports){if(s.id==='holy'){dmg*=1.08*s.power;shotSupportBurn=5*s.power}else if(s.id==='freeze'){supportSlow=Math.min(supportSlow,.62)}else if(s.id==='guardian'){dmg*=1.05*s.power}}if(e.air&&['dagger','familiar','cross'].includes(t.id))dmg*=1.45;if(e.type==='armor'&&t.id==='axe')dmg*=1.6;if(G.weather.id==='rain'&&tags.fire)dmg*=.8;if(G.weather.id==='rain'&&(tags.holy||tags.lightning))dmg*=1.18;if(G.relic?.id==='candle'&&tags.holy)dmg*=1.2;
+function fire(t,e){towerFireFX(t,e);const fireFreq=t.id==='axe'?145:t.id==='dagger'?520:t.id==='holy'?690:t.id==='bone'?210:330,fireType=t.id==='bone'?'sawtooth':'triangle';playTone(fireFreq,.06,fireType,.06);playTone(fireFreq*1.55,.03,'square',.028);if(t.id==='scripture'){fireScripture(t);return;}const syn=synergyFor(t),tags=towerTags(t);let shotSupportBurn=0,supportSlow=1;let dmg=t.damage*G.globalDamage*syn.damage*(t.elite?1.5:1)*(t.permanentPower||1)*(G.hero.def?.bonus.tower||1);if(t.id==='familiar')dmg*=G.hero.def?.bonus.familiar||1;const supports=t.supports||[];for(const s of supports){if(s.id==='holy'){dmg*=1.08*s.power;shotSupportBurn=5*s.power}else if(s.id==='freeze'){supportSlow=Math.min(supportSlow,.62)}else if(s.id==='guardian'){dmg*=1.05*s.power}}if(e.air&&['dagger','familiar','cross'].includes(t.id))dmg*=1.45;if(e.type==='armor'&&t.id==='axe')dmg*=1.6;if(G.weather.id==='rain'&&tags.fire)dmg*=.8;if(G.weather.id==='rain'&&(tags.holy||tags.lightning))dmg*=1.18;if(tags.holy)dmg*=1+relicEffect('holyTowerDamage');
+ const gemFx=towerGemEffects(t),supportFx=linkedSupportEffects(t),leadership=leadershipForTower(t);
+ const profaneTarget=['skeleton','ghost','vampire','necromancer','golem','ghoul','revenant','gravelord','dreadeye'].includes(e.type)||e.boss;
+ dmg*=1+(supportFx.damage||0)+leadership.damage+(gemFx.armorPenetration||0)+(profaneTarget?((supportFx.holyDamage||0)+(gemFx.holyDamage||0)):0)+(e.boss?((gemFx.bossDamage||0)+(supportFx.bossDamage||0)+(G.towerBossDamage||0)+leadership.boss):0);
+ if(Math.random()<(G.towerCritChance||0)+(supportFx.criticalChance||0)+leadership.crit)dmg*=1.6+(gemFx.criticalDamage||0);
+ const gemBurn=(gemFx.burnDps||0)*20,gemPoison=((gemFx.poisonDps||0)+(supportFx.poisonDps||0))*20,gemFreeze=(gemFx.freezeChance&&Math.random()<gemFx.freezeChance) ? .8 : 0;
+ supportSlow=Math.min(supportSlow,1-(supportFx.slow||0),1-(gemFx.slow||0));
+ if(gemFreeze)supportSlow=Math.min(supportSlow,.08);shotSupportBurn+=gemPoison;
+ if(gemFx.lifeSteal)G.hp=Math.min(G.maxHp,G.hp+dmg*gemFx.lifeSteal*.05);
+ if(gemFx.chainChance&&Math.random()<gemFx.chainChance){for(const chained of G.enemies.filter(other=>!other.dead&&other!==e&&Math.hypot(other.x-e.x,other.y-e.y)<1.5).slice(0,2)){hit(chained,dmg*(gemFx.chainDamage||.35),{holy:(gemFx.holyDamage||0)>0,noCrit:true,kind:'gemChain'});burst(chained.x,chained.y,'#ffe072',7)}}
  if(t.id==='dagger'){
   const dir=daggerDirection(t,e),length=daggerLaneLength(t),victims=G.enemies.filter(target=>enemyInDaggerLane(t,target,dir,length));
   for(const target of victims){hit(target,dmg,{holy:tags.holy||syn.holy,source:t,kind:'daggerLane'});if(supportSlow<1)target.slow=Math.min(target.slow,supportSlow);if(shotSupportBurn)target.burn=Math.max(target.burn||0,shotSupportBurn)}
@@ -2179,11 +2303,11 @@ function fire(t,e){towerFireFX(t,e);const fireFreq=t.id==='axe'?145:t.id==='dagg
   for(const target of G.enemies){if(enemyInsideTowerAOE(t,target)){hit(target,dmg,{holy:true,source:t});target.slow=Math.min(target.slow,t.slow||.78);hits++;}}
   burst(t.x+.5,t.y+.5,t.color,Math.min(18,5+hits*2));t.t=t.rate/(1+.12*(t.level-1))/syn.rate;return;
  }
- burst(t.x+.5,t.y+.5,t.color,3);G.cameraPulse=Math.min(1,G.cameraPulse+.08);G.shots.push({x:t.x+.5,y:t.y+.5,px:t.x+.5,py:t.y+.5,target:e,speed:7,damage:dmg,color:t.color,aoe:t.aoe||0,pierce:t.pierce||0,slow:Math.min(t.slow||1,supportSlow),burn:(t.burn||0)+(syn.ignite?3:0)+shotSupportBurn,holy:tags.holy||syn.holy,source:t,kind:t.id,spin:Math.random()*6.28,life:2});t.t=t.rate/(1+.12*(t.level-1))/syn.rate}
+ burst(t.x+.5,t.y+.5,t.color,3);G.cameraPulse=Math.min(1,G.cameraPulse+.08);G.shots.push({x:t.x+.5,y:t.y+.5,px:t.x+.5,py:t.y+.5,target:e,speed:7,damage:dmg,color:t.color,aoe:t.aoe||0,pierce:t.pierce||0,slow:Math.min(t.slow||1,supportSlow),burn:(t.burn||0)+(syn.ignite?3:0)+shotSupportBurn+gemBurn,poison:gemPoison,freeze:gemFreeze?.7:0,chainChance:gemFx.chainChance||0,chainDamage:gemFx.chainDamage||0,holy:tags.holy||syn.holy||(gemFx.holyDamage||0)>0,source:t,kind:t.id,spin:Math.random()*6.28,life:2});t.t=t.rate/(1+.12*(t.level-1))/syn.rate/(1+(G.towerRateBonus||0)+(supportFx.attackSpeed||0)+leadership.rate)}
 function rollCardDrop(e){const base=e.boss?1:e.mini?.35:e.type==='armor'?.055:.02;const chance=base+(save.keepUpgrades.fortune||0)*.0015;if(Math.random()>chance)return;const eligible=CARD_POOL.filter(c=>c.type!=='hero'||Math.random()<.35);const found=eligible[Math.floor(Math.random()*eligible.length)];const item=inv(found.id);item.copies++;item.recent=true;item.lastFound=Date.now();G.runDrops.push(found.id);save.stats.totalCards++;saveProgress();showCardDrop(found,item);}
 function showCardDrop(c,item){const b=$('#dropBanner');if(!b)return;b.className='drop-banner rarity-common';b.innerHTML=`<div>✦ COMMON CARD DROP ✦</div><strong>${c.icon} ${c.name}</strong><div class="small">Common copy · ${item.copies} copies${item.copies>=3?' · MERGE READY':''}</div>`;b.classList.remove('hidden');setTimeout(()=>b.classList.add('hidden'),1800);playTone(660,.18,'triangle',.06)}
 function enemyEssenceReward(e){
- const base=Math.max(1,Math.round(e.reward/7*(G.relic?.id==='rotcrown'?1.2:1)));
+ const base=Math.max(1,Math.round(e.reward/7*(1+relicEffect('essenceGain'))*(e.elite?1+relicEffect('eliteEssence'):1)));
  if(G.familiar?.id!=='faerie')return base;
  const accrued=(G.faerieEssenceRemainder||0)+base*.10,bonus=Math.floor(accrued+1e-9);
  G.faerieEssenceRemainder=accrued-bonus;
@@ -2191,8 +2315,8 @@ function enemyEssenceReward(e){
 }
 // V32.7.0 damage pipeline: defense/resistance first, critical multiplier second,
 // then a visible skill floor. This prevents criticals and multi-hit holy skills from collapsing to 1.
-function hit(e,d,shot=null){e.hitFlash=.11;if(!e.boss&&!e.attacking&&!e.dead)e.hurtT=ENEMY_ANIM.hurt;e.hitKick=Math.min(.16,(e.hitKick||0)+.055);const rawDamage=Math.max(0,Number(d)||0);if(e.holyOnly&&!shot?.holy)d*=.22;if(e.armor&&!shot?.holy)d*=1-e.armor*(G.relic?.id==='pallbearer'?.5:1);if(e.air&&(G.relic?.id==='voideye'||G.relic?.id==='abyssseal'))d*=1.30;const crit=!shot?.noCrit&&shot?.source==null&&G.hero&&Math.random()<G.hero.crit;if(crit){const critFloor=Math.max(8,rawDamage*.85,(G.hero.damage||10)*.55);d=Math.max(d*1.9,critFloor);G.flash=Math.max(G.flash,.08);hitPause(48)}d=Math.max(shot?.skill?(shot?.holy?5:3):0,d);e.hp-=d;if(e.hp<=0&&e.boss&&G)G.lastBossDeath={x:e.x,y:e.y,form:e.golemForm||1,type:e.type,name:e.name};impactFeedback(e,d,crit,shot);if(e.hp<=0&&!e.dead){e.dead=true;spawnCorpse(e);deathBurst(e);if((e.boss||e.elite)&&navigator.vibrate)navigator.vibrate(e.boss?[35,30,55]:25);G.kills++;grantFamiliarXp(e.boss?18:e.elite?5:2);G.killChain++;G.comboTimer=2.4;G.comboBest=Math.max(G.comboBest||0,G.killChain);const essenceGain=enemyEssenceReward(e);spawnEssencePickup(e,essenceGain);
- const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);floatText(e.x,e.y,`+${battleXp} battle XP`,'#ffe28a');floatText(e.x,e.y+.18,'+'+essenceGain+' essence','#d8c7ff');playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);G.relicKillCount=(G.relicKillCount||0)+1;if(G.relic?.id==='ring'&&G.relicKillCount%5===0){burst(e.x,e.y,'#ffe7a4',32);floatText(e.x,e.y-.25,'RING EXPLOSION','#ffe7a4');playTone(190,.12,'sawtooth',.04);for(const o of [...G.enemies])if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)hit(o,24,{holy:true,noCrit:true,kind:'ringExplosion'})}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
+function hit(e,d,shot=null){e.hitFlash=.11;if(!e.boss&&!e.attacking&&!e.dead)e.hurtT=ENEMY_ANIM.hurt;e.hitKick=Math.min(.16,(e.hitKick||0)+.055);const rawDamage=Math.max(0,Number(d)||0);if(e.holyOnly&&!shot?.holy)d*=.22;if(e.armor&&!shot?.holy)d*=1-e.armor*(relicEffect('enemyArmorMultiplier')||1);if(e.air)d*=1+relicEffect('flyingDamage');if(e.boss)d*=1+relicEffect('bossDamage');const crit=!shot?.noCrit&&shot?.source==null&&G.hero&&Math.random()<G.hero.crit;if(crit){const critFloor=Math.max(8,rawDamage*.85,(G.hero.damage||10)*.55);d=Math.max(d*(G.hero.critDamage||1.9),critFloor);G.flash=Math.max(G.flash,.08);hitPause(48)}d=Math.max(shot?.skill?(shot?.holy?5:3):0,d);e.hp-=d;if(e.hp<=0&&e.boss&&G)G.lastBossDeath={x:e.x,y:e.y,form:e.golemForm||1,type:e.type,name:e.name};impactFeedback(e,d,crit,shot);if(e.hp<=0&&!e.dead){e.dead=true;spawnCorpse(e);deathBurst(e);if((e.boss||e.elite)&&navigator.vibrate)navigator.vibrate(e.boss?[35,30,55]:25);G.kills++;grantFamiliarXp(e.boss?18:e.elite?5:2);G.killChain++;G.comboTimer=2.4;G.comboBest=Math.max(G.comboBest||0,G.killChain);const essenceGain=enemyEssenceReward(e);spawnEssencePickup(e,essenceGain);
+ const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);floatText(e.x,e.y,`+${battleXp} battle XP`,'#ffe28a');floatText(e.x,e.y+.18,'+'+essenceGain+' essence','#d8c7ff');playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);G.relicKillCount=(G.relicKillCount||0)+1;const explosionEvery=relicEffect('killExplosionEvery');if(explosionEvery&&G.relicKillCount%explosionEvery===0){burst(e.x,e.y,'#ffe7a4',32);floatText(e.x,e.y-.25,'RELIC EXPLOSION','#ffe7a4');playTone(190,.12,'sawtooth',.04);for(const o of [...G.enemies])if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)hit(o,24,{holy:true,noCrit:true,kind:'ringExplosion'})}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
 function weightedChoices(pool,count=3){
  const available=[...pool],out=[];
  while(out.length<count&&available.length){
@@ -2310,8 +2434,7 @@ function update(dt,syncHud=true,visualDt=dt){
   G.archerTimers[i]=(G.archerTimers[i]??(i*.35))-dt;
   if(G.archerTimers[i]<=0){let target=null,bd=5.2+(G.keepLevel||1)*.25;for(const e of G.enemies){if(e.dead)continue;const d=Math.hypot(e.x-CATHEDRAL.gateX,e.y-CATHEDRAL.gateY);if(d<bd){target=e;bd=d}}if(target){G.shots.push({x:CATHEDRAL.gateX+(i-(archerCount-1)/2)*.24,y:CATHEDRAL.gateY-.55,target,speed:8.5,damage:5+(G.keepLevel||1)*2.4,color:'#e8d5a0',holy:false,life:2,kind:'arrow',archer:true});G.archerTimers[i]=1.9-Math.min(.55,(G.keepLevel||1)*.08)+i*.08}else G.archerTimers[i]=.25}
  }
- const fam=G.familiar;
- if(fam){fam.angle=(fam.angle||0)+dt*(fam.id==='bat'?2.1:.8);fam.t-=dt;if(fam.t<=0){let target=null,bd=fam.range+fam.level*.035;for(const e of G.enemies){if(e.dead)continue;const d=Math.hypot(e.x-G.hero.x,e.y-G.hero.y);if(d<bd){target=e;bd=d}}if(target){const dmg=fam.damage*(1+(fam.level-1)*.09);G.shots.push({x:G.hero.x+Math.cos(fam.angle)*.45,y:G.hero.y-.25+Math.sin(fam.angle)*.18,target,speed:fam.id==='sword'?7:8.5,damage:dmg,color:fam.color,holy:fam.id==='faerie',life:2,kind:'familiar',familiarId:fam.id,slow:fam.id==='ghost'?.72:0,burn:fam.id==='demon'?2.8:0});fam.t=Math.max(.75,fam.rate-fam.level*.045)}else fam.t=.2}}
+ updateAscensionCompanion(dt);
  // V25.6: Kael is an autonomous defender during battle. He patrols in
  // front of the cathedral, turns toward nearby threats, and attacks alone.
  const patrolCenter={x:CATHEDRAL.gateX,y:CATHEDRAL.gateY+1.15};
@@ -2330,7 +2453,7 @@ function update(dt,syncHud=true,visualDt=dt){
  }
  const hdx=targetX-G.hero.x,hdy=targetY-G.hero.y,hd=Math.hypot(hdx,hdy);
  if(hd>.08){
-  const step=Math.min(hd,1.42*dt);
+  const step=Math.min(hd,1.42*(G.hero.moveSpeed||1)*dt);
   G.hero.x+=hdx/hd*step;G.hero.y+=hdy/hd*step;G.hero.walking=true;
   G.hero.facing=Math.abs(hdx)>Math.abs(hdy)?(hdx<0?'left':'right'):(hdy<0?'up':'down');
  }else G.hero.walking=false;
@@ -2366,6 +2489,16 @@ function update(dt,syncHud=true,visualDt=dt){
 
 }
 function grantEndChest(victory){const quality=victory?'Legendary Eclipse Chest':G.wave>=7?'Epic Reliquary':G.wave>=4?'Rare Coffer':'Common Cache';const count=victory?3:G.wave>=7?2:1;const rewards=[];for(let i=0;i<count;i++){const pool=CARD_POOL.filter(c=>save.unlocked.includes(c.id)&&inv(c.id).copies>0);const c=pool.length?pool[Math.floor(Math.random()*pool.length)]:card(DEFAULT_DECK[0]);if(!c)continue;const item=inv(c.id);item.copies++;item.recent=true;item.lastFound=Date.now();rewards.push('Common '+c.name)}return {quality,rewards}}
+function grantAscensionBossLoot(firstClear){
+ if(!G?.chapter)return [];
+ const chapter=G.chapter.number,tier=bossLootTier(chapter),pool=eligibleBossEquipment(chapter,tier.id),rewards=[];
+ if(pool.length)for(let drop=0;drop<BOSS_LOOT_REGISTRY.equipmentDropsPerBoss;drop++){const total=pool.reduce((sum,item)=>sum+item.dropWeight,0);let roll=Math.random()*total,chosen=pool[0];for(const item of pool){roll-=item.dropWeight;if(roll<=0){chosen=item;break}}save.ascension.equipmentInventory.push({uid:globalThis.crypto?.randomUUID?.()||`${chosen.id}-${Date.now()}-${Math.random()}`,itemId:chosen.id,locked:false});rewards.push(`${chosen.icon} ${chosen.name}`)}
+ const elements=ELEMENT_REGISTRY.filter(element=>chapter>=BOSS_LOOT_REGISTRY.fragmentChapterMinimum||BOSS_LOOT_REGISTRY.earlyFragmentElements.includes(element.id)),element=elements[Math.floor(Math.random()*elements.length)]||ELEMENT_REGISTRY[0],fragments=tier.fragmentBase+Math.floor(Math.random()*(BOSS_LOOT_REGISTRY.fragmentRandomBonus+1));save.ascension.fragments[element.id]+=fragments;rewards.push(`${element.icon} ${fragments} ${element.name} Fragments`);
+ const guaranteed=BOSS_LOOT_REGISTRY.guaranteedChapterGems[chapter];
+ if(firstClear&&guaranteed&&!save.ascension.chapterGemRewards.includes(chapter)){save.ascension.gems[guaranteed]++;save.ascension.chapterGemRewards.push(chapter);rewards.push(`${gemById(guaranteed).icon} ${gemById(guaranteed).name}`)}
+ G.ascensionRewards=rewards;return rewards;
+}
+function grantDeckCardXp(amount){for(const id of save.deck){const item=inv(id);item.xp+=Math.max(0,amount);while(item.xp>=100){item.xp-=100;item.level=Math.min(99,item.level+1)}}}
 function recordRun(result,earned,chest){const eco=ensureVillageEconomy();const villageLoot={gold:Math.round(G.kills*(result==='victory'?2.4:1.1)),food:Math.round(G.kills*.7),wood:Math.round(G.wave*3),stone:Math.round(G.wave*2),iron:result==='victory'?Math.max(1,Math.floor(G.wave/4)):0,essence:result==='victory'?Math.max(1,Math.floor(G.wave/5)):0};for(const [k,v] of Object.entries(villageLoot))eco[k]=(eco[k]||0)+v;G.villageLoot=villageLoot;save.runHistory.unshift({date:Date.now(),result,wave:G.wave,kills:G.kills,hero:save.selectedHero,deck:[...save.deck],drops:[...G.runDrops],chest:chest.quality,map:G.map.name});save.runHistory=save.runHistory.slice(0,20);save.bestWave=Math.max(save.bestWave,G.wave);save.essence+=earned;save.materials.bloodEssence=save.essence;save.stats.runs++;save.stats.totalKills+=G.kills;save.stats.highestWave=Math.max(save.stats.highestWave,G.wave);save.stats.goldEarned+=villageLoot.gold;save.stats.bloodEssenceEarned+=earned;if(result==='victory'){save.stats.wins++;save.stats.bosses++;save.materials.eclipseShards+=2;save.materials.ancientRelics+=1;save.materials.hunterMedallions+=1;save.materials.forgeEmbers+=3}else if(G.miniBossDefeated){save.materials.eclipseShards+=1;save.materials.forgeEmbers+=1}saveProgress()}
 function chapterClear(){
  if(!G||G.chapterCleared)return;
@@ -2416,13 +2549,15 @@ function finalizeChapterClear(uniqueShadowRewardOverride=false){
  const repaired=reconcileCardUnlocks();
  for(const c of repaired)if(!newlyUnlocked.some(x=>x.id===c.id))newlyUnlocked.push(c);
   const stageId=G.chapter?.id;const jpEarned=firstClear&&stageId&&!save.jpAwardedStages.includes(stageId)?1:0;if(jpEarned){save.jpAwardedStages.push(stageId);save.heroJP[save.selectedHero]=(save.heroJP[save.selectedHero]||0)+1;save.stats.jpEarned++;}
-  if(earnedStars===3)save.stats.perfectVictories++;
+ if(earnedStars===3)save.stats.perfectVictories++;
+ grantDeckCardXp(20+Math.min(30,G.chapter?.number||0));
+ const ascensionRewards=grantAscensionBossLoot(firstClear);
  const chest=grantEndChest(true);
  recordRun('victory',earned,chest);
  const unlockHtml=newlyUnlocked.length?`<br><br><strong>NEW CARDS UNLOCKED</strong><br>${newlyUnlocked.map(c=>`${c.icon} ${c.name}`).join('<br>')}`:'<br><br><em>Chapter rewards already owned — duplicate cards added to your chest.</em>';
  const uniqueHtml=uniqueShadowReward?'<br><br><strong>UNIQUE BOSS ITEM</strong><br>◈ Heart of the Golem — return to the Village for Shadow’s awakening.<br><em>This item can only ever drop once.</em>':'';
  $('#endTitle').textContent=(G.chapter?.boss.name||'The Eclipse Warden')+' Has Fallen';
- $('#endStats').innerHTML=`Waves survived: <strong>${G.wave}</strong><br>Monsters slain: <strong>${G.kills}</strong><br>Blood Essence: <strong>+${earned}</strong><br>Village supplies: <strong>+${G.villageLoot?.gold||0} Gold · +${G.villageLoot?.food||0} Food · +${G.villageLoot?.wood||0} Wood · +${G.villageLoot?.stone||0} Stone · +${G.villageLoot?.iron||0} Iron</strong><br>Run drops: <strong>${G.runDrops.length}</strong><br>Mission rating: <strong>${'★'.repeat(earnedStars)}${'☆'.repeat(3-earnedStars)}</strong><br>Job Points: <strong>+${jpEarned} JP</strong>${unlockHtml}${uniqueHtml}<br><br><strong>${chest.quality}</strong><br>${chest.rewards.join('<br>')}`;
+ $('#endStats').innerHTML=`Waves survived: <strong>${G.wave}</strong><br>Monsters slain: <strong>${G.kills}</strong><br>Blood Essence: <strong>+${earned}</strong><br>Village supplies: <strong>+${G.villageLoot?.gold||0} Gold · +${G.villageLoot?.food||0} Food · +${G.villageLoot?.wood||0} Wood · +${G.villageLoot?.stone||0} Stone · +${G.villageLoot?.iron||0} Iron</strong><br>Run drops: <strong>${G.runDrops.length}</strong><br>Mission rating: <strong>${'★'.repeat(earnedStars)}${'☆'.repeat(3-earnedStars)}</strong><br>Job Points: <strong>+${jpEarned} JP</strong>${unlockHtml}${uniqueHtml}<br><br><strong>ASCENSION BOSS LOOT</strong><br>${ascensionRewards.join('<br>')}<br><br><strong>${chest.quality}</strong><br>${chest.rewards.join('<br>')}`;
  UI.over.classList.remove('hidden');
  if(newlyUnlocked.length)setTimeout(()=>showToast(`Unlocked: ${newlyUnlocked.map(c=>c.name).join(' + ')}`),500);
  burst(GRID.cols/2,GRID.rows/2,'#ffe7a4',120);
@@ -2511,12 +2646,14 @@ function draw(){
  if(G){for(const [pi,p] of G.path.entries())drawCobblestoneTile(p.x*64,p.y*64,map,pi);
   ctx.strokeStyle='#ffe18b';ctx.lineWidth=3;ctx.globalAlpha=.55+.4*Math.sin(G.time*4);for(const end of activeRoadEndpoints())ctx.strokeRect(end.x*64+6,end.y*64+6,52,52);ctx.globalAlpha=1;ctx.lineWidth=1;
    if(G.pendingCard&&G.hoverTile){const p=G.hoverTile;if(G.pendingCard.type==='roadpiece'){const cells=roadCells(G.pendingCard,p,G.placementRotation),ok=validRoadPiece(G.pendingCard,p,G.placementRotation);ctx.globalAlpha=.62;ctx.fillStyle=ok?'#4fe07a':'#e04b5f';for(const q of cells)ctx.fillRect(q.x*64+5,q.y*64+5,54,54);ctx.globalAlpha=1}else if(['tower','support','trap'].includes(G.pendingCard.type)){const ok=G.pendingCard.type==='trap'?validTrapTile(p.x,p.y):G.pendingCard.type==='support'?validSupportTile(p.x,p.y):validTowerTile(p.x,p.y),color=ok?'#56dd82':'#e05262',radius=G.pendingCard.type==='trap'?23:28;ctx.save();ctx.globalAlpha=.25;ctx.fillStyle=color;ctx.beginPath();ctx.arc((p.x+.5)*64,(p.y+.5)*64,radius,0,7);ctx.fill();ctx.globalAlpha=.95;ctx.strokeStyle=color;ctx.lineWidth=3;ctx.setLineDash(G.pendingCard.type==='support'?[5,4]:[]);ctx.stroke();ctx.restore()}}
+   if(G.pendingCard?.type==='support'&&G.hoverTile){const p=G.hoverTile,targets=new Set(supportTargetsAt(p.x,p.y,G.pendingCard));ctx.save();ctx.lineWidth=2;ctx.setLineDash([5,4]);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const tower=G.towers.find(t=>!t.supportOnly&&t.x===p.x+dx&&t.y===p.y+dy);ctx.fillStyle=tower&&targets.has(tower)?'rgba(94,224,133,.24)':'rgba(202,176,102,.08)';ctx.strokeStyle=tower&&targets.has(tower)?'#5ee085':'#a78d5b88';ctx.fillRect((p.x+dx)*64+5,(p.y+dy)*64+5,54,54);ctx.strokeRect((p.x+dx)*64+5,(p.y+dy)*64+5,54,54)}ctx.setLineDash([]);ctx.fillStyle='#fff0b5';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText(`SUPPORTS UP TO ${supportCapacity(inv(G.pendingCard.id).rarity)}`,(p.x+.5)*64,p.y*64-8);ctx.restore()}
   // Art Renaissance cathedral: a towering, damage-reactive sanctuary.
   drawCathedralGate();
   if(G.selectedTower){const t=G.selectedTower,r=towerCombatRange(t)*64,x=(t.x+.5)*64,y=(t.y+.5)*64,pulse=1+.12*Math.sin((G.time||0)*6);ctx.save();ctx.fillStyle='rgba(126,210,255,.12)';ctx.strokeStyle='rgba(185,238,255,.95)';ctx.lineWidth=2.5;ctx.setLineDash([10,7]);ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.shadowColor='#8fdcff';ctx.shadowBlur=16;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,18*pulse,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.stroke();ctx.restore();}
    for(const trap of G.traps){const x=(trap.x+.5)*64,y=(trap.y+.5)*64,pulse=.5+.5*Math.sin((G.time||0)*3+trap.x);ctx.save();ctx.fillStyle='rgba(8,7,11,.82)';ctx.strokeStyle=trap.color||'#efbf68';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,23,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.globalAlpha=.28+.12*pulse;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,28,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 30px serif';ctx.lineWidth=4;ctx.strokeStyle='#08060a';ctx.strokeText(trap.icon,x,y+1);ctx.fillStyle='#fff';ctx.fillText(trap.icon,x,y+1);ctx.font='bold 8px sans-serif';ctx.fillStyle='#ffe5a6';ctx.fillText('TRAP',x,y+34);ctx.restore()}
   drawSynergyLinks();
   for(const t of G.towers){const x=(t.x+.5)*64,y=(t.y+.5)*64;ctx.save();if(t.recoil>0)ctx.translate((t.recX||0)*t.recoil*13,(t.recY||0)*t.recoil*13);drawTowerVisual(t,x,y);if((t.level||1)>1){ctx.save();ctx.globalAlpha=.34+.08*Math.sin((G.time||0)*3+t.x);ctx.strokeStyle=(t.level||1)>=5?'#ffe58a':(t.level||1)>=3?'#b8d9ff':'#c8b08a';ctx.lineWidth=1.5+Math.min(2,(t.level||1)*.3);ctx.beginPath();ctx.arc(x,y-7,20+Math.min(8,(t.level||1)*2),0,Math.PI*2);ctx.stroke();if((t.level||1)>=4){ctx.fillStyle='#8c2f4a';ctx.fillRect(x-18,y-31,5,13);ctx.fillRect(x+13,y-31,5,13)}ctx.restore()}if(t.flashT>0){ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=Math.min(.85,t.flashT*8);ctx.fillStyle='#fff3c4';ctx.beginPath();ctx.arc(x,y-6,13,0,Math.PI*2);ctx.fill();ctx.restore()}ctx.restore();if(t.supportOnly){ctx.save();ctx.strokeStyle='#ffe58a';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo((t.supportTarget.x+.5)*64,(t.supportTarget.y+.5)*64);ctx.stroke();ctx.restore();}ctx.font='11px serif';ctx.textAlign='center';ctx.fillStyle='#ffe69c';ctx.fillText('★'.repeat(Math.min(5,t.level)),x,y+28);if(t.supports?.length){ctx.font='13px serif';t.supports.forEach((s,i)=>{ctx.fillStyle='#15101ddd';ctx.beginPath();ctx.arc(x-14+i*16,y-34,9,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(s.icon,x-14+i*16,y-34)})}}
+  for(const t of G.towers.filter(t=>!t.supportOnly)){const gems=inv(t.id).gemSlots.map(ascensionGemDef).filter(Boolean);if(!gems.length)continue;const x=(t.x+.5)*64,y=(t.y+.5)*64;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='12px serif';gems.forEach((gem,index)=>{ctx.fillStyle='#09070ddd';ctx.strokeStyle=gem.color||'#e8c77a';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x+(index-.5)*16,y-45,8,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.fillText(gem.icon,x+(index-.5)*16,y-45)});ctx.restore()}
   // V32.4 — battle Keep evolution and visible defenders.
   const kl=G.keepLevel||1,kx=CATHEDRAL.gateX*64,ky=CATHEDRAL.gateY*64;
   ctx.save();ctx.translate(kx,ky+18);ctx.fillStyle=kl>=4?'#454352':kl>=2?'#3a3742':'#302d35';ctx.strokeStyle='#17151d';ctx.lineWidth=3;const kw=70+kl*18,kh=38+kl*10;ctx.fillRect(-kw/2,-kh,kw,kh);ctx.strokeRect(-kw/2,-kh,kw,kh);for(let i=0;i<kl+2;i++){const bx=-kw/2+i*kw/(kl+1);ctx.fillRect(bx-6,-kh-10,12,12)}if(kl>=3){ctx.fillRect(-kw/2-18,-kh+6,22,kh-6);ctx.fillRect(kw/2-4,-kh+6,22,kh-6)}ctx.fillStyle='#1b1018';ctx.fillRect(-11,-24,22,24);ctx.fillStyle='#862f43';ctx.fillRect(-kw*.28,-kh+5,7,22);ctx.fillRect(kw*.28-7,-kh+5,7,22);const ac=Math.max(0,kl-1);ctx.font='18px serif';ctx.textAlign='center';for(let i=0;i<ac;i++)ctx.fillText('🏹',(i-(ac-1)/2)*22,-kh-7-(i%2)*4);ctx.restore();
@@ -2524,7 +2661,7 @@ function draw(){
   const heroAction=(G.hero.attackAnim||0)>0?'attack':(G.hero.walking?'Walk':'Idle'),heroImg=spriteImage(shadowAsset(heroLevel,heroAction));
   const heroFrame=Math.floor((G.hero.anim||0)*(heroAction==='Idle'?.45:1));
   if(!drawSheetSprite(heroImg,hx,hy,heroFrame,directionRow(G.hero.facing||'down'),84)){ctx.fillStyle='#e6d0b4';ctx.beginPath();ctx.arc(hx,hy-10,8,0,7);ctx.fill();ctx.fillStyle='#5d1730';ctx.fillRect(hx-9,hy-2,18,25);}
-  const fam=G.familiar;if(fam){const orbit=fam.id==='sword'?48:38+(fam.level||1)*.35,fx=hx+Math.cos(fam.angle||0)*orbit,fy=hy-30+Math.sin(fam.angle||0)*14;ctx.save();ctx.translate(fx,fy);drawGlow(0,0,fam.color,17,.85);ctx.globalAlpha=.95;ctx.font=`${fam.id==='sword'?30:22+Math.min(8,(fam.level||1)/3)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(fam.icon,0,0);ctx.restore();}
+  const fam=G.familiar;if(fam){const visual=COMPANION_BEHAVIOR_REGISTRY[fam.id]?.visual||{},orbit=(visual.orbitRadius||38)+(fam.level||1)*.35,fx=hx+Math.cos(fam.angle||0)*orbit,fy=hy-30+Math.sin(fam.angle||0)*14;ctx.save();ctx.translate(fx,fy);drawGlow(0,0,fam.color,17,.85);ctx.globalAlpha=.95;ctx.font=`${(visual.iconSize||22)+Math.min(8,(fam.level||1)/3)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(fam.icon,0,0);ctx.restore();}
   drawCorpses();
   for(const e of G.enemies){const x=e.x*64,y=e.y*64;const points=routePoints(e.routeIndex||0),a=points[e.seg],b=points[Math.min(points.length-1,e.seg+1)]||a;let face='down';if((e.cinematicPause||0)>0&&e.boss)face='down';else if(e.attacking)face='up';else if(a&&b){const dx=b.x-a.x,dy=b.y-a.y;face=Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down')}e.face=face;const isGolem=isGolemBoss(e),enemyAction=enemyActionFor(e),img=spriteImage(enemySheet(e,enemyAction)),frame=enemyFrame(e,enemyAction,img),size=(isGolem?320:e.boss?240:e.mini?98:e.elite?90:78);ctx.save();if(e.hitKick)ctx.translate((e.kickX??-1)*(e.hitKick||0)*64,(e.kickY??0)*(e.hitKick||0)*64);if(e.squashT>0){const q=e.squashT/JUICE.squashT,sxq=1+JUICE.squash*q,syq=1-JUICE.squash*q*.8;ctx.translate(x,y);ctx.scale(sxq,syq);ctx.translate(-x,-y)}if(!(isGolem?drawGolemSprite(img,x,y,frame,directionRow(face),size):drawSheetSprite(img,x,y,frame,directionRow(face),size))){ctx.fillStyle=e.color||'#7e9b55';ctx.beginPath();ctx.arc(x,y-12,size*.22,0,Math.PI*2);ctx.fill();}ctx.restore();const barW=e.boss?112:e.mini?52:e.elite?48:44,barH=e.boss?9:5,barY=y+(isGolem?58:e.boss?46:e.mini?22:e.elite?20:18);ctx.fillStyle='#160b12';ctx.fillRect(x-barW/2,barY,barW,barH);ctx.fillStyle=e.boss?'#c22d55':'#d94458';ctx.fillRect(x-barW/2,barY,barW*Math.max(0,e.hp/e.max),barH);ctx.strokeStyle='#000';ctx.strokeRect(x-barW/2,barY,barW,barH)}
   drawMgsAlert();
@@ -2636,7 +2773,7 @@ function attackPattern(c){
 }
 function cardMetrics(c){
  if(c.type==='tower')return [['Damage',c.damage||0],['Range',(c.range||0).toFixed(1)+' tiles'],['Attack speed',(1/(c.rate||1)).toFixed(2)+'/s'],['Targets',['axe','dagger','cross','familiar'].includes(c.id)?'Ground + Flying':'Ground']];
- if(c.type==='support')return [['Role','Tower Support'],['Use','Attach once'],['Effect',c.id==='holy'?'Holy Splash':c.id==='freeze'?'Slow':'Protection']];
+ if(c.type==='support')return [['Role','Positional Support'],['Influence','Surrounding 8 tiles'],['Maximum Towers',supportCapacity(inv(c.id).rarity)],['Effect',c.id==='holy'?'Holy Splash':c.id==='freeze'?'Slow':c.supportEffect?Object.keys(c.supportEffect).join(' · '):'Protection']];
  if(c.type==='skill')return [['Role','One-use Skill'],['Targeting','Battlefield'],['Cost',c.cost+' souls']];
  if(c.type==='trap')return [['Category','Passive'],['Effect',c.effect||'Defense'],['Damage',c.damage||'—'],['Trigger speed',c.rate?`${(1/c.rate).toFixed(2)}/s`:'—']];
  return [['Role','Run-only Hero Upgrade'],['Duration','Current run'],['Cost','Free']];
@@ -2653,6 +2790,7 @@ function showCardDetail(c){
  openScreen($('#cardInspectScreen'));
  const el=$('#cardDetail');
  el.innerHTML=`<div class="detail-card-wrap"><article class="card portrait-card detail-card rarity-${item.rarity}">${cardHTML(c,true)}</article></div><div class="detail-copy"><div class="detail-heading"><div class="detail-title-row"><span>${r.name} · Level ${item.level}</span>${favoriteControl}</div><h2>${cardIconHTML(c,item.level)} ${c.name}</h2><p>${c.desc}</p><small class="card-flavor">${ground?'A persistent Passive Card carried by Shadow into every hunt.':'A relic-bound technique preserved by the last defenders of the kingdom.'}</small></div><div class="metric-grid">${cardMetrics(c).map(([a,b])=>`<div><small>${a}</small><b>${b}</b></div>`).join('')}<div><small>Current Level</small><b>${item.level}</b></div><div><small>Rarity</small><b>${r.name}</b></div><div><small>Copies</small><b>${item.copies}</b></div><div><small>${statusLabel}</small><b>${statusValue}</b></div><div><small>Unlock Requirement</small><b>${unlockText}</b></div></div><section class="attack-panel"><h3>${ground?'Passive Effects':pattern.title}</h3>${ground?'':pattern.html}<p>${c.desc}</p></section><section><h3>${ground?'Upgrade Information':'Support compatibility'}</h3><p>${ground?`Level ${item.level} · ${Math.round(cardPower(c.id)*100)}% card power. Fuse matching copies when available to improve this passive.`:compat}</p></section></div><div class="detail-actions"><button id="detailEquip" data-detail-action="${action}" data-card-id="${c.id}" class="btn primary" ${owned?'':'disabled'}>${owned?actionText:'Locked'}</button>${!ground&&item.copies>=3?`<button id="detailMerge" data-detail-action="merge" data-card-id="${c.id}" class="btn gold">Fuse 3 Copies</button>`:''}</div>`;
+ if(c.type==='tower'){const section=document.createElement('section');section.className='detail-gem-panel';section.innerHTML=`<h3>Permanent Gem Slots</h3><p>Each equipped gem permanently specializes every ${c.name}.</p><div>${item.gemSlots.map((id,index)=>{const gem=ascensionGemDef(id);return `<article><span>${gem?gem.icon:'○'}</span><div><b>${gem?gem.name:`Gem Slot ${index+1}`}</b><small>${gem?Object.entries(gem.passiveEffects||gem.effects||{}).map(([key,value])=>`${key} +${Math.round(value*100)}%`).join(' · '):'Empty — equip a gem from the Gems tab.'}</small></div>${gem?`<button type="button" data-remove-gem="${index}">Remove</button>`:''}</article>`}).join('')}</div>`;el.querySelector('.detail-copy')?.append(section);section.querySelectorAll('[data-remove-gem]').forEach(button=>button.onclick=()=>{const index=Number(button.dataset.removeGem),gemId=item.gemSlots[index];if(!gemId)return;save.ascension.gems[gemId]=(save.ascension.gems[gemId]||0)+1;item.gemSlots[index]=null;saveProgress('gem-remove');showCardDetail(c);showToast('Gem returned to inventory')})}
  const favoriteButton=$('#detailFavorite');if(favoriteButton)favoriteButton.onclick=()=>{toggleFavorite(c.id);showCardDetail(c)};
 }
 
@@ -2810,6 +2948,7 @@ function returnToMainMenu(){
   openScreen(UI.menu);
   renderRoyalHome();
   AUDIO.setState('menu',true);
+  queueCloudSave('return-to-village');flushCloudSave('return-to-village');
   window.scrollTo(0,0);
 }
 function returnToCardsMenu(){
@@ -2820,7 +2959,7 @@ function returnToCardsMenu(){
   $('#chapterTenCinematic')?.classList.add('hidden');$('#battleCinematic')?.classList.add('hidden');
   $('#towerInspector')?.classList.add('hidden');$('#placementBar')?.classList.add('hidden');
   $('#bossWrap')?.classList.add('hidden');$('#waveBanner')?.classList.add('hidden');
-  setPlacementUI(null);openScreen(UI.deck);renderDeck();AUDIO.setState('menu',true);
+  setPlacementUI(null);openScreen(UI.deck);renderDeck();AUDIO.setState('menu',true);queueCloudSave('battle-exit');flushCloudSave('battle-exit');
   requestAnimationFrame(()=>{window.scrollTo(0,0);UI.deck?.scrollTo?.(0,0);});
 }
 
@@ -3012,7 +3151,7 @@ function closeSaveManager(){
  $('#saveManagerConfirm')?.classList.add('hidden');
 }
 function saveNowFromManager(){
- try{saveProgress();backupCurrentStorage('manual-save');renderSaveManagerInfo();showToast('Progress saved and backed up')}catch(err){console.error(err);showToast('Could not save progress')}
+ try{saveProgress('manual-save');flushCloudSave('manual-save');backupCurrentStorage('manual-save');renderSaveManagerInfo();showToast('Progress saved and cloud sync queued')}catch(err){console.error(err);showToast('Could not save progress')}
 }
 function restoreLatestBackup(){
  try{

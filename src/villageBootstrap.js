@@ -1,4 +1,5 @@
 import { createVillageThreeWorld, describeLoadError } from './Renderer/villageThreeWorld.js?v=3410';
+import { queueCloudSave } from './online/cloudSave.js';
 // V30.1 — claim Village ownership immediately at module evaluation time.
 // Battle/game.js contains a preserved legacy Village controller guarded by this
 // flag. Setting it only inside DOMContentLoaded allowed both controllers to bind
@@ -334,6 +335,7 @@ ready(() => {
     library:     { cat:'arcane', name:'Arcane Library', icon:'📚', cost:440, production:'Unlocks Research', description:'Studies boss artifacts and elemental knowledge.' },
     alchemist:   { cat:'arcane', name:'Alchemist Laboratory', icon:'⚗️', cost:430, production:'+3 Essence / h · crafting', description:'Brews elemental essences and rare mixtures.' },
     enchanter:   { cat:'arcane', name:'Enchanter Workshop', icon:'✨', cost:520, production:'Equipment Imbuement', description:'Imbues hunter equipment with learned elements.' },
+    gemForge:    { cat:'arcane', name:'Gem Forge', icon:'💎', cost:560, production:'Crafts · upgrades · removes · fuses Gems', description:'A modular elemental forge for fragments, permanent tower Gems, and hidden fusion recipes.' },
     observatory: { cat:'arcane', name:'Observatory', icon:'🔭', cost:540, production:'Reveals Boss Modifiers', description:'Studies omens before chapter boss encounters.' },
     runestone:   { cat:'arcane', name:'Rune Stone', icon:'🗿', cost:310, production:'+4% Card Merge Odds', description:'Strengthens card fusion rituals.' },
 
@@ -431,6 +433,7 @@ ready(() => {
   }
   function writePlots(data) {
     localStorage.setItem(PLOT_KEY, JSON.stringify(data));
+    queueCloudSave('village-building-change');
 
   }
   function getVillageGold() {
@@ -1016,7 +1019,7 @@ ready(() => {
     } catch (_) { return fallback; }
   })();
   const saveLivingState = () => {
-    try { localStorage.setItem(LIVING_VILLAGE_KEY, JSON.stringify(livingState)); } catch (_) {}
+    try { localStorage.setItem(LIVING_VILLAGE_KEY, JSON.stringify(livingState));queueCloudSave('village-state'); } catch (_) {}
   };
 
   const livingFx = document.createElement('div');
@@ -1228,7 +1231,7 @@ ready(() => {
     const fallback = { constructions:{}, blessings:{}, trophies:[], event:null, nextEventAt:Date.now()+65000, happinessBonus:0 };
     try { return Object.assign(fallback, JSON.parse(localStorage.getItem(VILLAGE_JUICE_KEY)||'{}')); } catch (_) { return fallback; }
   })();
-  function saveJuiceState(){ try{ localStorage.setItem(VILLAGE_JUICE_KEY, JSON.stringify(juiceState)); }catch(_){} }
+  function saveJuiceState(){ try{ localStorage.setItem(VILLAGE_JUICE_KEY, JSON.stringify(juiceState));queueCloudSave('village-event'); }catch(_){} }
   function beginVillageConstruction(index,type){
     juiceState.constructions[index] = { type, started:Date.now(), duration:30000 };
     saveJuiceState();

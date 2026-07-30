@@ -2,7 +2,7 @@
 
 The Village is a browser-based gothic RPG, tower-defense, and village-building game. Players develop a persistent settlement, assemble a card-driven defensive loadout, guide Shadow and a Familiar, and defend branching roads through a twenty-chapter campaign.
 
-Current version: **34.1.0**
+Current version: **35.0.0 — ASCENSION**
 
 ## Features
 
@@ -86,6 +86,12 @@ The authoritative architecture and implementation notes are in [`project_docs/PR
 Progress is stored locally in the browser. The current game preserves the legacy save key so existing players retain campaign progress, cards, Hunter progression, Village construction, and resources.
 
 Do not clear browser storage unless intentionally resetting a save.
+
+Authenticated players also receive revisioned Supabase cloud saves. Local
+storage remains the immediate offline-safe copy, while the cloud adapter
+debounces and retries remote writes. See
+[`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md) for environment variables,
+database migration, authentication behavior, migration rules, and testing.
 
 ## Known issues
 

@@ -1,5 +1,4 @@
-import './villageBootstrap.js?v=3410';
-import './Battle/game.js?v=3410';
+import { bootstrapAuthentication } from './online/authGate.js';
 
 // V32.6.2 — the decorative atmosphere layer is now conditional.
 //
@@ -18,5 +17,10 @@ function startAtmosphere(){
     console.warn('Atmosphere layer unavailable; continuing without it.', err?.message || err);
   });
 }
-// Give the 3D Village first claim on the GPU, then decide.
-setTimeout(startAtmosphere, 1200);
+bootstrapAuthentication(async () => {
+  // Village ownership must still be established before the battle module loads.
+  await import('./villageBootstrap.js?v=3410');
+  await import('./Battle/game.js?v=3410');
+  // Give the 3D Village first claim on the GPU, then decide.
+  setTimeout(startAtmosphere, 1200);
+});

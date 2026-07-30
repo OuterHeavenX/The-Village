@@ -1,6 +1,6 @@
 <!-- V15.2.1 Cathedral & Camera Fine-Tuning -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="auth-pending">
 
 <head>
 	<meta charset="UTF-8">
@@ -928,6 +928,58 @@
 </head>
 
 <body>
+	<section id="authGate" class="auth-gate" aria-live="polite">
+		<div class="auth-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
+		<div class="auth-card">
+			<header class="auth-brand">
+				<span class="auth-crest" aria-hidden="true">♜</span>
+				<p>THE LAST KINGDOM</p>
+				<h1>THE VILLAGE</h1>
+				<div class="auth-rule"><i></i><b>✦</b><i></i></div>
+				<h2 id="authTitle">Awakening the Chronicle</h2>
+			</header>
+			<div id="authFeedback" class="auth-feedback hidden" role="status"></div>
+			<form id="loginForm" class="auth-form hidden" data-auth-view="login" novalidate>
+				<label>Email<input id="loginEmail" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required></label>
+				<label>Password<span class="auth-password"><input id="loginPassword" name="password" type="password" autocomplete="current-password" required><button type="button" data-password-toggle="loginPassword" aria-pressed="false">Show</button></span></label>
+				<button class="auth-primary" type="submit">Sign In</button>
+				<button id="showSignup" class="auth-secondary" type="button">Create Tester Account</button>
+				<button id="showForgot" class="auth-link" type="button">Forgot Password?</button>
+			</form>
+			<form id="signupForm" class="auth-form hidden" data-auth-view="signup" novalidate>
+				<label>Display Name<input id="signupDisplayName" name="displayName" type="text" autocomplete="nickname" maxlength="40" required></label>
+				<label>Email<input id="signupEmail" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required></label>
+				<label>Password<span class="auth-password"><input id="signupPassword" name="password" type="password" autocomplete="new-password" minlength="8" required><button type="button" data-password-toggle="signupPassword" aria-pressed="false">Show</button></span></label>
+				<label>Confirm Password<input id="signupConfirmPassword" name="confirmation" type="password" autocomplete="new-password" minlength="8" required></label>
+				<button class="auth-primary" type="submit">Create Account</button>
+				<button class="auth-link" type="button" data-auth-return>Return to Sign In</button>
+			</form>
+			<form id="forgotForm" class="auth-form hidden" data-auth-view="forgot" novalidate>
+				<p class="auth-copy">A recovery link will be sent to the email bound to your chronicle.</p>
+				<label>Email<input id="forgotEmail" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required></label>
+				<button class="auth-primary" type="submit">Send Reset Link</button>
+				<button class="auth-link" type="button" data-auth-return>Return to Sign In</button>
+			</form>
+			<form id="resetPasswordForm" class="auth-form hidden" data-auth-view="reset" novalidate>
+				<p class="auth-copy">Choose a new password for this chronicle.</p>
+				<label>New Password<span class="auth-password"><input id="resetPassword" type="password" autocomplete="new-password" minlength="8" required><button type="button" data-password-toggle="resetPassword" aria-pressed="false">Show</button></span></label>
+				<label>Confirm Password<input id="resetConfirmPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+				<button class="auth-primary" type="submit">Update Password</button>
+			</form>
+			<div class="auth-loading hidden" data-auth-view="loading"><span class="auth-spinner" aria-hidden="true"></span><p id="authLoadingText">Checking your account…</p></div>
+			<div class="auth-failure hidden" data-auth-view="failure">
+				<p id="authFailureText">The account service could not be reached.</p>
+				<div id="authSetupHelp" class="auth-setup-help hidden">
+					<strong>Cloud database setup is required</strong>
+					<p>In Supabase, open <b>SQL Editor</b>, create a new query, paste the complete contents of:</p>
+					<code>supabase/migrations/001_auth_and_cloud_saves.sql</code>
+					<p>Click <b>Run</b>. This page checks again automatically, or you can retry now.</p>
+				</div>
+				<button id="authRetry" class="auth-primary" type="button">Retry Now</button>
+			</div>
+			<footer>Account credentials are protected by Supabase Auth.</footer>
+		</div>
+	</section>
 	<div id="app">
 		<canvas id="threeBg"></canvas><canvas id="game"></canvas>
 		<div id="chapterTenCinematic" class="chapter-ten-cinematic hidden" aria-live="assertive"></div>
@@ -1088,7 +1140,7 @@
 				</div>
 			</section>
 			<div class="home-hidden-values" aria-hidden="true"><span id="homeKingdomText"></span><span id="homeDeckText"></span><span id="homeRelicText"></span><span id="homeDecreesText"></span><span id="homeCodexText"></span></div>
-			<div class="milestone-mark village-version">THE VILLAGE · V34.0.0 · BATTLE JUICE</div>
+			<div class="milestone-mark village-version">THE VILLAGE · V35.0.0 · ASCENSION</div>
 		</section>
 
 		<section id="moreScreen" class="screen hidden">
@@ -1105,6 +1157,16 @@
 					<button class="more-tile" data-more-target="profile"><span>🏆</span><b>Hunter Profile</b><small>Records, materials, and hunt history.</small></button>
 					<button class="more-tile" data-more-target="decrees"><span>📜</span><b>Royal Decrees</b><small>Claim achievements and renown.</small></button>
 					<button id="saveManagerBtn" class="more-tile"><span>💾</span><b>Save Manager</b><small>Save, export, import, restore, and inspect your progress.</small></button>
+					<section class="account-card" aria-labelledby="accountHeading">
+						<div class="account-heading"><span>♜</span><div><small>ONLINE CHRONICLE</small><h3 id="accountHeading">Account</h3></div></div>
+						<dl>
+							<div><dt>Player</dt><dd id="accountDisplayName">—</dd></div>
+							<div><dt>Email</dt><dd id="accountEmail">—</dd></div>
+							<div><dt>Cloud Save</dt><dd id="accountCloudStatus">Loading…</dd></div>
+							<div><dt>Last Sync</dt><dd id="accountLastSync">Not synced yet</dd></div>
+						</dl>
+						<button id="accountLogout" type="button">Log Out</button>
+					</section>
 					<input id="importSaveFile" type="file" accept="application/json,.json,text/json" class="visually-hidden-input" aria-hidden="true" tabindex="-1">
 					<button id="resetBtn" class="more-tile danger"><span>↻</span><b>Reset Progress</b><small>Erase this kingdom and begin again.</small></button>
 				</div>
@@ -1197,7 +1259,7 @@
 
 		<section id="deckScreen" class="screen hidden">
 			<div class="panel cards-deck-panel">
-				<div id="cardsBuildBanner" class="cards-build-banner" role="status"><strong>THE VILLAGE · V29.1</strong><span>BATTLE DECK</span><small>Polished Card Armory · preserved progression · Shadow Vanguard JP</small></div>
+				<div id="cardsBuildBanner" class="cards-build-banner" role="status"><strong>THE VILLAGE · V35.0 ASCENSION</strong><span>ASCENSION ARMORY</span><small>Cards · Equipment · Gems · Companions · preserved progression</small></div>
 				<div class="cards-command-header">
 					<div><span class="section-kicker">HUNTER LOADOUT</span>
 						<h2>Battle Deck</h2>
@@ -1237,6 +1299,11 @@
 					<button type="button" class="card-file-tab" data-card-filter="hero"><b>♛</b><span>Run Upgrades</span><small>Hunter bonuses</small></button>
 					<button type="button" class="card-file-tab hero-file-tab" data-card-filter="heroProfile"><b>⚔</b><span>Hero</span><small>Shadow & JP</small></button>
 					<button type="button" class="card-file-tab" data-card-filter="ground"><b>✦</b><span>Passives</span><small>Traps & wards</small></button>
+					<button type="button" class="card-file-tab" data-card-filter="equipment"><b>🛡</b><span>Equipment</span><small>Shadow loadout</small></button>
+					<button type="button" class="card-file-tab" data-card-filter="gems"><b>◆</b><span>Gems</span><small>Tower elements</small></button>
+					<button type="button" class="card-file-tab" data-card-filter="fragments"><b>✧</b><span>Fragments</span><small>Forge materials</small></button>
+					<button type="button" class="card-file-tab" data-card-filter="fusion"><b>⚗</b><span>Fusion</span><small>Hidden recipes</small></button>
+					<button type="button" class="card-file-tab" data-card-filter="consumables"><b>🧪</b><span>Consumables</span><small>Future supplies</small></button>
 				</div>
 				<div class="deck-tools compact-tools">
 					<select id="deckTypeFilter" class="visually-hidden">
@@ -1247,6 +1314,11 @@
 						<option value="hero">Run Upgrade</option>
 						<option value="heroProfile">Hero</option>
 						<option value="ground">Passives</option>
+						<option value="equipment">Equipment</option>
+						<option value="gems">Gems</option>
+						<option value="fragments">Fragments</option>
+						<option value="fusion">Fusion</option>
+						<option value="consumables">Consumables</option>
 					</select>
 					<select id="deckSort">
 						<option value="type">Sort: Type</option>
@@ -1357,6 +1429,7 @@
 			</div>
 		</section>
 
+		<div id="cloudSaveIndicator" class="cloud-save-indicator hidden" role="status">Saved</div>
 		<button id="audioBtn" class="audio-fab" type="button" aria-label="Audio settings">♫</button>
 		<aside id="audioPanel" class="audio-panel hidden" aria-label="Audio settings">
 			<div class="audio-head"><strong>Gothic Audio</strong><button id="audioClose" type="button">×</button></div>
@@ -1386,6 +1459,7 @@
 	</script>
 	<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" crossorigin="anonymous"></script>
 	<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js" crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" crossorigin="anonymous"></script>
 	<script>
 		window.__THREE_RUNTIME_STATUS__ = window.THREE ? 'ready' : 'failed';
 	</script>
