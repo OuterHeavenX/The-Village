@@ -2,7 +2,11 @@
 
 The Village is a browser-based gothic RPG, tower-defense, and village-building game. Players develop a persistent settlement, assemble a card-driven defensive loadout, guide Shadow and a Familiar, and defend branching roads through a twenty-chapter campaign.
 
-Current version: **35.1.1 — VITE NATIVE FOUNDATION**
+Current version: **35.2.0 — TESTER CHRONICLE**
+
+V35.2.0 adds authenticated in-game bug reports, suggestions, and general
+feedback with offline queuing, automatic game/device context, and sanitized
+client-error diagnostics.
 
 V35.1.1 is a deployment refresh for the Cloudflare Pages production
 environment after configuring the required Supabase build variables. It
@@ -17,6 +21,7 @@ contains no gameplay changes.
 - Shadow Hero progression with permanent Job Point unlocks
 - Familiar companions with persistent levels and XP
 - Relics, achievements, profiles, Codex entries, and save management
+- Authenticated tester bug reports, suggestions, and general feedback
 - Responsive desktop, tablet, and mobile controls
 
 ## Controls

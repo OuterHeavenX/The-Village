@@ -57,7 +57,7 @@ async function mockSupabase(context) {
         total_play_time_seconds: 0,
         last_login_at: updatedAt,
         last_seen_at: updatedAt,
-        game_version: '35.1.1',
+        game_version: '35.2.0',
         updated_at: updatedAt
       };
       return route.fulfill({
@@ -127,7 +127,43 @@ async function runViewport(browser, viewport, mobile = false) {
   }
 
   const release = await page.locator('[data-release-label]').textContent();
-  if (!release?.includes('35.1.1')) errors.push(`Visible release label is incorrect: ${release}`);
+  if (!release?.includes('35.2.0')) errors.push(`Visible release label is incorrect: ${release}`);
+
+  const onboardingSkip = page.locator('#prologueSkip');
+  if (await onboardingSkip.isVisible()) {
+    await onboardingSkip.click();
+    await page.waitForSelector('#prologueOverlay', { state: 'hidden' });
+  }
+  const onboardingRoadmapClose = page.locator('#roadmapClose');
+  if (await onboardingRoadmapClose.isVisible()) {
+    await onboardingRoadmapClose.click();
+    await page.waitForSelector('#roadmapOverlay', { state: 'hidden' });
+  }
+  await page.click('#villageFeedbackBtn');
+  await page.waitForSelector('#testerFeedbackModal:not(.hidden)');
+  if (await page.locator('[data-feedback-type]').count() !== 3) errors.push('Tester feedback does not expose all three submission types.');
+  await page.click('[data-feedback-type="bug"]');
+  if (!(await page.locator('#testerBugFields').isVisible())) errors.push('Bug-specific tester feedback fields did not appear.');
+  await page.waitForFunction(expected => document.querySelector('#testerAccountId')?.value === expected, userId);
+  const accountId = await page.locator('#testerAccountId').inputValue();
+  if (accountId !== userId) errors.push(`Tester feedback attached the wrong account ID: ${accountId}`);
+  if (mobile) {
+    const feedbackOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (feedbackOverflow > 2) errors.push(`Mobile tester feedback overflows horizontally by ${feedbackOverflow}px`);
+  } else {
+    await page.fill('#testerFeedbackTitle', 'Production smoke feedback');
+    await page.fill('#testerFeedbackDescription', 'Validates the V35.2 tester feedback submission pipeline.');
+    await page.fill('#testerSteps', 'Open tester feedback and submit a bug report.');
+    await page.fill('#testerExpected', 'The report is accepted.');
+    await page.fill('#testerActual', 'The report is accepted by the mocked endpoint.');
+    await page.click('#testerFeedbackSubmit');
+    await page.waitForFunction(() => document.querySelector('#testerFeedbackStatus')?.dataset.kind === 'success');
+  }
+  await page.click('#testerFeedbackClose');
+  await page.click('#audioBtn');
+  if (!(await page.locator('.settings-feedback-btn').isVisible())) errors.push('Settings menu tester feedback entry is not visible.');
+  await page.click('#audioClose');
+  if (await page.locator('#moreScreen [data-feedback-open]').count() !== 1) errors.push('More menu tester feedback entry is missing.');
 
   if (mobile) {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -148,6 +184,17 @@ async function runViewport(browser, viewport, mobile = false) {
     await page.locator('#chapterMap .chapter-node button:not([disabled])').first().click();
     await page.waitForFunction(() => document.body.classList.contains('battle-mode'));
     await page.waitForTimeout(3500);
+    await page.evaluate(() => {
+      if (window.VillageBattleAPI.state().paused) window.VillageBattleAPI.pause();
+    });
+    await page.click('#pauseBtn');
+    await page.waitForSelector('#battlePausePanel:not(.hidden)');
+    if (await page.locator('#battlePausePanel [data-feedback-open]').count() !== 3) errors.push('Pause menu does not expose all three feedback options.');
+    await page.click('#battlePausePanel [data-feedback-open="bug"]');
+    await page.waitForSelector('#testerFeedbackModal:not(.hidden)');
+    await page.click('#testerFeedbackClose');
+    await page.click('#battlePauseResume');
+    await page.waitForSelector('#battlePausePanel', { state: 'hidden' });
     await page.evaluate(() => window.VillageBattleAPI.menu());
     await page.waitForFunction(() => !document.body.classList.contains('battle-mode'));
 
@@ -167,6 +214,31 @@ async function runViewport(browser, viewport, mobile = false) {
   return errors;
 }
 
+async function runUnavailableAuthCheck(browser) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const expiredSession = { ...session, expires_at: nowSeconds - 60 };
+  await context.addInitScript(({ key, value }) => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, {
+    key: 'sb-ulsixgjgppiqouqdppvv-auth-token',
+    value: expiredSession
+  });
+  await context.route('https://ulsixgjgppiqouqdppvv.supabase.co/**', route => route.abort('internetdisconnected'));
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(`Unavailable-auth page error: ${error.message}`));
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  try {
+    await page.waitForSelector('[data-auth-view="login"]:not(.hidden)', { timeout: 22000 });
+    const stillPending = await page.evaluate(() => document.documentElement.classList.contains('auth-pending'));
+    if (stillPending) errors.push('Unavailable auth left the application in auth-pending state.');
+  } catch {
+    errors.push('Unavailable auth did not dismiss the startup splash and reveal login.');
+  }
+  await context.close();
+  return errors;
+}
+
 const browser = await chromium.launch({
   executablePath: chromePath,
   headless: true,
@@ -175,12 +247,13 @@ const browser = await chromium.launch({
 try {
   const desktopErrors = await runViewport(browser, { width: 1440, height: 900 });
   const mobileErrors = await runViewport(browser, { width: 390, height: 844 }, true);
-  const errors = [...desktopErrors, ...mobileErrors];
+  const unavailableAuthErrors = await runUnavailableAuthCheck(browser);
+  const errors = [...desktopErrors, ...mobileErrors, ...unavailableAuthErrors];
   if (errors.length) {
     console.error(`Production smoke test failed:\n${errors.map(error => `- ${error}`).join('\n')}`);
     process.exitCode = 1;
   } else {
-    console.log('Production smoke test passed: auth/cloud bootstrap, Village 3D, battle, Ascension views, companions, desktop, and mobile loaded without runtime errors or asset 404s.');
+    console.log('Production smoke test passed: auth/cloud bootstrap, unavailable-auth fallback, Village 3D, battle, Ascension views, companions, desktop, and mobile loaded without runtime errors or asset 404s.');
   }
 } finally {
   await browser.close();

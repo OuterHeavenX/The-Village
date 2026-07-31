@@ -6,8 +6,10 @@ import {
   getCloudStatus,
   initializeCloudForSession,
   queueCloudSave,
+  setCloudOfflineStatus,
   startCloudAutosave
 } from './cloudSave.js';
+import { logStartupFailure, logStartupStage, withTimeout } from './startupWatchdog.js';
 
 let startGameCallback = null;
 let entryPromise = null;
@@ -99,6 +101,16 @@ function revealGame() {
   updateAccountPanel();
 }
 
+function hideSplash(destination = 'login') {
+  logStartupStage('Hide splash', destination);
+  if (destination === 'game') {
+    revealGame();
+    return;
+  }
+  revealAuth();
+  showView(destination);
+}
+
 function setLoading(message) {
   revealAuth();
   showView('loading');
@@ -132,23 +144,45 @@ async function enterGame(session, displayName = '') {
     try {
       clearSetupRetry();
       setLoading('Loading player profile…');
-      const result = await initializeCloudForSession(session, displayName);
+      logStartupStage('Cloud save bootstrap');
+      const result = await withTimeout(
+        initializeCloudForSession(session, displayName),
+        'Cloud save bootstrap'
+      );
+      logStartupStage('Database readiness', result.mode);
       setLoading(result.mode === 'migrated-local' ? 'Migrating local progress…' : 'Loading cloud save…');
       if (!gameStarted) {
-        await startGameCallback();
+        logStartupStage('UI initialization');
+        await withTimeout(startGameCallback(), 'UI initialization', 30000);
         gameStarted = true;
       }
       activeUserId = session.user.id;
       startCloudAutosave();
       if (result.mode === 'new') {
         queueCloudSave('new-account');
-        await flushCloudSave('new-account');
+        await withTimeout(flushCloudSave('new-account'), 'Initial cloud save');
       }
       setLoading('Entering The Village…');
-      revealGame();
+      hideSplash('game');
+      logStartupStage('Show login or resume session', 'session resumed');
     } catch (error) {
-      console.warn('Authenticated game startup paused.', error?.message || error);
-      showStartupFailure(error, session);
+      logStartupFailure('Authenticated startup', error);
+      setCloudOfflineStatus('Offline — cloud unavailable');
+      try {
+        if (!gameStarted) {
+          setLoading('Cloud unavailable — entering offline mode…');
+          logStartupStage('UI initialization', 'offline fallback');
+          await withTimeout(startGameCallback(), 'Offline UI initialization', 30000);
+          gameStarted = true;
+        }
+        activeUserId = session.user.id;
+        hideSplash('game');
+        logStartupStage('Show login or resume session', 'offline session');
+      } catch (uiError) {
+        logStartupFailure('Offline UI initialization', uiError);
+        showStartupFailure(uiError);
+        hideSplash('failure');
+      }
     } finally {
       entryPromise = null;
     }
@@ -167,9 +201,12 @@ async function handleLogin(event) {
   setBusy(form, true, 'Signing in…');
   setAuthFeedback('Signing in…', 'info');
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await withTimeout(
+      supabase.auth.signInWithPassword({ email, password }),
+      'Sign in'
+    );
     if (error) throw error;
-    await enterGame(data.session);
+    await withTimeout(enterGame(data.session), 'Authenticated game entry', 40000);
   } catch (error) {
     setAuthFeedback(readableError(error), 'error');
   } finally {
@@ -193,14 +230,14 @@ async function handleSignup(event) {
   setBusy(form, true, 'Creating account…');
   setAuthFeedback('Creating your chronicle…', 'info');
   try {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await withTimeout(supabase.auth.signUp({
       email,
       password,
       options: {
         data: { display_name: displayName },
         emailRedirectTo: `${location.origin}${location.pathname}`
       }
-    });
+    }), 'Account creation');
     if (error) throw error;
     if (!data.session) {
       showView('login');
@@ -208,7 +245,7 @@ async function handleSignup(event) {
       $('#loginEmail').value = email;
       return;
     }
-    await enterGame(data.session, displayName);
+    await withTimeout(enterGame(data.session, displayName), 'New account game entry', 40000);
   } catch (error) {
     setAuthFeedback(readableError(error), 'error');
   } finally {
@@ -224,9 +261,9 @@ async function handleForgot(event) {
   if (!validEmail(email)) return setAuthFeedback('Enter a valid email address.', 'error');
   setBusy(form, true, 'Sending link…');
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await withTimeout(supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${location.origin}${location.pathname}`
-    });
+    }), 'Password reset request');
     if (error) throw error;
     setAuthFeedback('Reset link sent. Check your email and return through that link.', 'success');
   } catch (error) {
@@ -246,12 +283,12 @@ async function handlePasswordReset(event) {
   if (password !== confirmation) return setAuthFeedback('Passwords do not match.', 'error');
   setBusy(form, true, 'Updating password…');
   try {
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await withTimeout(supabase.auth.updateUser({ password }), 'Password update');
     if (error) throw error;
     recoveryMode = false;
     setAuthFeedback('Password updated. Your chronicle is ready.', 'success');
-    const { data } = await supabase.auth.getSession();
-    await enterGame(data.session);
+    const { data } = await withTimeout(supabase.auth.getSession(), 'Session restoration after password update');
+    await withTimeout(enterGame(data.session), 'Game entry after password update', 40000);
   } catch (error) {
     setAuthFeedback(readableError(error), 'error');
   } finally {
@@ -264,11 +301,11 @@ export async function logoutCurrentAccount() {
   if (button) button.disabled = true;
   try {
     queueCloudSave('logout');
-    await Promise.race([
+    await withTimeout(Promise.race([
       flushCloudSave('logout'),
       new Promise(resolve => setTimeout(resolve, 4000))
-    ]);
-    const { error } = await supabase.auth.signOut();
+    ]), 'Logout cloud flush', 5000);
+    const { error } = await withTimeout(supabase.auth.signOut(), 'Sign out');
     if (error) throw error;
     clearCloudRuntime();
     location.reload();
@@ -298,53 +335,86 @@ function bindAuthUI() {
     button.setAttribute('aria-pressed', String(input.type !== 'password'));
   }));
   $('#authRetry')?.addEventListener('click', async () => {
-    clearSetupRetry();
-    setLoading('Checking cloud database…');
-    const { data, error } = await supabase.auth.getSession();
-    if (error) showStartupFailure(error);
-    else if (!data.session) showView('login');
-    else enterGame(data.session);
+    try {
+      clearSetupRetry();
+      setLoading('Checking cloud database…');
+      const { data, error } = await withTimeout(supabase.auth.getSession(), 'Session retry');
+      if (error) showStartupFailure(error);
+      else if (!data.session) showView('login');
+      else await enterGame(data.session).catch(error => {
+        logStartupFailure('Session retry', error);
+        hideSplash('login');
+        setAuthFeedback(readableError(error), 'error');
+      });
+    } catch (error) {
+      logStartupFailure('Session retry', error);
+      hideSplash('login');
+      setAuthFeedback(readableError(error), 'error');
+    }
   });
   $('#accountLogout')?.addEventListener('click', logoutCurrentAccount);
   window.addEventListener('village-cloud-status', updateAccountPanel);
 }
 
 export async function bootstrapAuthentication(startGame) {
+  logStartupStage('App boot');
   startGameCallback = startGame;
   bindAuthUI();
   revealAuth();
   if (supabaseConfigurationError || !supabase) {
-    showView('failure');
-    $('#authFailureText').textContent = supabaseConfigurationError;
-    $('#authRetry').classList.add('hidden');
+    hideSplash('login');
+    setAuthFeedback(`${supabaseConfigurationError} Online sign-in is unavailable until configuration is restored.`, 'error');
     return;
   }
 
-  supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'PASSWORD_RECOVERY') {
-      recoveryMode = true;
-      revealAuth();
-      showView('reset');
-      return;
-    }
-    if (event === 'SIGNED_OUT') {
-      activeUserId = '';
-      if (!location.href.includes('logout')) {
+  logStartupStage('Auth listener registration');
+  try {
+    supabase.auth.onAuthStateChange((event, session) => {
+      logStartupStage('Auth state changed', event);
+      if (event === 'PASSWORD_RECOVERY') {
+        recoveryMode = true;
         revealAuth();
-        showView('login');
+        showView('reset');
+        return;
       }
-    }
-    if (event === 'SIGNED_IN' && session && !recoveryMode) {
-      setTimeout(() => enterGame(session), 0);
-    }
-  });
+      if (event === 'SIGNED_OUT') {
+        activeUserId = '';
+        if (!location.href.includes('logout')) {
+          revealAuth();
+          showView('login');
+        }
+      }
+      if (event === 'SIGNED_IN' && session && !recoveryMode) {
+        setTimeout(() => {
+          enterGame(session).catch(error => {
+            logStartupFailure('Auth listener game entry', error);
+            hideSplash('login');
+            setAuthFeedback(readableError(error), 'error');
+          });
+        }, 0);
+      }
+    });
+  } catch (error) {
+    logStartupFailure('Auth listener registration', error);
+    hideSplash('login');
+    setAuthFeedback(`${readableError(error)} Online session updates are unavailable.`, 'error');
+    return;
+  }
 
   setLoading('Checking your account…');
-  const { data, error } = await supabase.auth.getSession();
-  if (error) {
-    showStartupFailure(error);
-    return;
+  logStartupStage('Session restoration');
+  try {
+    const { data, error } = await withTimeout(supabase.auth.getSession(), 'Session restoration');
+    if (error) throw error;
+    if (data.session && !recoveryMode) {
+      await withTimeout(enterGame(data.session), 'Authenticated startup', 40000);
+    } else if (!recoveryMode) {
+      hideSplash('login');
+      logStartupStage('Show login or resume session', 'login');
+    }
+  } catch (error) {
+    logStartupFailure('Session restoration', error);
+    hideSplash('login');
+    setAuthFeedback(`${readableError(error)} You may retry signing in when the service is available.`, 'error');
   }
-  if (data.session && !recoveryMode) await enterGame(data.session);
-  else if (!recoveryMode) showView('login');
 }

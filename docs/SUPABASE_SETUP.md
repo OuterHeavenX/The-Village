@@ -71,10 +71,31 @@ Vite writes deployable files to `dist/`. Configure Cloudflare Pages to run
 `npm run build`, publish `dist`, and provide both `VITE_SUPABASE_URL` and
 `VITE_SUPABASE_ANON_KEY` as build environment variables.
 
+Cloudflare Pages production settings must be:
+
+- Root directory: the repository root (leave blank unless this project is in a
+  monorepo)
+- Build command: `npm run build`
+- Build output directory: `dist`
+
+Do not set the output directory to `/`, `.`, the repository name, or `src`.
+The repository `index.html` is Vite's source template and legitimately loads
+`/src/main.js` during development. Only `dist/index.html` is deployable; it
+loads a hashed entry such as `/assets/index-XXXXXXXX.js`.
+
+After deployment, view the production page source and confirm that it contains
+an `/assets/index-*.js` module script and no `/src/` script. A browser error
+for the bare module specifier `@supabase/supabase-js` proves that Cloudflare
+published the source template instead of `dist`.
+
 The build also stages the controlled runtime asset set and validates every
 dynamic asset and release-version consumer. After starting preview,
 `npm run test:production` performs an isolated browser smoke test without
 writing tester records to the real Supabase project.
+
+For V35.2 tester feedback, also apply
+`supabase/migrations/002_tester_feedback.sql`. See
+`docs/TESTER_FEEDBACK.md` for RLS behavior and the administrative review query.
 
 ## Authentication flow
 

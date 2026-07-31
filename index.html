@@ -6,7 +6,7 @@
 	<meta charset="UTF-8">
 	<meta id="rotkViewport" name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 
-	<title>The Village — V35.1.0 Vite Native Foundation</title>
+	<title>The Village — V35.2.0 Tester Chronicle</title>
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 	<link rel="stylesheet" href="/styles.css">
 	<style id="villageV17CriticalUI">
@@ -1019,6 +1019,17 @@
 			<button id="pauseBtn" type="button" data-native-command="pause" class="marquee-command" aria-label="Pause battle"><span class="command-icon">Ⅱ</span><small>Pause</small></button>
 			<button id="battleExitBtn" type="button" data-native-command="menu" class="marquee-command danger-command" aria-label="Exit battle"><span class="command-icon">×</span><small>Exit</small></button>
 		</nav>
+		<div id="battlePausePanel" class="battle-pause-panel hidden" role="dialog" aria-label="Battle paused">
+			<div class="battle-pause-card">
+				<span class="eyebrow">THE HUNT RESTS</span><h2>Battle Paused</h2>
+				<button id="battlePauseResume" type="button" class="btn primary">Resume Battle</button>
+				<div class="pause-feedback-options" aria-label="Tester feedback options">
+					<button type="button" data-feedback-open="bug">Report a Bug</button>
+					<button type="button" data-feedback-open="suggestion">Submit a Suggestion</button>
+					<button type="button" data-feedback-open="general">General Feedback</button>
+				</div>
+			</div>
+		</div>
 		<div id="tutorial" class="hidden"><strong>Eclipse Codex</strong><br>Defeat enemies to fill the 40-Essence Vial. When it fills, battle pauses and three random cards appear. Choose one, place or cast it, and the hunt resumes. Your hero also carries two bonus ground defenses outside the six-card deck. Path tiles extend only from the glowing road end. Merge identical towers by placing one over another. Adjacent tower combinations create hidden synergies. Enemy defeats fill the shared Battle XP bar; each new Battle Level pauses the hunt and lets you spend an Upgrade Point on a tower. Only the Axe Tower can increase attack radius. Drag empty terrain to move the camera, pinch or use the mouse wheel to zoom, and tap ⌖ to recenter. Enemies that reach the cathedral remain at the front gate and keep attacking until defeated.<br><br><strong>Tower Synergies</strong><br>Towers buff each other when placed <em>directly beside</em> one another &mdash; up, down, left or right. Diagonals do not count. Active links are drawn on the battlefield as a glowing thread, with a mote travelling <em>from</em> the partner <em>into</em> the tower being buffed, and a ring around every tower currently receiving a bonus.<br>&bull; <b>Holy Water Infusion</b> beside any tower &mdash; +42% damage, +22% fire rate, attacks become holy<br>&bull; <b>Freeze support</b> beside any tower &mdash; +30% fire rate, +14% range<br>&bull; <b>Guardian support</b> beside any tower &mdash; +22% damage, +18% fire rate<br>&bull; <b>Dagger + Holy Water</b> &mdash; +22% damage, attacks become holy<br>&bull; <b>Clock + Holy Water</b> &mdash; +18% range, +12% damage<br>&bull; <b>Axe + Bone Pillar</b> &mdash; +20% damage, attacks ignite<br>&bull; <b>Whip + Rosary Shrine</b> &mdash; +18% fire rate<br>Bonuses stack, so a tower with two partners gets both. Select any tower to see exactly what it is receiving and from whom.<br><button id="closeTut" class="btn" style="margin-top:8px">Understood</button></div>
 		<div id="toast"></div>
 		<div id="battleUpgradeModal" class="battle-upgrade-modal hidden" aria-live="polite"></div>
@@ -1044,6 +1055,7 @@
 					<span title="Kingdom Rank">👑 <b id="homeKingdomRank">1</b></span>
 					<span title="Victories">⚔️ <b id="homeVictories">0</b></span>
 				</div>
+				<button id="villageFeedbackBtn" class="village-feedback-btn" type="button" data-feedback-open="general"><span>✦</span><b>Tester Feedback</b></button>
 			</header>
 
 			<main class="pixel-village" aria-label="The Village main menu">
@@ -1141,7 +1153,7 @@
 				</div>
 			</section>
 			<div class="home-hidden-values" aria-hidden="true"><span id="homeKingdomText"></span><span id="homeDeckText"></span><span id="homeRelicText"></span><span id="homeDecreesText"></span><span id="homeCodexText"></span></div>
-			<div class="milestone-mark village-version">THE VILLAGE · <span data-release-version data-release-prefix="V">V35.1.0</span> · VITE NATIVE FOUNDATION</div>
+			<div class="milestone-mark village-version">THE VILLAGE · <span data-release-version data-release-prefix="V">V35.2.0</span> · TESTER CHRONICLE</div>
 		</section>
 
 		<section id="moreScreen" class="screen hidden">
@@ -1151,6 +1163,7 @@
 					<p class="small">Every chamber of the kingdom, gathered in one place.</p>
 				</div>
 				<div class="more-grid">
+					<button class="more-tile feedback-more-tile" type="button" data-feedback-open="general"><span>✦</span><b>Tester Feedback</b><small>Report bugs, suggest improvements, or share general feedback.</small></button>
 					<button id="heroesBtn" class="more-tile"><span>♞</span><b>Hunters</b><small>Choose and strengthen your champion.</small></button>
 					<button id="upgradesBtn" class="more-tile"><span>♜</span><b>Keep Upgrades</b><small>Permanent account-wide power.</small></button>
 					<button id="forgeBtn" class="more-tile"><span>⚒</span><b>Fusion Forge</b><small>Fuse Common cards into greatness.</small></button>
@@ -1260,7 +1273,7 @@
 
 		<section id="deckScreen" class="screen hidden">
 			<div class="panel cards-deck-panel">
-				<div id="cardsBuildBanner" class="cards-build-banner" role="status"><strong>THE VILLAGE · <span data-release-label>V35.1.0 — VITE NATIVE FOUNDATION</span></strong><span>ASCENSION ARMORY</span><small>Cards · Equipment · Gems · Companions · preserved progression</small></div>
+				<div id="cardsBuildBanner" class="cards-build-banner" role="status"><strong>THE VILLAGE · <span data-release-label>V35.2.0 — TESTER CHRONICLE</span></strong><span>ASCENSION ARMORY</span><small>Cards · Equipment · Gems · Companions · preserved progression</small></div>
 				<div class="cards-command-header">
 					<div><span class="section-kicker">HUNTER LOADOUT</span>
 						<h2>Battle Deck</h2>
@@ -1441,7 +1454,38 @@
 			<label><span>SFX Volume</span><input id="sfxVolume" type="range" min="0" max="1" step="0.01" value="0.72"></label>
 			<label><span>Atmosphere</span><input id="ambienceVolume" type="range" min="0" max="1" step="0.01" value="0.34"></label>
 			<small id="audioUnlockHint">Tap anywhere once to awaken the soundtrack.</small>
+			<button class="settings-feedback-btn" type="button" data-feedback-open="general">✦ Tester Feedback</button>
 		</aside>
+		<div id="testerFeedbackModal" class="tester-feedback-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="testerFeedbackHeading">
+			<div class="tester-feedback-card">
+				<header class="tester-feedback-head"><div><span class="eyebrow">MESSENGER TO THE KEEP</span><h2 id="testerFeedbackHeading">Tester Feedback</h2><p>Help shape the next chronicle of The Village.</p></div><button id="testerFeedbackClose" type="button" aria-label="Close tester feedback">×</button></header>
+				<div class="tester-feedback-types" aria-label="Submission type">
+					<button type="button" data-feedback-type="bug"><span>⚠</span><b>Report a Bug</b></button>
+					<button type="button" data-feedback-type="suggestion"><span>✦</span><b>Submit a Suggestion</b></button>
+					<button type="button" data-feedback-type="general"><span>✉</span><b>General Feedback</b></button>
+				</div>
+				<div id="testerFeedbackStatus" class="tester-feedback-status hidden" role="status"></div>
+				<form id="testerFeedbackForm" novalidate>
+					<input id="testerSubmissionType" type="hidden" value="general">
+					<label>Title<input id="testerFeedbackTitle" type="text" maxlength="140" autocomplete="off" required placeholder="A short summary"></label>
+					<label>Detailed Description<textarea id="testerFeedbackDescription" maxlength="8000" rows="6" required placeholder="Tell us what happened or what you would like to see."></textarea></label>
+					<div id="testerBugFields" class="tester-bug-fields hidden">
+						<label>Steps to Reproduce<textarea id="testerSteps" maxlength="8000" rows="4" placeholder="1. Open…&#10;2. Tap…&#10;3. Observe…"></textarea></label>
+						<div class="tester-field-pair"><label>Expected Result<textarea id="testerExpected" maxlength="4000" rows="3"></textarea></label><label>Actual Result<textarea id="testerActual" maxlength="4000" rows="3"></textarea></label></div>
+						<label>Severity<select id="testerSeverity"><option value="low">Low — cosmetic or minor</option><option value="medium" selected>Medium — affects usability</option><option value="high">High — blocks a feature</option><option value="critical">Critical — crash or progress risk</option></select></label>
+					</div>
+					<label>Optional Contact Email<input id="testerContactEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com"></label>
+					<fieldset class="tester-context"><legend>Attached automatically</legend>
+						<div><label>Game Version<input id="testerGameVersion" readonly></label><label>Current Chapter<input id="testerCurrentChapter" readonly></label></div>
+						<div><label>Player Account ID<input id="testerAccountId" readonly></label><label>Timestamp<input id="testerTimestamp" readonly></label></div>
+						<div><label>Current Screen<input id="testerCurrentScreen" readonly></label><label>Device / Browser<input id="testerDeviceInfo" readonly></label></div>
+						<p id="testerErrorCount">0 recent client errors will be attached.</p>
+					</fieldset>
+					<p class="tester-privacy-note">Passwords, authentication tokens, and secret values are automatically removed from attached diagnostics.</p>
+					<div class="tester-feedback-actions"><button id="testerFeedbackCancel" type="button">Cancel</button><button id="testerFeedbackSubmit" type="submit">Submit Feedback</button></div>
+				</form>
+			</div>
+		</div>
 	</div>
 	<script>
 		window.__returnToCardsDeck = function(event) {

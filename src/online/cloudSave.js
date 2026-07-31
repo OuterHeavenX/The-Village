@@ -6,7 +6,7 @@ export const CLOUD_SAVE_SCHEMA_VERSION = 1;
 const CLOUD_FORMAT = 'the-village-cloud-save';
 const CLOUD_DEBOUNCE_MS = 5000;
 const SAVE_KEY_PATTERN = /^(relicsEclipse|gateRunner|rotkVillage|theVillage|village\.)/;
-const EXCLUDED_KEY_PATTERN = /^village\.(cloud\.|saveRecovery\.)/;
+const EXCLUDED_KEY_PATTERN = /^village\.(cloud\.|saveRecovery\.|feedback\.)/;
 
 let activeUser = null;
 let activeProfile = null;
@@ -33,6 +33,10 @@ function emitStatus(state, message) {
 
 export function getCloudStatus() {
   return { ...status };
+}
+
+export function setCloudOfflineStatus(message = 'Offline — saved locally') {
+  emitStatus('offline', message);
 }
 
 export function registerSaveProvider(provider) {

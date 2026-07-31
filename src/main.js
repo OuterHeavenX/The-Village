@@ -1,7 +1,11 @@
 import { bootstrapAuthentication } from './online/authGate.js';
 import { applyReleaseMetadata } from './config/release.js';
+import { initializeFeedbackSystem } from './online/feedbackSystem.js';
+import { logStartupFailure, logStartupStage, withTimeout } from './online/startupWatchdog.js';
 
 applyReleaseMetadata();
+initializeFeedbackSystem();
+logStartupStage('App boot', 'main module loaded');
 
 // V32.6.2 — the decorative atmosphere layer is now conditional.
 //
@@ -22,8 +26,22 @@ function startAtmosphere(){
 }
 bootstrapAuthentication(async () => {
   // Village ownership must still be established before the battle module loads.
-  await import('./villageBootstrap.js?v=3410');
-  await import('./Battle/game.js?v=3410');
+  await withTimeout(import('./villageBootstrap.js?v=3410'), 'Village module import');
+  await withTimeout(import('./Battle/game.js?v=3410'), 'Battle module import');
   // Give the 3D Village first claim on the GPU, then decide.
   setTimeout(startAtmosphere, 1200);
+}).catch(error => {
+  logStartupFailure('Application bootstrap', error);
+  document.documentElement.classList.remove('auth-pending', 'auth-ready');
+  document.documentElement.classList.add('auth-required');
+  document.querySelector('#authGate')?.classList.remove('hidden');
+  document.querySelectorAll('[data-auth-view]').forEach(panel => {
+    panel.classList.toggle('hidden', panel.dataset.authView !== 'login');
+  });
+  const feedback = document.querySelector('#authFeedback');
+  if (feedback) {
+    feedback.textContent = 'Startup could not complete. Online services are unavailable; reload to retry.';
+    feedback.dataset.kind = 'error';
+    feedback.classList.remove('hidden');
+  }
 });

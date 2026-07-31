@@ -1,7 +1,20 @@
 # THE VILLAGE — PROJECT STATE
 
-**Current baseline:** V35.1.0 — VITE NATIVE FOUNDATION
-**Updated:** 2026-07-30
+**Current baseline:** V35.2.0 — TESTER CHRONICLE
+
+## V35.2.0 TESTER CHRONICLE
+
+- Added authenticated bug reports, suggestions, and general feedback from the
+  Village, settings, and battle pause surfaces.
+- Feedback records include release, chapter, screen, authenticated account,
+  device/browser context, client timestamp, optional contact email, and bug
+  reproduction fields.
+- The last 20 client-side error entries are attached after credential and token
+  redaction. Offline submissions queue locally and retry after reconnection.
+- Added `public.tester_feedback` with insert-only owner RLS. Players cannot read,
+  update, or delete feedback records through the game client.
+- No save schema, gameplay, balance, progression, or asset behavior changed.
+**Updated:** 2026-07-31
 **Runtime status:** Vite is the primary runtime; Supabase and Three.js use package imports; V34/V35 local and cloud-save compatibility is preserved.
 
 ## V35.1.0 VITE NATIVE FOUNDATION

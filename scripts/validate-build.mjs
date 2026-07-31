@@ -50,11 +50,49 @@ for (const [name, registry] of [
 const packageJson = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'));
 const releaseSource = await readFile(path.join(projectRoot, 'src', 'config', 'release.js'), 'utf8');
 const indexHtml = await readFile(path.join(projectRoot, 'index.html'), 'utf8');
+const distIndexHtml = await readFile(path.join(distRoot, 'index.html'), 'utf8');
 const cloudSource = await readFile(path.join(projectRoot, 'src', 'online', 'cloudSave.js'), 'utf8');
+const feedbackMigration = await readFile(path.join(projectRoot, 'supabase', 'migrations', '002_tester_feedback.sql'), 'utf8');
 if (packageJson.version !== RELEASE_VERSION) failures.push(`package.json is ${packageJson.version}, expected ${RELEASE_VERSION}`);
 if (!releaseSource.includes(`RELEASE_VERSION = '${RELEASE_VERSION}'`)) failures.push('Release source does not contain the expected version');
 if (/35\.0\.0|V35\.0(?:\D|$)/.test(indexHtml)) failures.push('index.html still contains a V35.0 visible version');
 if (!cloudSource.includes("GAME_VERSION = RELEASE_VERSION")) failures.push('Cloud saves do not consume the shared release version');
+for (const required of [
+  'alter table public.tester_feedback enable row level security',
+  'grant insert on table public.tester_feedback to authenticated',
+  'with check ((select auth.uid()) = user_id)'
+]) {
+  if (!feedbackMigration.toLowerCase().includes(required)) failures.push(`Tester feedback migration is missing: ${required}`);
+}
+if (/for\s+(select|update|delete)\s+to\s+authenticated/i.test(feedbackMigration)) {
+  failures.push('Tester feedback migration grants authenticated clients read or mutation policies');
+}
+
+// Cloudflare Pages must publish dist/, never the repository root. The source
+// index intentionally points to /src/main.js for Vite development; Vite must
+// replace that entry with a hashed /assets bundle in production.
+if (/(?:src|href)=["'][^"']*\/src\//i.test(distIndexHtml)) {
+  failures.push('dist/index.html exposes a raw /src/ reference instead of a Vite bundle');
+}
+const productionScripts = [...distIndexHtml.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)]
+  .map(match => match[1]);
+const bundledEntries = productionScripts.filter(source => /^\/assets\/index-[A-Za-z0-9_-]+\.js$/.test(source));
+if (bundledEntries.length !== 1) {
+  failures.push(`dist/index.html must reference exactly one hashed Vite entry under /assets/; found: ${productionScripts.join(', ') || 'none'}`);
+}
+for (const source of productionScripts) {
+  const relative = source.replace(/^\/+/, '');
+  if (source.startsWith('/') && !source.startsWith('/assets/')) {
+    failures.push(`Unexpected production script outside /assets/: ${source}`);
+  }
+  if (source.startsWith('/assets/')) await requireFile(relative);
+}
+for (const assetName of distAssetNames.filter(name => name.endsWith('.js'))) {
+  const emittedSource = await readFile(path.join(distRoot, 'assets', assetName), 'utf8');
+  if (/(?:\bfrom\s*|\bimport\s*\()\s*["']@supabase\/supabase-js["']/.test(emittedSource)) {
+    failures.push(`Bare @supabase/supabase-js import remains in dist/assets/${assetName}`);
+  }
+}
 
 if (failures.length) {
   console.error(`Production validation failed:\n${failures.map(item => `- ${item}`).join('\n')}`);

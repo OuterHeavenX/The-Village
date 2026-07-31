@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { logStartupFailure, logStartupStage } from './startupWatchdog.js';
 
+logStartupStage('Environment variable validation');
 const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').trim();
 const supabasePublishableKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 const SUPABASE_REQUEST_TIMEOUT_MS = 15000;
@@ -25,21 +27,31 @@ async function timedFetch(input, init = {}) {
   }
 }
 
-export const supabaseConfigurationError = !supabaseUrl || !supabasePublishableKey
+let configurationError = !supabaseUrl || !supabasePublishableKey
   ? 'Supabase browser configuration is incomplete. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY, then restart Vite.'
   : '';
 
-export const supabase = supabaseConfigurationError ? null : createClient(
-  supabaseUrl,
-  supabasePublishableKey,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true
-    },
-    global: {
-      fetch: timedFetch
-    }
+let client = null;
+if (!configurationError) {
+  try {
+    logStartupStage('Supabase client creation');
+    client = createClient(supabaseUrl, supabasePublishableKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      },
+      global: {
+        fetch: timedFetch
+      }
+    });
+  } catch (error) {
+    configurationError = 'The account service could not be initialized. Offline mode remains available.';
+    logStartupFailure('Supabase client creation', error);
   }
-);
+} else {
+  logStartupFailure('Environment variable validation', configurationError);
+}
+
+export const supabaseConfigurationError = configurationError;
+export const supabase = client;

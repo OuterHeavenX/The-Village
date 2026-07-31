@@ -1,5 +1,5 @@
-export const RELEASE_VERSION = '35.1.1';
-export const RELEASE_NAME = 'VITE NATIVE FOUNDATION';
+export const RELEASE_VERSION = '35.2.0';
+export const RELEASE_NAME = 'TESTER CHRONICLE';
 export const RELEASE_LABEL = `V${RELEASE_VERSION} — ${RELEASE_NAME}`;
 
 export function applyReleaseMetadata(root = document) {
