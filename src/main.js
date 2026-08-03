@@ -2,9 +2,13 @@ import { bootstrapAuthentication } from './online/authGate.js';
 import { applyReleaseMetadata } from './config/release.js';
 import { initializeFeedbackSystem } from './online/feedbackSystem.js';
 import { logStartupFailure, logStartupStage, withTimeout } from './online/startupWatchdog.js';
+import './UI/villageProductionUI.css';
+import './UI/battle3.css';
+import { initializeVillageProductionUI } from './UI/villageProductionUI.js';
 
 applyReleaseMetadata();
 initializeFeedbackSystem();
+initializeVillageProductionUI();
 logStartupStage('App boot', 'main module loaded');
 
 // V32.6.2 — the decorative atmosphere layer is now conditional.

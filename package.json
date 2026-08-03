@@ -10,6 +10,12 @@
     "build": "npm run assets:prepare && vite build && node scripts/validate-build.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "test:production": "node scripts/smoke-production.mjs",
+    "test:battle-visual": "set BATTLE_VISUAL_ONLY=1&& node scripts/smoke-production.mjs",
+    "test:economy": "node scripts/test-battle-economy.mjs",
+    "audit:stage1": "node scripts/audit-stage-one.mjs",
+    "audit:campaign": "node scripts/audit-campaign.mjs",
+    "test:battle-new": "node scripts/test-battle-new-generation.mjs",
+    "test:village-economy": "node scripts/test-village-economy.mjs",
     "validate:build": "node scripts/validate-build.mjs",
     "validate:versions": "node scripts/validate-build.mjs"
   },

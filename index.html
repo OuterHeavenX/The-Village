@@ -1103,11 +1103,21 @@
 						<article><span>👥</span>
 							<div><small>POPULATION</small><strong id="economyPopulation">8 / 12</strong><em id="economyPopulationRate">Build Houses to expand</em></div>
 						</article>
+						<article><span>⚒</span>
+							<div><small>WORKFORCE</small><strong id="economyWorkforce">0 / 0</strong><em id="economyWorkforceRate">No staffed production yet</em></div>
+						</article>
+						<article><span>📦</span>
+							<div><small>STORAGE</small><strong id="economyStorage">500</strong><em id="economyStorageRate">Passive production capacity</em></div>
+						</article>
 					</div>
 					<div class="economy-summary">
 						<div><small>TOTAL PRODUCTION</small><strong id="economyTotalRate">0 resources / hour</strong></div>
 						<div><small>OFFLINE STORAGE</small><strong id="economyOfflineCap">12 hours</strong></div>
 					</div>
+					<section class="economy-production-section" aria-labelledby="economyProductionTitle">
+						<div class="economy-section-heading"><div><small>ACTIVE INDUSTRY</small><h3 id="economyProductionTitle">Production Network</h3></div><span>Live settlement output</span></div>
+						<div id="economyProductionList" class="economy-production-list"></div>
+					</section>
 					<div id="economyAwayReport" class="economy-away-report hidden"></div>
 					<section class="v32-progression">
 						<div class="v32-section-head">
@@ -1439,6 +1449,7 @@
 				<h2 id="endTitle">The Keep Has Fallen</h2>
 				<div id="chestReveal" class="chest-reveal">▣</div>
 				<p id="endStats"></p>
+				<div class="result-feedback-options" aria-label="Battle result feedback"><button type="button" data-feedback-open="bug">Report a Bug</button><button type="button" data-feedback-open="suggestion">Submit a Suggestion</button><button type="button" data-feedback-open="general">General Feedback</button></div>
 				<div class="row center"><button id="retryBtn" type="button" data-native-command="retry" class="btn primary native-result-link">Hunt Again</button><button id="cardsResultBtn" type="button" data-native-command="cards" class="btn native-result-link">Cards</button><button id="menuBtn" type="button" data-native-command="menu" class="btn native-result-link">Home</button></div>
 			</div>
 		</section>

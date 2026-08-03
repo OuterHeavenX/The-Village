@@ -84,6 +84,12 @@ function deviceInfo() {
   };
 }
 
+function battleWave(){const value=Number(window.VillageBattleAPI?.state?.()?.wave);return Number.isFinite(value)&&value>0?value:null;}
+function progressContext(){const save=readPrimarySave();return {chapterUnlocked:Number(save?.campaign?.unlocked)||1,completedChapters:Array.isArray(save?.campaign?.completed)?save.campaign.completed.length:0,shadowLevel:Number(save?.shadowLevel)||1,bestWave:Number(save?.bestWave)||0};}
+function unlockContext(){const save=readPrimarySave();return {cards:Array.isArray(save?.unlocked)?save.unlocked.slice(0,200):[],relics:Array.isArray(save?.unlockedRelics)?save.unlockedRelics.slice(0,50):[],research:Array.isArray(save?.villageProgression?.researched)?save.villageProgression.researched.slice(0,100):[]};}
+function operatingSystem(){const ua=navigator.userAgent;if(/iPhone|iPad|iPod/i.test(ua))return 'iOS / iPadOS';if(/Android/i.test(ua))return 'Android';if(/Windows/i.test(ua))return 'Windows';if(/Mac OS X/i.test(ua))return 'macOS';if(/Linux/i.test(ua))return 'Linux';return navigator.userAgentData?.platform||navigator.platform||'unknown';}
+function captureBattleScreenshot(){const source=document.querySelector('#game');if(!source?.width||!source?.height)return null;try{const width=Math.min(640,source.width),height=Math.round(width*source.height/source.width),copy=document.createElement('canvas');copy.width=width;copy.height=height;const context=copy.getContext('2d');context.imageSmoothingEnabled=false;context.drawImage(source,0,0,width,height);return copy.toDataURL('image/jpeg',.55).slice(0,450000)}catch{return null}}
+
 function loadQueue() {
   try {
     const queue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
@@ -266,7 +272,12 @@ async function submitFeedback(event) {
     expected_result: type === 'bug' ? document.querySelector('#testerExpected').value.trim().slice(0, 4000) : null,
     actual_result: type === 'bug' ? document.querySelector('#testerActual').value.trim().slice(0, 4000) : null,
     severity: type === 'bug' && SEVERITIES.has(document.querySelector('#testerSeverity').value) ? document.querySelector('#testerSeverity').value : null,
-    client_errors: capturedErrors.slice(-ERROR_LIMIT)
+    client_errors: capturedErrors.slice(-ERROR_LIMIT),
+    current_wave: battleWave(),
+    operating_system: operatingSystem().slice(0, 120),
+    progress_context: progressContext(),
+    unlock_context: unlockContext(),
+    screenshot_data: type === 'bug' ? captureBattleScreenshot() : null
   };
 
   try {

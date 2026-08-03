@@ -19,11 +19,11 @@ export const COMPANION_REGISTRY = Object.freeze([
 ]);
 
 export const RELIC_REGISTRY = Object.freeze([
-  {id:'fang',name:'Nightfang Sigil',icon:'🦇',desc:'Hero attacks 18% faster.',effect:{heroAttackSpeed:.18}},
-  {id:'candle',name:'Eclipse Candle',icon:'🕯️',desc:'Holy towers gain +20% range and damage.',effect:{holyTowerRange:.20,holyTowerDamage:.20}},
-  {id:'chalice',name:'Crimson Reliquary',icon:'🏆',desc:'Restore 2 gate HP after every wave.',effect:{waveGateHealing:2}},
-  {id:'ring',name:'Ring of the Eclipse',icon:'💍',desc:'Every fifth kill explodes around the victim.',effect:{killExplosionEvery:5}},
-  {id:'thorn',name:'Thornheart Crown',icon:'👑',desc:'Begin each hunt with 1 bonus Upgrade Point.',effect:{startingUpgradePoints:1}},
+  {id:'fang',name:"Dracula's Tooth",icon:'🦷',image:'assets/relics/draculas_fang.png',desc:'The first fragment of Dracula permanently awakens Shadow to Level II.',lore:'A royal fang taken from the stone guardian. It still remembers the hunger of its master.',transformationLevel:2,researchTag:'dracula-bloodline',unique:true,effect:{heroAttackSpeed:.18}},
+  {id:'candle',name:"Dracula's Rib",icon:'🦴',image:'assets/relics/draculas_rib.png',desc:'A bone that resonates with holy defenses.',lore:'A rib from the sealed body, curved like the arch of a ruined chapel.',transformationLevel:3,researchTag:'dracula-bloodline',unique:true,effect:{holyTowerRange:.20,holyTowerDamage:.20}},
+  {id:'chalice',name:"Dracula's Nail",icon:'◆',desc:'A black nail that restores the last gate after every wave.',lore:'Neither iron nor bone, the nail refuses every forge.',transformationLevel:4,researchTag:'dracula-bloodline',unique:true,effect:{waveGateHealing:2}},
+  {id:'ring',name:"Dracula's Eye",icon:'👁',desc:'The eye marks every fifth fallen enemy for destruction.',lore:'It watches from the reliquary even while the lid is closed.',transformationLevel:5,researchTag:'dracula-bloodline',unique:true,effect:{killExplosionEvery:5}},
+  {id:'thorn',name:"Dracula's Heart",icon:'🫀',desc:'The silent heart begins each hunt with a bonus Upgrade Point.',lore:'Cold and motionless, yet every road beats around it.',transformationLevel:6,researchTag:'dracula-bloodline',unique:true,effect:{startingUpgradePoints:1}},
   {id:'banner',name:'Banner of Blackstone',icon:'🚩',desc:'The gate begins with +5 health.',effect:{gateHp:5}},
   {id:'moon',name:'Moon Oracle Lens',icon:'🔭',desc:'Hero critical chance +12%.',effect:{heroCriticalChance:.12}},
   {id:'bloodseal',name:'Royal Blood Seal',icon:'🩸',desc:'All damage +12%, but enemies gain 8% health.',effect:{globalDamage:.12,enemyHealth:.08}},

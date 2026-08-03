@@ -3,11 +3,13 @@
 ## Player workflow
 
 Authenticated testers can open Tester Feedback from the Village header, the
-More/Settings screen, Gothic Audio settings, or the battle pause overlay. The
+More/Settings screen, Gothic Audio settings, battle pause overlay, or battle
+results. The
 same form supports bug reports, suggestions, and general feedback.
 
 The client attaches the current release, campaign chapter, visible screen,
-browser/device summary, authenticated account UUID, client timestamp, and up
+browser/device/OS summary, battle wave, compact progression and unlock
+snapshots, authenticated account UUID, client timestamp, and up
 to 20 recent sanitized client errors. Passwords, authorization values, JWTs,
 Supabase keys, and fields whose names indicate secrets or tokens are redacted.
 
@@ -21,6 +23,13 @@ duplicate report.
 Apply this migration in Supabase SQL Editor:
 
 `supabase/migrations/002_tester_feedback.sql`
+
+Then apply the V35.2 context extension:
+
+`supabase/migrations/003_tester_feedback_context.sql`
+
+The extension adds wave, OS, progress, unlock, and optional compressed battle
+screenshot fields without changing the existing insert-only security model.
 
 The migration creates `public.tester_feedback`, enables RLS, revokes anonymous
 access, and grants authenticated clients only `INSERT`. The insert policy
@@ -39,9 +48,10 @@ Useful SQL Editor query:
 ```sql
 select
   id, submitted_at, submission_type, severity, review_status,
-  game_version, current_chapter, current_screen, title, description,
+  game_version, current_chapter, current_wave, current_screen, title, description,
   steps_to_reproduce, expected_result, actual_result,
-  device_info, client_errors, contact_email, user_id
+  operating_system, device_info, progress_context, unlock_context,
+  screenshot_data, client_errors, contact_email, user_id
 from public.tester_feedback
 order by
   case severity

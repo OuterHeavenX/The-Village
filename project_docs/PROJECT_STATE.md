@@ -4,6 +4,55 @@
 
 ## V35.2.0 TESTER CHRONICLE
 
+### Village production GUI and UX pass
+
+- Replaced two generations of inline Village presentation rules at runtime with
+  one scoped, Vite-bundled UI layer in `src/UI/villageProductionUI.css`.
+- Rebuilt the live Village HUD as compact resource, hunter, cloud-state, economy,
+  construction, and navigation surfaces that preserve the world as the focus.
+- Added a real production-network view driven by existing economy totals,
+  building counts, hourly rates, workforce, storage, and offline capacity.
+- Reworked construction into a desktop side rail and mobile full-height sheet;
+  existing unlock checks, real costs, placement, construction, and saves remain
+  the sole source of behavior.
+- Added world-position-driven district reveal banners and consolidated the
+  cloud-save state into the Village HUD without changing cloud-save behavior.
+- Kept permanent midnight presentation and replaced the obsolete morning-rest
+  action with a night-safe rest action.
+- Validated normal play, Cathedral, residential, production, build mode, wide
+  desktop, iPad, and iPhone layouts with automated runtime screenshots.
+
+### Battle progression completion
+
+- Corrected the painted-world battle presentation: removed the normal-play grid,
+  path cells, duplicate cathedral, Keep façade, and persistent placement geometry.
+- Added continuous terrain-blended roads, conditional foundations, an invisible
+  cathedral destination, and damage overlays aligned to the painted structure.
+- Added data-driven battlefield capacity: 8 structures in Stages 1–5, 10 in
+  Stages 6–10, 12 in Stages 11–15, and 14 in Stages 16–20.
+- Draft weighting now reads stage capacity and stops placement cards only when
+  the relevant attack or total structure maximum is reached.
+- Reduced enemy chapter compounding from 1.09 to 1.055 and separated boss HP
+  from the 3.05 normal-enemy baseline.
+- Stage 10 now owns the one-time Dracula's Tooth / Shadow Level II finale.
+  Already-awakened saves remain intact and are never downgraded.
+- Added deterministic 20-stage balance auditing and production screenshots for
+  all playable stages. See `docs/CAMPAIGN_BALANCE_REPORT_V35_2.md`.
+
+- Added a data-driven dynamic Essence policy responding to wave progress,
+  difficulty, elite/boss status, vial fill, placed towers, and recent drafts.
+- Stage 10 awards the unique Dracula's Tooth and runs the one-time Shadow
+  Level II walk, kneel, collection, transformation, and reveal sequence.
+  Existing awakened saves migrate additively without replaying it.
+- Shadow Level II uses its battle/village animations, official portrait, and
+  modest base-stat growth across battle and character surfaces.
+- Relic data now includes permanent collection, lore, transformation, and
+  research metadata for Dracula's Tooth, Rib, Nail, Eye, and Heart.
+- Gothic Dagger Tower uses a crisp atlas for idle, charge, fire, recoil, return,
+  projectile, and impact presentation without changing its combat values.
+- Feedback adds battle-result access, wave, OS, progress, unlock context, and a
+  compressed battle screenshot for bug reports when Canvas capture is available.
+
 - Added authenticated bug reports, suggestions, and general feedback from the
   Village, settings, and battle pause surfaces.
 - Feedback records include release, chapter, screen, authenticated account,
@@ -6333,3 +6382,48 @@ Fix:
 - Added opt-in diagnostics through `localStorage.villageVisualDebug = "1"` or localhost; no per-frame logging is emitted.
 
 Validation: project-wide searches confirmed Chapter 6 has no yellow tint/filter/shader or missing-background placeholder. Chromium parsing and initialization are required after this change. The isolated automated CDP reproduction was unavailable because the installed Chrome did not expose its requested debugging endpoint, so manual Stage 1 → 6 → 1 visual verification remains required before release sign-off.
+# V35.2 Progression Economy Audit (uncommitted)
+
+- Cumulative, capped Essence draft milestones replace repeating vial resets.
+- Active attack towers are capped at seven; late drafts favor tactical improvements and support.
+- Permanent card copies are awarded by controlled stage settlement rather than per-enemy RNG.
+- Replay rewards diminish; defeats provide targeted fragments without copies.
+- Data-driven rarity requirements add escalating copy and material costs without downgrading old saves.
+- Card rarity and level progression are separated; stage-band XP ceilings affect only future gains.
+- Development-only isolated benchmark profiles and local progression telemetry support balance testing without touching live/cloud progress.
+- Canonical tuning and expected power bands live in `src/Progression/economyRegistry.js`; see `docs/PROGRESSION_ECONOMY_V35_2.md`.
+- Fresh-profile onboarding was re-audited after the new 5/2/1 composition: Stage 1 offers eight decisions, keeps a tower option available until all five attack roles are filled, and uses a difficulty envelope that tapers away by Stage 5. The fixed-seed model reports a 95.4% reasonable-play win rate.
+# Battle New Generation foundation (local, uncommitted)
+
+- New generated gothic siege battlefield matte, cracked-road renderer, damage-reactive cathedral, placement pads, and readability-first atmosphere.
+- New modular 5 attack / 2 support / 1 utility composition with road-reach validation.
+- Six-tower core registry: Dagger, Axe, Crossbow, Ballista, Holy, and Arcane; three new tower cards use the existing unlock/save migration path.
+- Shared core-tower animation states and projectile registry.
+- Phase-weighted drafts, role-aware tower removal, readable wave identities, capped spawn counts, and breathing periods.
+- Development-only FPS/battle-state overlay.
+- Existing Golem arc, Dracula's Tooth cinematic, Shadow Level 2 persistence, permanent rewards, authentication, saves, cloud sync, Village, Ascension, and tester feedback remain preserved.
+- Architecture and limitations: `docs/BATTLE_NEW_GENERATION.md`.
+# Village 2.0 world foundation (local, pending manual approval)
+
+The Village world now consumes dedicated data registries for districts, roads,
+landmarks, plot coordinates, building-to-model mappings, and citizen schedules.
+The renderer uses a production Gothic material atlas, permanent clear-night
+lighting, connected road-routed citizen travel, and non-circular prepared build
+foundations. Village economy calculations are isolated in a pure module with
+population-based workforce efficiency, warehouse storage capacity, a twelve-hour
+offline cap, and explicit protection for legacy balances above capacity. The
+legacy 29-slot plot/save contract is unchanged. See
+`docs/VILLAGE_2_WORLD_REBUILD.md`. These changes remain uncommitted for testing.
+
+## Village 2.0 bespoke art pass (local, pending manual approval)
+
+- Replaced the generic Cathedral landmark with a bespoke multi-part Gothic Cathedral.
+- Added a dedicated carved-stone, stained-glass, copper-roof, and wrought-iron atlas.
+- Replaced duplicate generic bridges with bespoke masonry and iron river crossings.
+- Added physical district gateways and seven irregular paved precincts.
+- Propagated the bespoke material language into compatible GLB landmark materials.
+- Replaced bright perimeter masonry with dark moonlit stone.
+- Hid empty construction foundations outside build mode.
+- Preserved all Village saves, plots, economy, progression, input, battle, auth,
+  local-save, and cloud-save contracts.
+- Full details: `docs/VILLAGE_BESPOKE_ART_PASS.md`.

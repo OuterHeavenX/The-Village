@@ -96,6 +96,8 @@ writing tester records to the real Supabase project.
 For V35.2 tester feedback, also apply
 `supabase/migrations/002_tester_feedback.sql`. See
 `docs/TESTER_FEEDBACK.md` for RLS behavior and the administrative review query.
+Apply `supabase/migrations/003_tester_feedback_context.sql` afterward to enable
+the V35.2 battle-wave, OS, progress, unlock, and screenshot fields.
 
 ## Authentication flow
 

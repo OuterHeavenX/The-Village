@@ -217,6 +217,32 @@ ready(() => {
   let economyRefreshTimer = 0;
   const fmt = (value) => Math.floor(Math.max(0, Number(value) || 0)).toLocaleString();
   function setText(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
+  function renderEconomyProduction(data) {
+    const root = document.getElementById('economyProductionList');
+    if (!root) return;
+    const counts = data.counts || {};
+    const production = [
+      ['farm', 'Farm Network', '🌾', data.foodRate, 'Food / hour'],
+      ['sawmill', 'Lumber Camps', '🪵', data.woodRate, 'Wood / hour'],
+      ['quarry', 'Quarry Works', '⛏', data.stoneRate, 'Stone / hour'],
+      ['blacksmith', 'Forge District', '⚒', data.ironRate, 'Iron / hour'],
+      ['chapel', 'Sacred Sites', '◆', data.essenceRate, 'Essence / hour']
+    ].filter(([key, , , rate]) => (Number(counts[key]) || 0) > 0 || (Number(rate) || 0) > 0);
+    root.replaceChildren();
+    if (!production.length) {
+      const empty = document.createElement('p'); empty.className = 'progression-empty';
+      empty.textContent = 'Build a Farm, Lumber Camp, or Quarry to begin production.'; root.append(empty); return;
+    }
+    production.forEach(([key, name, icon, rate, unit]) => {
+      const card = document.createElement('article'); card.className = 'economy-production-card';
+      const glyph = document.createElement('span'); glyph.textContent = icon;
+      const copy = document.createElement('div');
+      const title = document.createElement('b'); title.textContent = name;
+      const workers = document.createElement('small'); workers.textContent = `${fmt(counts[key])} active structure${Number(counts[key]) === 1 ? '' : 's'}`;
+      const output = document.createElement('strong'); output.textContent = `+${fmt(rate)} ${unit}`;
+      copy.append(title, workers); card.append(glyph, copy, output); root.append(card);
+    });
+  }
   function refreshVillageEconomy(showReport = false) {
     const data = window.ROTKGameBridge?.getVillageEconomy?.();
     if (!data) return null;
@@ -235,6 +261,11 @@ ready(() => {
     setText('economyIron', fmt(data.iron));setText('economyEssence', fmt(data.essence));
     setText('economyIronRate', `+${fmt(data.ironRate)} per hour`);setText('economyEssenceRate', `+${fmt(data.essenceRate)} per hour`);
     setText('economyPopulation', `${fmt(data.population)} / ${fmt(data.capacity)}`);
+    setText('economyWorkforce', `${fmt(data.workersAssigned)} / ${fmt(data.workerDemand)}`);
+    setText('economyWorkforceRate', data.workerDemand ? `${Math.round((Number(data.workforceRatio)||0)*100)}% production efficiency` : 'No staffed production yet');
+    setText('economyStorage', fmt(data.storageCapacity));
+    const capped=Object.values(data.storageCapped||{}).some(value=>(Number(value)||0)>.01);
+    setText('economyStorageRate', capped ? 'Capacity reached · build a Warehouse' : 'Passive production capacity');
     setText('economyFoodRate', `+${fmt(data.foodRate)} per hour`);
     setText('economyWoodRate', `+${fmt(data.woodRate)} per hour`);
     setText('economyStoneRate', `+${fmt(data.stoneRate)} per hour`);
@@ -243,6 +274,7 @@ ready(() => {
     setText('economyBuildingCount', `${data.buildings || 0} / 10`);
     setText('economyTotalRate', `${fmt(data.totalRate)} resources / hour`);
     setText('economyOfflineCap', `${data.maxOfflineHours || 12} hours`);
+    renderEconomyProduction(data);
     setText('economyPopulationRate', data.counts?.house ? `${data.counts.house} house${data.counts.house === 1 ? '' : 's'} supporting the village` : 'Build Houses to expand');
     const report = document.getElementById('economyAwayReport');
     if (report) {
@@ -941,15 +973,16 @@ ready(() => {
     const overlay=document.createElement('div');overlay.className='village-interior-overlay';
     Object.assign(overlay.style,{position:'fixed',inset:'0',zIndex:'9999',display:'grid',placeItems:'center',padding:'24px',background:'rgba(2,4,8,.82)',backdropFilter:'blur(7px)'});
     const panel=document.createElement('section');Object.assign(panel.style,{width:'min(620px,94vw)',border:'1px solid rgba(218,181,111,.65)',borderRadius:'18px',padding:'24px',background:'linear-gradient(180deg,rgba(22,25,34,.98),rgba(8,10,16,.98))',color:'#f1e5c8',boxShadow:'0 24px 70px rgba(0,0,0,.55)'});
-    panel.innerHTML=`<div style="font:600 11px Georgia,serif;letter-spacing:.18em;color:#bda268">INTERIOR SCENE</div><h2 style="margin:8px 0 12px;font:700 28px Georgia,serif">${name}</h2><p style="margin:0 0 20px;line-height:1.65;color:#d9cfba">${descriptions[name]||detail.action||'Inspect this building and prepare its future functions.'}</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button data-action="primary" style="padding:10px 14px;border-radius:10px;border:1px solid #b99552;background:#332714;color:#f6dda6">${name==='Cathedral'?'Receive Blessing':'Inspect'}</button><button data-action="close" style="padding:10px 14px;border-radius:10px;border:1px solid #665f52;background:#11141b;color:#eee3ca">Return to Village</button></div>`;
+    panel.innerHTML=`<div style="font:600 11px Georgia,serif;letter-spacing:.18em;color:#bda268">BUILDING DOSSIER</div><h2 style="margin:8px 0 12px;font:700 28px Georgia,serif">${name}</h2><p style="margin:0 0 20px;line-height:1.65;color:#d9cfba">${descriptions[name]||detail.action||'Inspect this building and its place within the settlement.'}</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button data-action="primary" style="padding:10px 14px;border-radius:10px;border:1px solid #b99552;background:#332714;color:#f6dda6">View Status</button><button data-action="close" style="padding:10px 14px;border-radius:10px;border:1px solid #665f52;background:#11141b;color:#eee3ca">Return to Village</button></div>`;
     overlay.append(panel);document.body.append(overlay);
     panel.querySelector('[data-action=close]').addEventListener('click',()=>overlay.remove());
-    panel.querySelector('[data-action=primary]').addEventListener('click',()=>{toast(name==='Cathedral'?'The Cathedral blessing steadies Shadow for the road ahead.':`${name} inspected.`);overlay.remove();});
+    panel.querySelector('[data-action=primary]').addEventListener('click',()=>{const economy=window.ROTKGameBridge?.getVillageEconomy?.();toast(`${name} · Village level ${economy?.level||1} · ${economy?.buildings||0} structures active`);overlay.remove();});
     overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
   }
   document.addEventListener('village-building-interact', event => {
     const detail=event?.detail||{};
-    if(detail.name)openVillageInterior(detail);
+    if(detail.name==='Cathedral') cathedralServices();
+    else if(detail.name)openVillageInterior(detail);
   });
   document.addEventListener('village-construction-start',()=>toast('Construction has begun. Workers are raising the new structure.'));
   document.addEventListener('village-construction-complete',()=>toast('Construction complete. The Village grows stronger.'));
@@ -1024,7 +1057,7 @@ ready(() => {
 
   const livingFx = document.createElement('div');
   livingFx.id = 'livingVillageFx';
-  livingFx.className = 'living-village-fx time-morning weather-clear';
+  livingFx.className = 'living-village-fx time-night weather-clear';
   livingFx.setAttribute('aria-hidden', 'true');
   livingFx.innerHTML = `
     <div class="daylight-tint"></div>
@@ -1081,15 +1114,15 @@ ready(() => {
     if (band !== currentTimeBand) {
       currentTimeBand = band;
       livingFx.classList.remove('time-dawn','time-morning','time-afternoon','time-evening','time-night','time-deep-night');
-      livingFx.classList.add(`time-${band}`);
-      world.dataset.villageTime = band;
+      livingFx.classList.add('time-night');
+      world.dataset.villageTime = 'night';
       const label = document.getElementById('villageTimeLabel');
-      if (label) label.textContent = timeNames[bandIndex];
+      if (label) label.textContent = 'Night';
     }
     return { progress, band };
   }
 
-  const WEATHER = ['clear','clear','fog','wind','rain'];
+  const WEATHER = ['clear','clear','clear','rain'];
   let currentWeather = 'clear';
   let nextWeatherAt = Date.now() + 26000;
   function setWeather(weather, announce = false) {
@@ -1097,10 +1130,10 @@ ready(() => {
     livingFx.classList.remove('weather-clear','weather-fog','weather-wind','weather-rain');
     livingFx.classList.add(`weather-${currentWeather}`);
     world.dataset.villageWeather = currentWeather;
-    const names = { clear:'Clear', fog:'Rolling Fog', wind:'Windy', rain:'Rain' };
+    const names = { clear:'Clear Night', rain:'Rainy Night' };
     const label = document.getElementById('villageWeatherLabel');
     if (label) label.textContent = names[currentWeather];
-    if (announce && currentWeather !== 'clear') toast(currentWeather === 'rain' ? 'Rain begins to fall over the Village' : currentWeather === 'fog' ? 'Fog rolls in from the river' : 'A strong wind moves through the Village');
+    if (announce && currentWeather === 'rain') toast('Rain begins to fall over the Village');
   }
   function chooseWeather() {
     const options = WEATHER.filter((value) => value !== currentWeather || value === 'clear');
@@ -1291,7 +1324,7 @@ ready(() => {
     const trophies=Object.keys(livingState.rewards||{}).length;
     openVillageService("Shadow's Home",'A quiet headquarters containing trophies, equipment, records and a place to rest.',[
       {icon:'🏆',name:'Trophy Room',detail:`${trophies} village discoveries displayed`,run(){toast(`${trophies} discoveries are displayed in Shadow’s trophy room`)}},
-      {icon:'🛏️',name:'Rest Until Morning',detail:'Advances the village atmosphere to dawn',run(){livingState.epoch=Date.now();saveLivingState();updateVillageTime();toast('Morning returns to the Village');servicePanel.classList.add('hidden')}},
+      {icon:'🛏️',name:'Rest Beneath the Moon',detail:'Records a safe rest without changing the eternal night',run(){juiceState.blessings.rested=Date.now();saveJuiceState();toast('Shadow rests while midnight watches over the Village');servicePanel.classList.add('hidden')}},
       {icon:'📖',name:'Hunter Journal',detail:'Review village growth and happiness',run(){toast(`Village happiness: ${getVillageHappiness()}% · ${Object.keys(readPlots()).length} structures`)}}
     ]);
   }
@@ -1355,8 +1388,9 @@ ready(() => {
   })
     .then((api) => {
       villageThreeWorld = api;
+      if(new URLSearchParams(location.search).has('visualAudit'))window.VillageVisualAudit=api;
       document.body.classList.add('village-three-active');
-      threeStatus.textContent = 'THREE.JS WORLD ACTIVE · V33.0.1 · SAFE MASTER';
+      threeStatus.textContent = 'VILLAGE 2.0 WORLD ACTIVE';
       setTimeout(() => threeStatus.remove(), 2600);
     })
     .catch((error) => {

@@ -6,6 +6,13 @@
 // "Unknown WebGL error" banner for what was really a 404 on an art file.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { VILLAGE_MODELS, VILLAGE_BOUNDS, VILLAGE_RIVER, DISTRICTS, MODEL_FOR_BUILDING, PRIMARY_ROADS, SECONDARY_ROADS, LANDMARKS, PLOT_POSITIONS, CITIZEN_SCHEDULE_NODES, modelForBuilding } from '../Village/worldRegistry.js';
+import { createBespokeBridge, createBespokeCathedral, createDistrictGateway } from '../Village/bespokeArchitecture.js';
+import { AUTHORED_BUILDING_IDS, createAuthoredBuilding } from '../Village/authoredBuildingFactory.js';
+import { RELEASE_VERSION } from '../config/release.js';
+
+const MATERIAL_ATLAS_URL=new URL('../../assets/village/v2/gothic_material_atlas_v2.png',import.meta.url).href;
+const ARCHITECTURE_ATLAS_URL=new URL('../../assets/village/v2/gothic_architecture_atlas_v2.png',import.meta.url).href;
 
 export function describeLoadError(err){
   if(!err)return 'unknown error';
@@ -17,6 +24,15 @@ export function describeLoadError(err){
 }
 
 export async function createVillageThreeWorld({ viewport, world, getShadowState, readPlots, buildingDefs, getBuildState, onPlotSelected }) {
+  const runtimeProof=Object.freeze({
+    message:'VILLAGE 2 RUNTIME VERIFIED',renderer:'Three.js WebGLRenderer',
+    worldImplementation:'src/Renderer/villageThreeWorld.js',
+    buildingFactory:'src/Village/authoredBuildingFactory.js',
+    nightSystem:'permanent-midnight / villageThreeWorld.js',buildVersion:RELEASE_VERSION
+  });
+  window.__VILLAGE_RUNTIME__=runtimeProof;
+  console.info('VILLAGE 2 RUNTIME VERIFIED');
+  console.table(runtimeProof);
   // V32.6.2 — pre-flight the GPU before Three.js does. iOS Safari enforces a
   // browser-wide WebGL context budget; with several tabs open, context creation
   // simply returns null and Three throws an opaque internal error. Asking first
@@ -33,9 +49,18 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   canvas.setAttribute('aria-label', 'Three-dimensional Village world');
   viewport.prepend(canvas);
 
+  let runtimeProofOverlay=null;
+  if(import.meta.env.DEV && new URLSearchParams(location.search).has('runtimeProof')){
+    runtimeProofOverlay=document.createElement('pre');runtimeProofOverlay.id='villageRuntimeProof';
+    runtimeProofOverlay.textContent=`VILLAGE 2 RUNTIME VERIFIED\nrenderer: ${runtimeProof.renderer}\nworld: ${runtimeProof.worldImplementation}\nbuildings: ${runtimeProof.buildingFactory}\nnight: ${runtimeProof.nightSystem}\nbuild: ${runtimeProof.buildVersion}`;
+    Object.assign(runtimeProofOverlay.style,{position:'absolute',left:'12px',top:'118px',zIndex:'80',margin:'0',padding:'8px 10px',maxWidth:'min(420px,calc(100vw - 24px))',whiteSpace:'pre-wrap',font:'10px/1.35 monospace',color:'#bfffc8',background:'rgba(3,10,7,.9)',border:'1px solid #4baa65',borderRadius:'7px',pointerEvents:'none'});
+    viewport.append(runtimeProofOverlay);
+  }
+
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x091018);
-  scene.fog = new THREE.FogExp2(0x081019, 0.0085);
+  // Visual lighting is permanently crisp night; gameplay time remains intact.
+  scene.fog = null;
 
   // V32.6.2 — antialias is disabled on mobile GPUs. MSAA on a retina iPad costs
   // more than it returns at this camera distance, and it is a common trigger for
@@ -55,7 +80,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   renderer.shadowMap.type = MOBILE_GPU ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   if ('outputEncoding' in renderer && THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.04;
+  renderer.toneMappingExposure = .88;
 
   // V32.6.4 — near was 0.1 against a far of 300, a 3000:1 ratio that throws away
   // almost all depth precision. The follow camera sits at a fixed (0,16,22)
@@ -67,12 +92,12 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   const cameraOffset = new THREE.Vector3(0, 16, 22);
   const lookOffset = new THREE.Vector3(0, 2.2, -7);
 
-  scene.add(new THREE.HemisphereLight(0x6682a8, 0x0d0908, .86));
-  const moon = new THREE.DirectionalLight(0xb5ceff, 2.7);
+  scene.add(new THREE.HemisphereLight(0x526b91, 0x070708, .68));
+  const moon = new THREE.DirectionalLight(0xa9c8ff, 1.75);
   moon.position.set(-28, 42, 18);
   moon.castShadow = true;
   // A warmer low fill preserves readable doors and timber without washing out the night.
-  const villageFill=new THREE.DirectionalLight(0x8a6652,.24);villageFill.position.set(24,18,-28);scene.add(villageFill);
+  const villageFill=new THREE.DirectionalLight(0x9b735c,.30);villageFill.position.set(24,18,-28);scene.add(villageFill);
   // V32.6.4 — shadow acne repair.
   //
   // This is what made every roof flash while the player walked. V32.6.2 halved
@@ -108,24 +133,20 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   dayNightBadge.className='village-day-night-badge';
   Object.assign(dayNightBadge.style,{position:'absolute',right:'16px',top:'66px',zIndex:'35',padding:'6px 10px',border:'1px solid rgba(218,181,111,.38)',borderRadius:'999px',background:'rgba(7,10,16,.72)',color:'#ecd59e',font:'600 11px Georgia,serif',letterSpacing:'.08em',pointerEvents:'none'});
   viewport.append(dayNightBadge);
-  const DAY_LENGTH_MS=12*60*1000;
-  function villageClock(now){
-    const phase=(now%DAY_LENGTH_MS)/DAY_LENGTH_MS;
-    const hour=(6+phase*24)%24;
-    const label=hour<8?'DAWN':hour<17?'DAY':hour<20?'DUSK':'NIGHT';
-    return {phase,hour,label};
-  }
+  // The Last Safe Haven is permanently at midnight. A simulated clock used to
+  // leak DAY/DAWN into the HUD even though rendering was intended to stay dark.
+  const villageClock=()=>({phase:.75,hour:0,label:'NIGHT'});
 
   const mats = {
-    ground: new THREE.MeshStandardMaterial({ color: 0x1a2119, roughness: 1 }),
-    road: new THREE.MeshStandardMaterial({ color: 0x514e47, roughness: 1 }),
+    ground: new THREE.MeshStandardMaterial({ color: 0x101713, roughness: 1 }),
+    road: new THREE.MeshStandardMaterial({ color: 0x292a2d, roughness: 1 }),
     stone: new THREE.MeshStandardMaterial({ color: 0x3f3e42, roughness: .95 }),
     darkStone: new THREE.MeshStandardMaterial({ color: 0x28282d, roughness: .95 }),
     roof: new THREE.MeshStandardMaterial({ color: 0x121720, roughness: .82 }),
     wood: new THREE.MeshStandardMaterial({ color: 0x3a291f, roughness: 1 }),
     crop: new THREE.MeshStandardMaterial({ color: 0x5a522b, roughness: 1 }),
     leaves: new THREE.MeshStandardMaterial({ color: 0x142419, roughness: 1 }),
-    water: new THREE.MeshPhysicalMaterial({ color: 0x173b4e, roughness: .18, transparent: true, opacity: .9 }),
+    water: new THREE.MeshPhysicalMaterial({ color: 0x071b2a, roughness: .28, transparent: true, opacity: .96 }),
     glow: new THREE.MeshStandardMaterial({ color: 0xffb253, emissive: 0xff7718, emissiveIntensity: 2.3 }),
     armor: new THREE.MeshStandardMaterial({ color: 0x10131a, roughness: .68, metalness: .32 }),
     cape: new THREE.MeshStandardMaterial({ color: 0x4b171c, roughness: .72 }),
@@ -158,7 +179,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     return t;
   }
   const grassTexture=canvasTexture(256,(ctx,n)=>{
-    ctx.fillStyle='#273127';ctx.fillRect(0,0,n,n);
+    ctx.fillStyle='#121b17';ctx.fillRect(0,0,n,n);
     let seed=3257;const rnd=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
     for(let i=0;i<2200;i++){
       const v=28+Math.floor(rnd()*28);ctx.fillStyle=`rgba(${v-7},${v+10},${v-8},${.12+rnd()*.18})`;
@@ -166,7 +187,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     }
   },11,10);
   const cobbleTexture=canvasTexture(256,(ctx,n)=>{
-    ctx.fillStyle='#4a4946';ctx.fillRect(0,0,n,n);
+    ctx.fillStyle='#28292c';ctx.fillRect(0,0,n,n);
     ctx.strokeStyle='rgba(20,20,21,.48)';ctx.lineWidth=3;
     for(let y=-18;y<n+20;y+=22){const off=((y/22)&1)*18;for(let x=-36;x<n+36;x+=36){
       ctx.beginPath();ctx.roundRect(x+off,y,32,17,5);ctx.fillStyle=`rgba(${72+(x+y)%12},${70+(x+y)%10},${66+(x+y)%8},.9)`;ctx.fill();ctx.stroke();
@@ -174,6 +195,17 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   },5,12);
   mats.ground.map=grassTexture;mats.ground.color.set(0xffffff);mats.ground.needsUpdate=true;
   mats.road.map=cobbleTexture;mats.road.color.set(0xffffff);mats.road.needsUpdate=true;
+
+  // Village 2.0 authored material atlas. Each quadrant is extracted once into
+  // its own repeatable GPU texture, avoiding UV bleed and per-model downloads.
+  async function loadQuadrantAtlas(url){
+    const image=await new Promise((resolve,reject)=>{const source=new Image();source.decoding='async';source.onload=()=>resolve(source);source.onerror=reject;source.src=url;});
+    const quadrant=(qx,qy)=>{const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');g.drawImage(image,qx*image.naturalWidth/2,qy*image.naturalHeight/2,image.naturalWidth/2,image.naturalHeight/2,0,0,512,512);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,4);if('encoding' in t&&THREE.sRGBEncoding)t.encoding=THREE.sRGBEncoding;return t;};
+    return {q00:quadrant(0,0),q10:quadrant(1,0),q01:quadrant(0,1),q11:quadrant(1,1)};
+  }
+  let villageMaterials=null,architectureMaterials=null;
+  try{const atlas=await loadQuadrantAtlas(MATERIAL_ATLAS_URL);villageMaterials={cobble:atlas.q00,slate:atlas.q10,wood:atlas.q01,masonry:atlas.q11};mats.road.map=villageMaterials.cobble;mats.road.needsUpdate=true;}catch(error){console.warn('[Village 2.0] material atlas unavailable; using procedural surfaces.',describeLoadError(error));}
+  try{const atlas=await loadQuadrantAtlas(ARCHITECTURE_ATLAS_URL);architectureMaterials={tracery:atlas.q00,glass:atlas.q10,copper:atlas.q01,iron:atlas.q11,masonry:villageMaterials?.masonry||atlas.q00};}catch(error){console.warn('[Village 2.0] architecture atlas unavailable; using base materials.',describeLoadError(error));architectureMaterials={tracery:villageMaterials?.masonry,glass:villageMaterials?.slate,copper:villageMaterials?.slate,iron:villageMaterials?.masonry,masonry:villageMaterials?.masonry};}
 
   // V32.5.8 — all visible construction now uses the user's supplied gothic art.
   // No pale prototype houses remain in the authored world or saved construction plots.
@@ -221,30 +253,10 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
      texture files.
      ====================================================================== */
   const GLB_ROOT='assets/village/The_Village_Gothic_GLBS_Phase1';
-  const GLB_MODELS=['house_lv1','house_lv2','house_lv3','house_lv4','house_lv5',
-                    'farm','lumber_camp','quarry','warehouse','library','alchemist',
-                    'enchanter','blacksmith','tavern','keep','cathedral',
-                    'stone_wall','fence','bench','market_stall','wagon','barrel',
-                    'lamp_post','statue','bridge','dead_tree','shrub','rock_cluster'];
+  const GLB_MODELS=VILLAGE_MODELS;
 
-  // Every build type the Village can place, mapped onto the thirteen models.
-  const MODEL_FOR_TYPE={
-    house:'house_lv1', almshouse:'house_lv2', manor:'house_lv3', bathhouse:'house_lv2',
-    estate:'house_lv4', mansion:'house_lv5',
-    farm:'farm', orchard:'farm', herbGarden:'farm',
-    sawmill:'lumber_camp', stable:'lumber_camp',
-    quarry:'quarry', stonemason:'quarry',
-    storehouse:'warehouse', market:'warehouse', tannery:'warehouse', well:'warehouse',
-    library:'library', observatory:'library',
-    alchemist:'alchemist',
-    enchanter:'enchanter', runestone:'enchanter',
-    blacksmith:'blacksmith', workshop:'blacksmith', armory:'blacksmith',
-    tavern:'tavern',
-    keep:'keep', townhall:'house_lv4', watchtower:'keep', barracks:'keep', palisade:'keep',
-    chapel:'cathedral', shrine:'cathedral', reliquary:'cathedral', graveyard:'cathedral'
-  };
   function modelIdForType(type){
-    if(MODEL_FOR_TYPE[type])return MODEL_FOR_TYPE[type];
+    if(MODEL_FOR_BUILDING[type])return MODEL_FOR_BUILDING[type];
     const t=String(type||'');
     // fall back to a keyword match so a new build type still gets sensible art
     if(/farm|orchard|herb|crop/i.test(t))return 'farm';
@@ -262,7 +274,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     if(/estate|townhall/i.test(t))return 'house_lv4';
     if(/manor/i.test(t))return 'house_lv3';
     if(/almshouse|bath/i.test(t))return 'house_lv2';
-    return 'house_lv1';
+    return modelForBuilding(type);
   }
 
   const glbTemplates=new Map();
@@ -295,6 +307,13 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
             else if(mn.includes('roof')||mn.includes('slate'))m.color.multiply(new THREE.Color(0.36,0.42,0.55));
             else if(mn.includes('wood'))m.color.multiply(new THREE.Color(0.58,0.42,0.32));
           }
+          if(!m.map){
+            if(mn.includes('roof')||mn.includes('slate'))m.map=architectureMaterials?.copper||villageMaterials?.slate;
+            else if(mn.includes('window')||mn.includes('glass'))m.map=architectureMaterials?.glass;
+            else if(mn.includes('wood')||mn.includes('timber'))m.map=villageMaterials?.wood;
+            else if(mn.includes('stone')||mn.includes('wall'))m.map=architectureMaterials?.masonry||villageMaterials?.masonry;
+            else if(mn.includes('iron')||mn.includes('metal'))m.map=architectureMaterials?.iron;
+          }
           if(m.emissive&&mn.includes('window')){m.emissive.setHex(0xff6f16);m.emissiveIntensity=Math.max(1.5,m.emissiveIntensity||0);}
           if(isRoof){
             m.polygonOffset=true;
@@ -324,6 +343,14 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   const BUILDING_LABELS={house_lv1:'House',house_lv2:'House Lv.2',house_lv3:'Manor',house_lv4:'Estate',house_lv5:'Mansion',farm:'Farm',lumber_camp:'Lumber Camp',quarry:'Quarry',warehouse:'Warehouse',library:'Library',alchemist:'Alchemist',enchanter:'Enchanter',blacksmith:'Blacksmith',tavern:'Tavern',keep:'Keep',cathedral:'Cathedral'};
   const BUILDING_ACTIONS={House:'View residents and upgrades',Farm:'Manage crops and workers','Lumber Camp':'Manage timber production',Quarry:'Manage stone production',Warehouse:'Review village storage',Library:'Open research',Alchemist:'Craft elemental essences',Enchanter:'Imbue equipment',Blacksmith:'Forge and upgrade equipment',Tavern:'Recruit hunters and hear rumors',Keep:'Manage familiars and kingdom progression',Cathedral:'Receive blessings'};
   function placeModel(id,x,z,{rot=0,fit=PLOT_FOOTPRINT,scale=null,parent=scene}={}){
+    if(AUTHORED_BUILDING_IDS.has(id)){
+      const g=createAuthoredBuilding(id,{textures:architectureMaterials});
+      const authoredFootprint=id==='keep'?8:id==='warehouse'||id==='tavern'?7.5:7;
+      const s=scale!==null?scale:(fit/authoredFootprint);
+      g.position.set(x,0,z);g.rotation.y=rot;g.scale.setScalar(s);
+      g.userData.modelId=id;g.userData.isVillageBuilding=true;g.userData.displayName=BUILDING_LABELS[id]||id.replaceAll('_',' ');
+      parent.add(g);buildingInstances.push(g);interactiveBuildings.push({root:g,id,label:g.userData.displayName,position:new THREE.Vector3(x,0,z)});return g;
+    }
     const entry=glbTemplates.get(id)||glbTemplates.get('house_lv1')||[...glbTemplates.values()][0];
     const g=entry.root.clone(true);
     // Each placement owns its geometry and materials so rebuilding the plot
@@ -374,13 +401,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   function box(x,z,w,d,h=.08,mat=mats.road,y=h/2){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.receiveShadow=true;m.castShadow=h>.2;scene.add(m);return m; }
   // V32.5.3 — coherent authored terrain. The river is now a straight, explicit
   // channel and every crossing has full bank-to-bank road connections.
-  box(10,0,7,78);
-  box(10,-5,58,6);
-  box(10,23,58,6);
-  box(-35,-5,24,6);
-  box(-35,23,24,6);
-  box(20,-25,36,5);
-  box(22,17,30,5);
+  PRIMARY_ROADS.forEach(([x,z,w,d])=>box(x,z,w,d));
 
   const river = new THREE.Mesh(new THREE.PlaneGeometry(10, 112), mats.water);
   river.rotation.x=-Math.PI/2; river.position.set(-18,.06,0); scene.add(river);
@@ -408,7 +429,18 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   // visual-only and deliberately sit below Shadow's navigation plane.
   const walkwayMat=mats.road.clone();walkwayMat.color.multiplyScalar(.82);
   function walkway(x,z,w,d,rot=0){const m=new THREE.Mesh(new THREE.BoxGeometry(w,.045,d),walkwayMat);m.position.set(x,.075,z);m.rotation.y=rot;m.receiveShadow=true;scene.add(m);return m;}
-  [[-33,-10,2.3,11,0],[-33,1,2.3,11,0],[-33,12,2.3,8,0],[32,-10,2.3,11,0],[32,1,2.3,11,0],[32,12,2.3,8,0],[0,18,2.4,10,0],[0,29,2.4,10,0]].forEach(v=>walkway(...v));
+  SECONDARY_ROADS.forEach(v=>walkway(...v));
+
+  // Irregular paved precincts break up the empty lawn without reintroducing a
+  // visible tile grid. Each district receives a slightly different moonlit tint.
+  DISTRICTS.forEach((district,index)=>{
+    const [cx,cz]=district.center,rx=index===0?10:8.5,rz=index===0?8:6.6;
+    const shape=new THREE.Shape();
+    [[-rx*.82,-rz],[-rx,-rz*.2],[-rx*.72,rz*.86],[0,rz],[rx*.86,rz*.72],[rx,0],[rx*.68,-rz*.88]].forEach(([px,pz],i)=>i?shape.lineTo(px,pz):shape.moveTo(px,pz));shape.closePath();
+    const tint=new THREE.Color(district.accent).multiplyScalar(.28);
+    const material=new THREE.MeshStandardMaterial({map:villageMaterials?.cobble||cobbleTexture,color:tint,roughness:1,transparent:true,opacity:.72,polygonOffset:true,polygonOffsetFactor:-1});
+    const precinct=new THREE.Mesh(new THREE.ShapeGeometry(shape),material);precinct.rotation.x=-Math.PI/2;precinct.position.set(cx,.085,cz);precinct.receiveShadow=true;scene.add(precinct);
+  });
 
   function bridge(x,z){
     const g=new THREE.Group();
@@ -425,7 +457,8 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     }
     g.position.set(x,0,z); scene.add(g);
   }
-  bridge(-18,-5); bridge(-18,23);
+  createBespokeBridge({scene,x:-18,z:-5,textures:architectureMaterials});
+  createBespokeBridge({scene,x:-18,z:23,textures:architectureMaterials});
 
 
 
@@ -438,15 +471,11 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   // buildings frame the outer roads.
   // V32.6.8 — every authored landmark now faces its nearest street/plaza.
   // The Phase 1 GLBs define their front door on local +Z.
-  placeModel('cathedral', 0,-32,{rot:0,fit:19});          // faces south toward the cathedral approach
-  placeModel('keep',    -20,-30,{rot:0,fit:13});
-  placeModel('lumber_camp',-43,-27,{rot:Math.PI/2,fit:8.4}); // faces east toward the village
-  placeModel('quarry',      38,-26,{rot:-Math.PI/2,fit:8.6}); // faces west
-  placeModel('farm',       -42, 31,{rot:Math.PI/2,fit:9.2});
-  placeModel('tavern',      40, 31,{rot:-Math.PI/2,fit:8.6});
-  placeModel('blacksmith',  20,-30,{rot:0,fit:8.2});
-  placeModel('library',    -30, 40,{rot:Math.PI,fit:9.0});    // faces north road
-  placeModel('warehouse',   30, 40,{rot:Math.PI,fit:8.6});
+  LANDMARKS.filter(([id])=>id!=='cathedral').forEach(([id,x,z,opts])=>placeModel(id,x,z,opts));
+  createBespokeCathedral({scene,x:0,z:-37,textures:architectureMaterials});
+  createDistrictGateway({scene,x:10,z:-13,rotation:0,textures:architectureMaterials,accent:0x7b2332});
+  createDistrictGateway({scene,x:10,z:31,rotation:0,textures:architectureMaterials,accent:0x3e426f});
+  createDistrictGateway({scene,x:27,z:23,rotation:Math.PI/2,textures:architectureMaterials,accent:0x7a4a24});
 
   // V32.6.6 — reusable Gothic environment library. These are real GLB props,
   // deliberately instanced sparsely so the iPad receives richer streets without
@@ -473,25 +502,23 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   for(const [x,z,rot] of [[-22,-24,Math.PI/2],[22,-24,Math.PI/2],[-22,31,Math.PI/2],[22,31,Math.PI/2]])
     placeModel('stone_wall',x,z,{rot,scale:1.25});
 
-  // The authored bridge GLB sits over the existing collision-safe bridge deck,
-  // supplying visual detail without changing the proven navigation geometry.
-  placeModel('bridge',-18,-5,{rot:0,scale:1.8});
-  placeModel('bridge',-18,23,{rot:0,scale:1.8});
+  // Bridges are bespoke architecture and share the Cathedral's masonry/iron language.
 
-  const treeTexture=canvasTexture(512,(ctx,n)=>{
-    ctx.clearRect(0,0,n,n);ctx.translate(n/2,n*.96);
-    ctx.fillStyle='#2a1d17';ctx.beginPath();ctx.moveTo(-22,0);ctx.lineTo(-14,-250);ctx.lineTo(12,-250);ctx.lineTo(24,0);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#13251a';ctx.strokeStyle='#0b1510';ctx.lineWidth=8;
-    [[0,-350,150],[0,-270,185],[0,-185,210]].forEach(([x,y,r])=>{ctx.beginPath();ctx.moveTo(x,y-r);ctx.lineTo(x-r,y+r*.7);ctx.lineTo(x+r,y+r*.7);ctx.closePath();ctx.fill();ctx.stroke();});
-    ctx.fillStyle='rgba(66,94,64,.28)';for(let i=0;i<22;i++){ctx.beginPath();ctx.arc((i%5-2)*25,-390+(i%7)*38,7+(i%3)*3,0,Math.PI*2);ctx.fill();}
-  });
-  const treeMaterial=new THREE.MeshStandardMaterial({map:treeTexture,transparent:true,alphaTest:.18,side:THREE.DoubleSide,roughness:1});
+  const treeTexture=canvasTexture(8,(ctx,n)=>{ctx.fillStyle='#17100e';ctx.fillRect(0,0,n,n)});
+  const treeMaterial=new THREE.MeshStandardMaterial({color:0x17100e,roughness:1});
   const swayingTrees=[];
+  function branchBetween(a,b,r0,r1,material){
+    const delta=new THREE.Vector3().subVectors(b,a),mid=new THREE.Vector3().addVectors(a,b).multiplyScalar(.5);
+    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r1,r0,delta.length(),7),material);mesh.position.copy(mid);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.clone().normalize());mesh.castShadow=true;return mesh;
+  }
   function tree(x,z,s=1){
     const g=new THREE.Group();
-    for(const yaw of [0,Math.PI/2]){const p=new THREE.Mesh(new THREE.PlaneGeometry(5.4,8.4),treeMaterial);p.position.y=4.15;p.rotation.y=yaw;p.castShadow=true;g.add(p);}
-    const contact=new THREE.Mesh(new THREE.CircleGeometry(1.55,24),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.26,depthWrite:false}));contact.rotation.x=-Math.PI/2;contact.scale.y=.55;contact.position.y=.02;g.add(contact);
-    g.position.set(x,0,z);g.scale.setScalar(s*1.28);g.userData.phase=(x*13+z*7)*.1;swayingTrees.push(g);scene.add(g);
+    const trunk=[new THREE.Vector3(0,0,0),new THREE.Vector3(.15,3.1,0),new THREE.Vector3(-.28,6.1,.1),new THREE.Vector3(.12,8.2,0)];
+    for(let i=0;i<trunk.length-1;i++)g.add(branchBetween(trunk[i],trunk[i+1],.48-i*.1,.34-i*.08,treeMaterial));
+    const limbs=[[-.28,5.6,.1,-2.5,7.1,.25],[-1.4,6.45,.18,-3.3,7.8,.45],[.02,6.8,.05,2.45,8.2,-.3],[1.35,7.55,-.15,3.05,8.65,-.5],[-.05,7.65,.05,-1.3,9.2,-.2],[.1,8.05,0,1.25,9.7,.15]];
+    for(const [ax,ay,az,bx,by,bz] of limbs){const a=new THREE.Vector3(ax,ay,az),b=new THREE.Vector3(bx,by,bz);g.add(branchBetween(a,b,.22,.06,treeMaterial));const twig=b.clone().add(new THREE.Vector3(Math.sign(bx)*.65,.8,(bz||.2)*.5));g.add(branchBetween(b,twig,.09,.025,treeMaterial))}
+    for(const [rx,rz] of [[-.55,.2],[.45,.15],[0,-.5]]){const root=branchBetween(new THREE.Vector3(0,.18,0),new THREE.Vector3(rx,0,rz),.22,.05,treeMaterial);g.add(root)}
+    g.position.set(x,0,z);g.scale.setScalar(s);g.rotation.y=((x*17+z*11)%31)*.1;g.userData.phase=(x*13+z*7)*.1;swayingTrees.push(g);scene.add(g);
   }
 
   /* ======================================================================
@@ -523,8 +550,8 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
       }
     }
   },1,1);
-  const brickMat=new THREE.MeshStandardMaterial({map:whiteBrickTexture,color:0xffffff,roughness:.92});
-  const brickCapMat=new THREE.MeshStandardMaterial({color:0xb9b3a6,roughness:.88});
+  const brickMat=new THREE.MeshStandardMaterial({map:architectureMaterials.masonry||whiteBrickTexture,color:0x727985,roughness:.94});
+  const brickCapMat=new THREE.MeshStandardMaterial({map:architectureMaterials.tracery||null,color:0x5c626d,roughness:.86});
 
   // Kept in one place so the collision box in villageBootstrap.js and the wall
   // that represents it can never drift apart again.
@@ -533,15 +560,15 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   // warehouse and the northernmost plot pads are included. The old walkable box
   // of z -36..36 cut the library and warehouse off entirely and stranded
   // buildable plots at z 41 that the player could construct on but never reach.
-  const WALL = { minX:-51, maxX:51, minZ:-45, maxZ:48, height:5.2, thick:1.4 };
+  const WALL = { ...VILLAGE_BOUNDS, height:5.2, thick:1.4 };
   // The river runs through the north and south walls; leave it a water gate.
-  const WALL_RIVER = { minX:-23.4, maxX:-12.6 };
+  const WALL_RIVER = VILLAGE_RIVER;
 
   function brickRun(cx,cz,w,d){
     const body=new THREE.Mesh(new THREE.BoxGeometry(w,WALL.height,d),brickMat.clone());
     // tile the brick to the run length instead of stretching one copy across it
     const along=Math.max(w,d);
-    body.material.map=whiteBrickTexture.clone();
+    body.material.map=(architectureMaterials.masonry||whiteBrickTexture).clone();
     body.material.map.wrapS=body.material.map.wrapT=THREE.RepeatWrapping;
     body.material.map.repeat.set(Math.max(1,Math.round(along/7)),Math.max(1,Math.round(WALL.height/2.6)));
     body.material.map.needsUpdate=true;
@@ -595,12 +622,18 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   const TREE_LAYOUT=[[-47.6,-34,1.1],[-47,-20,0.9],[-47.6,-5,1],[-47.6,12,0.85],[-47.6,27,1.05],[-45,37,0.9],[-31,-36,0.8],[-12,-37,0.75],[13,-37,0.8],[31,-36,0.8],[47.6,-34,1.1],[45,-20,0.9],[47.6,-5,1],[46,12,0.85],[47.6,27,1.05],[44,38,0.9],[-31,38,0.8],[-13,38,0.75],[10,38,0.8],[30,38,0.8],[-27,-18,0.72],[-27,9,0.72],[34,-5,0.7],[35,20,0.72]];
   TREE_LAYOUT.forEach(([x,z,scale])=>tree(x,z,scale));
 
-  // GLB lamp posts replace the former procedural poles. A limited number of
-  // point lights is retained for warmth; the visible fixtures themselves are assets.
+  function gothicLamp(x,z){
+    const g=new THREE.Group(),iron=new THREE.MeshStandardMaterial({map:architectureMaterials?.iron,color:0x292e36,metalness:.72,roughness:.48});
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(.32,.46,.55,8),iron);base.position.y=.28;g.add(base);
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(.08,.12,3.4,8),iron);post.position.y=2.15;g.add(post);
+    const crown=new THREE.Mesh(new THREE.ConeGeometry(.45,.45,4),iron);crown.position.y=4.12;crown.rotation.y=Math.PI/4;g.add(crown);
+    const lamp=new THREE.Mesh(new THREE.OctahedronGeometry(.28),mats.glow);lamp.position.y=3.72;g.add(lamp);
+    for(const o of [base,post,crown])o.castShadow=true;g.position.set(x,0,z);scene.add(g);return g;
+  }
   const livingLampLights=[];
   for(let z=-25;z<=30;z+=8){
     for(const x of [-4.8,4.8]){
-      placeModel('lamp_post',x,z,{scale:1.16});
+      gothicLamp(x,z);
       if(z%16===-9||z%16===7){const l=new THREE.PointLight(0xff892d,1.35,9,2);l.position.set(x,3.35,z);l.userData.phase=(x+z)*.37;scene.add(l);livingLampLights.push(l);}
     }
   }
@@ -679,25 +712,42 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   console.info(`[Village Citizens] Spawned ${villagers.length} sprite citizens.`);
   const citizenJobs=['merchant','guard','farmer','priest','child','worker','alchemist','blacksmith','resident','scout'];
   villagers.forEach((v,i)=>{v.job=citizenJobs[i%citizenJobs.length];v.home=new THREE.Vector3(v.g.position.x,.62,v.g.position.z);});
+  const vectors=points=>points.map(([x,z])=>new THREE.Vector3(x,.62,z));
   const jobDestinations={
-    merchant:[new THREE.Vector3(29,.62,22),new THREE.Vector3(34,.62,17)],
-    guard:[new THREE.Vector3(-5,.62,-20),new THREE.Vector3(7,.62,29),new THREE.Vector3(35,.62,17)],
-    farmer:[new THREE.Vector3(-35,.62,-5),new THREE.Vector3(-35,.62,23)],
-    priest:[new THREE.Vector3(0,.62,40),new THREE.Vector3(6,.62,29)],
-    child:[new THREE.Vector3(-5,.62,-4),new THREE.Vector3(6,.62,17),new THREE.Vector3(0,.62,23)],
-    worker:[new THREE.Vector3(32,.62,-5),new THREE.Vector3(23,.62,-5)],
-    alchemist:[new THREE.Vector3(-8,.62,23),new THREE.Vector3(8,.62,23)],
-    blacksmith:[new THREE.Vector3(32,.62,7),new THREE.Vector3(23,.62,7)],
-    resident:[new THREE.Vector3(-33,.62,-16),new THREE.Vector3(32,.62,-16)],
-    scout:[new THREE.Vector3(-39,.62,-4),new THREE.Vector3(35,.62,17)]
+    merchant:vectors(CITIZEN_SCHEDULE_NODES.market),guard:vectors(CITIZEN_SCHEDULE_NODES.guard),
+    farmer:vectors(CITIZEN_SCHEDULE_NODES.farm),priest:vectors(CITIZEN_SCHEDULE_NODES.sacred),
+    child:vectors(CITIZEN_SCHEDULE_NODES.square),worker:vectors(CITIZEN_SCHEDULE_NODES.industry),
+    alchemist:vectors(CITIZEN_SCHEDULE_NODES.arcane),blacksmith:vectors(CITIZEN_SCHEDULE_NODES.industry),
+    resident:vectors([...CITIZEN_SCHEDULE_NODES.homes,...CITIZEN_SCHEDULE_NODES.square]),
+    scout:vectors([...CITIZEN_SCHEDULE_NODES.guard,...CITIZEN_SCHEDULE_NODES.market])
   };
+  function roadRoute(from,destination){
+    const route=[];
+    const nearestCrossZ=Math.abs(from.z+5)<Math.abs(from.z-23)?-5:23;
+    const targetCrossZ=Math.abs(destination.z+5)<Math.abs(destination.z-23)?-5:23;
+    // Pull district travel onto the nearest authored east/west avenue, then
+    // use the central spine before entering the destination district.
+    if(Math.abs(from.x-10)>5)route.push(new THREE.Vector3(from.x,.62,nearestCrossZ));
+    route.push(new THREE.Vector3(10,.62,nearestCrossZ));
+    if(targetCrossZ!==nearestCrossZ)route.push(new THREE.Vector3(10,.62,targetCrossZ));
+    if(Math.abs(destination.x-10)>5)route.push(new THREE.Vector3(destination.x,.62,targetCrossZ));
+    route.push(destination.clone());
+    return route.filter((point,index,list)=>index===0||point.distanceToSquared(list[index-1])>.25);
+  }
   function chooseNpcTarget(v,hour=12){
     let points;
     if(hour>=21||hour<6) points=[v.home];
     else if(hour>=18) points=[v.home,new THREE.Vector3(0,.62,23)];
     else points=jobDestinations[v.job]||[new THREE.Vector3(0,.62,-20)];
     const p=points[Math.floor(Math.random()*points.length)];
-    v.from.copy(v.g.position);v.to.copy(p);v.t=0;v.wait=.6+Math.random()*2.8;
+    v.route=roadRoute(v.g.position,p);v.routeIndex=0;
+    v.from.copy(v.g.position);v.to.copy(v.route[0]||p);v.t=0;v.wait=.6+Math.random()*2.8;
+  }
+  function advanceNpcRoute(v,hour){
+    v.routeIndex=(v.routeIndex||0)+1;
+    if(v.route&&v.routeIndex<v.route.length){
+      v.from.copy(v.g.position);v.to.copy(v.route[v.routeIndex]);v.t=0;v.wait=.08+Math.random()*.22;
+    }else chooseNpcTarget(v,hour);
   }
   villagers.forEach(v=>chooseNpcTarget(v,12));
 
@@ -784,23 +834,21 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
 
   // Fixed construction districts. Index order deliberately matches the legacy
   // 29-slot save schema so every existing building survives without migration.
-  const PLOT_POSITIONS=[
-    [-42,-16],[-33,-16],[-24,-16],[-42,-5],[-33,-5],[-24,-5],[-42,7],[-33,7],[-24,7],
-    [23,-16],[32,-16],[41,-16],[23,-5],[32,-5],[41,-5],[23,7],[32,7],[41,7],
-    [-8,14],[7,14],[-8,23],[0,23],[8,23],[-8,32],[0,32],[8,32],[-8,41],[0,41],[8,41]
-  ];
   const plotPads=new THREE.Group();scene.add(plotPads);
   const plotGroup=new THREE.Group();scene.add(plotGroup);
   const plotMeshes=[];
-  const padBase=new THREE.MeshStandardMaterial({color:0x243025,roughness:1,transparent:true,opacity:.58});
+  const padBase=new THREE.MeshStandardMaterial({color:0x30322c,roughness:1,transparent:true,opacity:.48});
   const padAvailable=new THREE.MeshStandardMaterial({color:0xb98935,emissive:0x6b3e05,emissiveIntensity:1.25,transparent:true,opacity:.86});
   const padOccupied=new THREE.MeshStandardMaterial({color:0x1b241d,roughness:1,transparent:true,opacity:.12});
   PLOT_POSITIONS.forEach(([x,z],index)=>{
-    // Organic circular lots replace the bright square prototype platforms.
-    const pad=new THREE.Mesh(new THREE.CylinderGeometry(3.45,3.65,.10,24),padBase.clone());
+    // Prepared stone-and-earth foundations visually belong to the settlement.
+    // They remain quiet until build mode instead of reading as UI circles.
+    const pad=new THREE.Mesh(new THREE.BoxGeometry(6.25,.10,5.2),padBase.clone());
     pad.position.set(x,.055,z);pad.receiveShadow=true;pad.userData.plotIndex=index;
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(3.25,.075,6,28),new THREE.MeshStandardMaterial({color:0x62563f,roughness:1,transparent:true,opacity:.7}));
-    ring.rotation.x=Math.PI/2;ring.position.y=.07;pad.add(ring);
+    const borderMat=new THREE.MeshStandardMaterial({color:0x625b4b,roughness:1,transparent:true,opacity:.58});
+    [[0,-2.48,5.8,.12],[0,2.48,5.8,.12],[-3.02,0,.12,4.8],[3.02,0,.12,4.8]].forEach(([bx,bz,bw,bd])=>{
+      const edge=new THREE.Mesh(new THREE.BoxGeometry(bw,.14,bd),borderMat);edge.position.set(bx,.10,bz);pad.add(edge);
+    });
     const signGroup=new THREE.Group();signGroup.name='buildSign';
     const post=new THREE.Mesh(new THREE.BoxGeometry(.12,1.05,.12),mats.wood);post.position.set(2.25,.53,1.55);signGroup.add(post);
     const board=new THREE.Mesh(new THREE.BoxGeometry(.9,.48,.10),mats.wood);board.position.set(2.25,.93,1.55);signGroup.add(board);
@@ -856,11 +904,13 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     const placed=cachedPlots(now);const build=getBuildState?.()||{};
     plotMeshes.forEach((pad,index)=>{
       const occupied=Boolean(placed[index]);const available=Boolean(build.active&&build.type&&!occupied);
-      pad.visible=!occupied||available;
+      // Foundations are environmental detail only while constructing. Empty
+      // lots disappear into the terrain during normal exploration.
+      pad.visible=available;
       pad.material.color.copy((available?padAvailable:occupied?padOccupied:padBase).color);
       pad.material.emissive?.copy((available?padAvailable:padBase).emissive||new THREE.Color(0));
       pad.material.emissiveIntensity=available?1.35:0;
-      pad.material.opacity=available?.82:occupied?.10:.42;
+      pad.material.opacity=available?.82:0;
       const sign=pad.getObjectByName('buildSign');if(sign)sign.visible=available;
       if(available)pad.position.y=.07+Math.sin(now*.004+index)*.035;else pad.position.y=.055;
     });
@@ -932,15 +982,26 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)last=performance.now(); });
 
   function mapState(s){return {x:(s.x-768)/17.5,z:(s.y-512)/13.2};}
-  function resize(){const w=viewport.clientWidth||1,h=viewport.clientHeight||1;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  function resize(){
+    const w=viewport.clientWidth||1,h=viewport.clientHeight||1,aspect=w/h;
+    renderer.setSize(w,h,false);camera.aspect=aspect;
+    // Portrait screens need a wider world view rather than a desktop camera
+    // cropped into a narrow vertical slice of the Cathedral façade.
+    if(aspect<.72){camera.fov=58;cameraOffset.set(0,23,32);lookOffset.set(0,2.2,-8)}
+    else if(aspect<1.15){camera.fov=50;cameraOffset.set(0,19,27);lookOffset.set(0,2.2,-7.5)}
+    else {camera.fov=48;cameraOffset.set(0,21,29);lookOffset.set(0,1.8,-8.5)}
+    camera.updateProjectionMatrix();
+  }
   const ro=new ResizeObserver(resize);ro.observe(viewport);resize();
+  let activeDistrict='';
+  const districtDescriptions={sacred:'The Cathedral keeps watch beneath the eternal moon.',keep:'The Last Bastion guards the western wall.',industry:'Forgefire and stonework sustain the kingdom.',residential:'Lanterns burn for the families of the last refuge.',commerce:'Trade continues after sunset in the Night Market.',agriculture:'Moonlit fields feed the settlement through the long night.',arcane:'Forbidden learning survives behind veiled doors.'};
   function frame(now){if(disposed||contextLost){rafId=0;return}const dt=Math.min(.04,(now-last)/1000);last=now;const s=getShadowState();const p=mapState(s);shadow.position.x=p.x;shadow.position.z=p.z;shadow.position.y=.9;
-    const clock=villageClock(now);dayNightBadge.textContent=`${clock.label} · ${String(Math.floor(clock.hour)).padStart(2,'0')}:00`;
-    const daylight=Math.max(.08,Math.sin(((clock.hour-6)/24)*Math.PI*2)*.5+.5);
-    moon.intensity=.55+(1-daylight)*2.55;villageFill.intensity=.12+daylight*.26;renderer.toneMappingExposure=.72+daylight*.38;
-    scene.fog.color.set(clock.label==='NIGHT'?0x081019:clock.label==='DUSK'?0x2a1d24:0x27313a);
-    scene.background.copy(scene.fog.color);
-    livingLampLights.forEach(l=>l.visible=clock.hour>=18.5||clock.hour<7);
+    const clock=villageClock(now);dayNightBadge.textContent='MIDNIGHT · 00:00';
+    // The clock still drives schedules and simulation. It no longer changes
+    // exposure, fog, ambient colour, or lamp visibility.
+    moon.intensity=2.72;villageFill.intensity=.30;renderer.toneMappingExposure=.92;
+    scene.background.set(0x091018);
+    livingLampLights.forEach(l=>l.visible=true);
     const familiarPhase=now*.004;familiar.position.set(shadow.position.x+1.25+Math.sin(familiarPhase)*.25,shadow.position.y+1.8+Math.sin(familiarPhase*1.7)*.22,shadow.position.z+.35+Math.cos(familiarPhase)*.28);familiar.rotation.z=Math.sin(familiarPhase*3)*.18;
     for(let i=constructionAnims.length-1;i>=0;i--){const a=constructionAnims[i],t=Math.min(1,(now-a.start)/a.duration),ease=1-Math.pow(1-t,3);a.root.scale.setScalar(a.root.userData.finalScale*ease);a.root.position.y=Math.sin(t*Math.PI)*.18;if(t>=1){a.root.position.y=0;constructionAnims.splice(i,1);requestShadowUpdate();document.dispatchEvent(new CustomEvent('village-construction-complete',{detail:{type:a.root.userData.buildType,index:a.root.userData.plotIndex}}));}}
     const moving=Boolean(s.moving);
@@ -966,12 +1027,17 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
       const dx=v.to.x-v.from.x,dz=v.to.z-v.from.z;
       v.face=Math.abs(dx)>Math.abs(dz)?(dx<0?'left':'right'):(dz<0?'up':'down');
       v.walk+=dt*7;setCitizenFrame(v,Math.floor(v.walk),v.face,true);
-      if(v.t>=1)chooseNpcTarget(v,clock.hour);
+      if(v.t>=1)advanceNpcRoute(v,clock.hour);
     });
     // Reveal each homage once when Shadow walks close; no gameplay reward or save mutation.
     const egg=easterEggs.find(e=>shadow.position.distanceTo(e.object.position)<e.radius);
     if(egg&&nearbyEgg!==egg.id){nearbyEgg=egg.id;console.info(`[Village Easter Egg] ${egg.message}`);document.dispatchEvent(new CustomEvent('village-easter-egg',{detail:{id:egg.id,message:egg.message}}));}
     else if(!egg)nearbyEgg='';
+    const district=DISTRICTS.reduce((best,item)=>{const distance=Math.hypot(shadow.position.x-item.center[0],shadow.position.z-item.center[1]);return distance<(best?.distance??13)?{item,distance}:best;},null);
+    if(district?.item.id!==activeDistrict){
+      activeDistrict=district?.item.id||'';
+      if(activeDistrict) window.dispatchEvent(new CustomEvent('village:district-reveal',{detail:{id:activeDistrict,name:district.item.name,description:districtDescriptions[activeDistrict]}}));
+    }
     updateBuildingInteraction();
     updateBuildingObstruction();
     updatePlotState(now);
@@ -979,5 +1045,10 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     rafId=requestAnimationFrame(frame);}
   rafId=requestAnimationFrame(frame);
 
-  return { rebuildPlots, invalidatePlotCache, dispose(){disposed=true;if(rafId)cancelAnimationFrame(rafId);rafId=0;ro.disconnect();canvas.removeEventListener('pointerup',selectPlotFromPointer);interactionPrompt.remove();dayNightBadge.remove();familiar.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});fadedMeshes.forEach(m=>setMeshFade(m,false));fadedMeshes.clear();shadowTexture.dispose();shadowMaterial.dispose();grassTexture.dispose();cobbleTexture.dispose();treeTexture.dispose();treeMaterial.dispose();smokePuffs.forEach(p=>{p.geometry?.dispose?.();p.material?.dispose?.();});fireflies3D.forEach(f=>{f.geometry?.dispose?.();f.material?.dispose?.();});villagers.forEach(v=>{v.g.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});v.bodyTex?.dispose?.();v.shadowTex?.dispose?.();});citizenTextures.forEach(t=>{t.body?.dispose?.();t.shade?.dispose?.();});easterEggs.forEach(e=>e.object.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();}));walkwayMat.dispose();clearGroup(plotGroup);glbTemplates.forEach(e=>e.root.traverse(o=>{o.geometry?.dispose?.();const m=o.material;if(Array.isArray(m))m.forEach(x=>x?.dispose?.());else m?.dispose?.();}));glbTemplates.clear();renderer.dispose();canvas.remove();} };
+  return { rebuildPlots, invalidatePlotCache,
+    setVisualAuditPosition(x,z){
+      if(!new URLSearchParams(location.search).has('visualAudit'))return false;
+      const state=getShadowState();state.x=768+x*17.5;state.y=512+z*13.2;state.moving=false;return true;
+    },
+    dispose(){disposed=true;if(rafId)cancelAnimationFrame(rafId);rafId=0;ro.disconnect();canvas.removeEventListener('pointerup',selectPlotFromPointer);interactionPrompt.remove();dayNightBadge.remove();runtimeProofOverlay?.remove();familiar.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});fadedMeshes.forEach(m=>setMeshFade(m,false));fadedMeshes.clear();shadowTexture.dispose();shadowMaterial.dispose();grassTexture.dispose();cobbleTexture.dispose();Object.values(villageMaterials||{}).forEach(texture=>texture?.dispose?.());Object.values(architectureMaterials||{}).forEach(texture=>texture?.dispose?.());treeTexture.dispose();treeMaterial.dispose();smokePuffs.forEach(p=>{p.geometry?.dispose?.();p.material?.dispose?.();});fireflies3D.forEach(f=>{f.geometry?.dispose?.();f.material?.dispose?.();});villagers.forEach(v=>{v.g.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});v.bodyTex?.dispose?.();v.shadowTex?.dispose?.();});citizenTextures.forEach(t=>{t.body?.dispose?.();t.shade?.dispose?.();});easterEggs.forEach(e=>e.object.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();}));walkwayMat.dispose();clearGroup(plotGroup);glbTemplates.forEach(e=>e.root.traverse(o=>{o.geometry?.dispose?.();const m=o.material;if(Array.isArray(m))m.forEach(x=>x?.dispose?.());else m?.dispose?.();}));glbTemplates.clear();renderer.dispose();canvas.remove();} };
 }

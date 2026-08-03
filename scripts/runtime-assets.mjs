@@ -53,6 +53,8 @@ export function runtimePublicAssets() {
     'assets/village/house_lv01.png',
     'assets/village/house_lv02.png',
     'assets/village/farm_plot.png'
+    ,'assets/relics/draculas_fang.png'
+    ,'assets/relics/draculas_rib.png'
   ]);
 
   for (const id of villageModels) {
@@ -81,7 +83,11 @@ export function runtimePublicAssets() {
 }
 
 export const viteManagedAssets = [
+  'assets/village/v2/gothic_material_atlas_v2.png',
+  'assets/village/v2/gothic_architecture_atlas_v2.png',
   'assets/characters/shadow_portrait_lvl-01/shadow_portrait_lvl-01.png',
+  'assets/characters/shadow_portrait_lvl-02/shadow_portrait_lv_02.png',
+  'assets/towers/gothic_dagger/gothic_dagger_atlas.png',
   'assets/audio/music/battle/battle_01.ogg',
   'assets/audio/music/boss/boss_battle_01.ogg',
   'assets/audio/music/village/untitled.ogg'

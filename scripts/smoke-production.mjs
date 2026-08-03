@@ -1,6 +1,8 @@
 import { chromium } from 'playwright-core';
+import { mkdir } from 'node:fs/promises';
 
 const baseUrl = process.env.TEST_BASE_URL || 'http://127.0.0.1:4173';
+const battleVisualOnly = process.env.BATTLE_VISUAL_ONLY === '1';
 const chromePath = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const userId = '11111111-1111-4111-8111-111111111111';
 const nowSeconds = Math.floor(Date.now() / 1000);
@@ -101,11 +103,24 @@ async function runViewport(browser, viewport, mobile = false) {
     }
   });
 
-  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  const pageUrl = new URL(baseUrl); if (!mobile) pageUrl.searchParams.set('visualAudit','1');
+  await page.goto(pageUrl.href, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('html.auth-ready', { timeout: 20000 });
   await page.waitForSelector('#villageThreeCanvas', { timeout: 20000 });
   await page.waitForFunction(() => window.ROTKGameBridge && window.VillageBattleAPI);
   await page.waitForFunction(() => document.querySelector('#accountCloudStatus')?.textContent === 'Synced');
+  const villageAuditDirectory = 'test-results/village-visual-audit';
+  await mkdir(villageAuditDirectory, { recursive: true });
+  const viewportName=mobile?(viewport.width<600?'iphone':'ipad'):'desktop';
+  await page.waitForTimeout(1200);
+  const villageVisualState=await page.evaluate(()=>({
+    canvas:!!document.querySelector('#villageThreeCanvas'),
+    classicCitizensVisible:[...document.querySelectorAll('.village-citizen-layer')].some(el=>getComputedStyle(el).display!=='none'),
+    horizontalOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth
+  }));
+  if(!villageVisualState.canvas)errors.push('Village 2.0 canvas is missing.');
+  if(villageVisualState.classicCitizensVisible)errors.push('Legacy DOM citizens remain visible over Village 2.0.');
+  if(villageVisualState.horizontalOverflow>2)errors.push(`Village ${viewportName} overflows horizontally by ${villageVisualState.horizontalOverflow}px`);
   if (!mobile) {
     await page.waitForTimeout(16000);
     const idleStatus = await page.locator('#accountCloudStatus').textContent();
@@ -139,6 +154,10 @@ async function runViewport(browser, viewport, mobile = false) {
     await onboardingRoadmapClose.click();
     await page.waitForSelector('#roadmapOverlay', { state: 'hidden' });
   }
+  await page.waitForFunction(() => document.querySelector('#accountCloudStatus')?.textContent === 'Synced', { timeout: 15000 });
+  await page.waitForTimeout(350);
+  await page.screenshot({path:`${villageAuditDirectory}/village-${viewportName}.png`,fullPage:false});
+  if(!battleVisualOnly){
   await page.click('#villageFeedbackBtn');
   await page.waitForSelector('#testerFeedbackModal:not(.hidden)');
   if (await page.locator('[data-feedback-type]').count() !== 3) errors.push('Tester feedback does not expose all three submission types.');
@@ -164,7 +183,16 @@ async function runViewport(browser, viewport, mobile = false) {
   if (!(await page.locator('.settings-feedback-btn').isVisible())) errors.push('Settings menu tester feedback entry is not visible.');
   await page.click('#audioClose');
   if (await page.locator('#moreScreen [data-feedback-open]').count() !== 1) errors.push('More menu tester feedback entry is missing.');
+  }
 
+  if (mobile&&battleVisualOnly){
+    const started=await page.evaluate(()=>window.VillageBattleAPI.startVisualAuditStage(5));
+    if(!started?.ok)errors.push(`Mobile battle audit failed to start: ${started?.reason}`);
+    await page.waitForFunction(()=>document.body.classList.contains('battle-mode'));
+    await page.waitForTimeout(900);await page.evaluate(()=>window.VillageBattleAPI.prepareVisualAudit());
+    const auditDirectory='test-results/battle-visual-audit';await mkdir(auditDirectory,{recursive:true});
+    await page.screenshot({path:`${auditDirectory}/${viewport.width<600?'iphone':'ipad'}-runtime.png`,fullPage:false});
+  }
   if (mobile) {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     if (overflow > 2) errors.push(`Mobile layout overflows horizontally by ${overflow}px`);
@@ -179,6 +207,58 @@ async function runViewport(browser, viewport, mobile = false) {
       await roadmapClose.click();
       await page.waitForSelector('#roadmapOverlay', { state: 'hidden' });
     }
+    await page.evaluate(() => document.querySelector('#bottomNav [data-nav="campaign"]')?.click());
+    await page.waitForSelector('#campaignScreen:not(.hidden)');
+    await page.locator('#chapterMap .chapter-node button:not([disabled])').first().click();
+    await page.waitForFunction(() => document.body.classList.contains('battle-mode'));
+    await page.waitForTimeout(3500);
+    const auditDirectory = 'test-results/battle-visual-audit';
+    await mkdir(auditDirectory, { recursive: true });
+    for (let stage = 1; stage <= 20; stage++) {
+      const started = await page.evaluate(value => window.VillageBattleAPI.startVisualAuditStage(value), stage);
+      if (!started?.ok) { errors.push(`Visual audit could not initialize Stage ${stage}: ${started?.reason}`); continue; }
+      await page.waitForTimeout(700);
+      await page.evaluate(() => window.VillageBattleAPI.prepareVisualAudit());
+      await page.screenshot({ path: `${auditDirectory}/stage-${String(stage).padStart(2,'0')}.png`, fullPage: false });
+      const state = await page.evaluate(() => window.VillageBattleAPI.state());
+      if (state.chapter !== stage) errors.push(`Visual audit initialized Stage ${state.chapter} instead of ${stage}.`);
+    }
+    await page.evaluate(() => window.VillageBattleAPI.startVisualAuditStage(10));
+    await page.waitForTimeout(1400); await page.evaluate(() => window.VillageBattleAPI.prepareVisualAudit());
+    for (const progress of [0,.25,.5,.75,1]) {
+      await page.evaluate(value => window.VillageBattleAPI.setVisualAuditTravelProgress(value),progress);
+      await page.waitForTimeout(120);
+      await page.evaluate(() => window.VillageBattleAPI.prepareVisualAudit());
+      await page.screenshot({path:`${auditDirectory}/road-travel-${String(Math.round(progress*100)).padStart(3,'0')}.png`,fullPage:false});
+    }
+    for(const [stage,waves] of [[5,[1,5,8,12]],[10,[1,4,7,10]],[11,[1,4,7,12]]]){
+      await page.evaluate(value=>window.VillageBattleAPI.startVisualAuditStage(value),stage);await page.waitForTimeout(700);await page.evaluate(()=>window.VillageBattleAPI.prepareVisualAudit());
+      let previousRoutes=1;
+      for(const wave of waves){const roadState=await page.evaluate(value=>window.VillageBattleAPI.setVisualAuditRoadWave(value),wave);if(!roadState?.ok)errors.push(`Road audit failed at Stage ${stage}, Wave ${wave}: ${roadState?.reason}`);if((roadState?.routes?.length||0)<previousRoutes)errors.push(`Road count regressed at Stage ${stage}, Wave ${wave}.`);previousRoutes=roadState?.routes?.length||previousRoutes;await page.screenshot({path:`${auditDirectory}/stage-${stage}-road-wave-${String(wave).padStart(2,'0')}.png`,fullPage:false});}
+      const expected=stage>=11?3:2;if(previousRoutes!==expected)errors.push(`Stage ${stage} exposed ${previousRoutes} routes; expected ${expected}.`);
+    }
+    const soakResults=[];
+    const defeatRestart=await page.evaluate(cycles=>window.VillageBattleAPI.runDefeatRestartSoak(cycles),battleVisualOnly?1:20);
+    if(!defeatRestart?.ok)errors.push(`Defeat/restart soak failed after ${defeatRestart?.cycle||0} cycles: ${defeatRestart?.reason||'unknown'}\n${JSON.stringify(defeatRestart?.snapshot||{},null,2)}`);
+    else console.log(`Defeat/restart soak passed: ${defeatRestart.cycles} consecutive loss/restart cycles.`);
+    for(const stage of (battleVisualOnly?[10]:[4,5,6,10]))soakResults.push(await page.evaluate(([value,seconds])=>window.VillageBattleAPI.runSoak(value,seconds),[stage,battleVisualOnly?8:600]));
+    if(!battleVisualOnly)for(const stage of [4,5,6,4,5,6])soakResults.push(await page.evaluate(value=>window.VillageBattleAPI.runSoak(value,120),stage));
+    for(const result of soakResults){if(!result?.ok)errors.push(`Battle soak failed at Stage ${result?.stage||'?'}: ${result?.reason||'unknown'}`);if(result?.maxima?.particles>420)errors.push(`Battle soak exceeded particle cap at Stage ${result.stage}: ${result.maxima.particles}`);if(result?.final?.shots>12)errors.push(`Battle soak left excessive projectiles at Stage ${result.stage}: ${result.final.shots}`)}
+    console.log('Battle soak results:',JSON.stringify(soakResults.map(result=>({ok:result.ok,stage:result.stage,state:result.state,wave:result.wave,hp:result.hp,reason:result.reason,maxima:result.maxima,final:result.final})),null,2));
+    await page.evaluate(() => window.VillageBattleAPI.startVisualAuditStage(10));
+    await page.waitForTimeout(700);
+    const finaleStarted = await page.evaluate(() => window.VillageBattleAPI.testStageTenFinale());
+    if (!finaleStarted?.ok) errors.push(`Stage 10 finale did not start: ${finaleStarted?.reason}`);
+    await page.waitForSelector('#chapterTenCinematic.phase-walk', { timeout: 5000 });
+    await page.waitForSelector('#chapterTenCinematic.phase-relic', { timeout: 5000 });
+    await page.waitForSelector('#chapterTenCinematic.phase-transform', { timeout: 5000 });
+    await page.waitForSelector('#chapterTenCinematic.phase-reveal', { timeout: 5000 });
+    await page.waitForSelector('#chapterTenCinematic', { state: 'hidden', timeout: 5000 });
+    const finaleState = await page.evaluate(() => window.VillageBattleAPI.state());
+    if (!finaleState.draculaTooth || finaleState.shadowLevel < 2) errors.push('Stage 10 finale did not persist Dracula\'s Tooth and Shadow Level II.');
+    await page.waitForFunction(() => document.querySelector('#accountCloudStatus')?.textContent === 'Synced', { timeout: 15000 });
+    await page.evaluate(() => window.VillageBattleAPI.menu());
+    await page.waitForFunction(() => !document.body.classList.contains('battle-mode'));
     await page.evaluate(() => document.querySelector('#bottomNav [data-nav="campaign"]')?.click());
     await page.waitForSelector('#campaignScreen:not(.hidden)');
     await page.locator('#chapterMap .chapter-node button:not([disabled])').first().click();
@@ -246,14 +326,15 @@ const browser = await chromium.launch({
 });
 try {
   const desktopErrors = await runViewport(browser, { width: 1440, height: 900 });
+  const tabletErrors = await runViewport(browser, { width: 1024, height: 768 }, true);
   const mobileErrors = await runViewport(browser, { width: 390, height: 844 }, true);
-  const unavailableAuthErrors = await runUnavailableAuthCheck(browser);
-  const errors = [...desktopErrors, ...mobileErrors, ...unavailableAuthErrors];
+  const unavailableAuthErrors = battleVisualOnly?[]:await runUnavailableAuthCheck(browser);
+  const errors = [...desktopErrors, ...tabletErrors, ...mobileErrors, ...unavailableAuthErrors];
   if (errors.length) {
     console.error(`Production smoke test failed:\n${errors.map(error => `- ${error}`).join('\n')}`);
     process.exitCode = 1;
   } else {
-    console.log('Production smoke test passed: auth/cloud bootstrap, unavailable-auth fallback, Village 3D, battle, Ascension views, companions, desktop, and mobile loaded without runtime errors or asset 404s.');
+    console.log('Production smoke test passed: auth/cloud bootstrap, unavailable-auth fallback, Village 3D, battle, Ascension views, companions, desktop, iPad, and iPhone layouts loaded without runtime errors or asset 404s.');
   }
 } finally {
   await browser.close();

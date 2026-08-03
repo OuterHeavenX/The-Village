@@ -6,7 +6,12 @@ Current version: **35.2.0 — TESTER CHRONICLE**
 
 V35.2.0 adds authenticated in-game bug reports, suggestions, and general
 feedback with offline queuing, automatic game/device context, and sanitized
-client-error diagnostics.
+client-error diagnostics. It also introduces the dynamic battle Essence curve,
+the unique Chapter 1 Dracula's Tooth awakening, complete Shadow Level II visual
+integration, and the first production-art tower pass for Gothic Dagger Tower.
+The Village now uses a consolidated production UI with a compact HUD, live
+economy and production dashboard, responsive construction catalog, contextual
+district reveals, and desktop/tablet/mobile navigation.
 
 V35.1.1 is a deployment refresh for the Cloudflare Pages production
 environment after configuring the required Supabase build variables. It
