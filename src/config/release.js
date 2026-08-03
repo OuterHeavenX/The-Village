@@ -1,5 +1,5 @@
-export const RELEASE_VERSION = '35.2.0';
-export const RELEASE_NAME = 'TESTER CHRONICLE';
+export const RELEASE_VERSION = '36.0.0';
+export const RELEASE_NAME = 'GOTHIC COLLECTION';
 export const RELEASE_LABEL = `V${RELEASE_VERSION} — ${RELEASE_NAME}`;
 
 export function applyReleaseMetadata(root = document) {

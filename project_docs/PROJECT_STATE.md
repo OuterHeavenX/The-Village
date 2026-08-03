@@ -1,6 +1,22 @@
 # THE VILLAGE — PROJECT STATE
 
-**Current baseline:** V35.2.0 — TESTER CHRONICLE
+**Current baseline:** V36.0.0 — GOTHIC COLLECTION
+
+## V36.0.0 GOTHIC COLLECTION
+
+- Rebuilt the Cards screen with a responsive premium gothic collection grid,
+  matching loadout cards, compact mobile navigation, and a focused card-detail
+  presentation.
+- Added dedicated generated card illustrations for Dagger, Axe, Crossbow,
+  Ballista, and Arcane towers, faithfully derived from the approved runtime
+  tower atlases. Holy Tower art is reserved until that tower becomes an actual
+  collectible card; Holy Water Infusion retains its authoritative identity.
+- Added lazy image decoding for collection art and eager loading only for the
+  six equipped cards.
+- Added a deliberate Merge All confirmation summary without changing merge
+  eligibility, costs, rarity rules, or persisted state.
+- Preserved card IDs, stats, XP, levels, rarity math, deck capacity, unlocks,
+  upgrades, battle behavior, local saves, and cloud-save serialization.
 
 ## V35.2.0 TESTER CHRONICLE
 

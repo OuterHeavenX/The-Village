@@ -2,7 +2,7 @@
 
 The Village is a browser-based gothic RPG, tower-defense, and village-building game. Players develop a persistent settlement, assemble a card-driven defensive loadout, guide Shadow and a Familiar, and defend branching roads through a twenty-chapter campaign.
 
-Current version: **35.2.0 — TESTER CHRONICLE**
+Current version: **36.0.0 — GOTHIC COLLECTION**
 
 V35.2.0 adds authenticated in-game bug reports, suggestions, and general
 feedback with offline queuing, automatic game/device context, and sanitized

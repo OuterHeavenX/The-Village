@@ -18,6 +18,7 @@ import { weightedDraftPool } from './Cards/draftWeights.js';
 import { waveBreathingPeriod, waveIdentity, waveSpawnCount } from './waveDirector.js';
 import { createBattleTelemetryOverlay } from './developmentTelemetry.js';
 import { activateBattle3Runtime, deactivateBattle3Runtime } from './battle3Runtime.js';
+import { cardArtHTML } from '../Cards/cardArtRegistry.js';
 import {
   ASCENSION_SAVE_VERSION,
   ASCENSION_VERSION,
@@ -1559,6 +1560,14 @@ function reconcileCardUnlocks(){
 function canPayRarityUpgrade(item,id){const rule=rarityUpgradeFor(item.rarity);return !!rule&&item.copies>=rule.copies&&(save.cardFragments[id]||0)>=(rule.cardFragments||0)&&Object.entries(rule.materials).every(([key,cost])=>(save.materials[key]||0)>=cost)}
 function mergeCard(id){const item=inv(id),rule=rarityUpgradeFor(item.rarity);if(!rule)return showToast('This card is already Mythic');if(item.copies<rule.copies)return showToast(`${rule.copies} matching copies are required`);if((save.cardFragments[id]||0)<(rule.cardFragments||0))return showToast(`Need ${rule.cardFragments} targeted ${card(id).name} fragments`);const missing=Object.entries(rule.materials).find(([key,cost])=>(save.materials[key]||0)<cost);if(missing)return showToast(`Need ${missing[1]} ${missing[0]}`);const from=item.rarity;item.copies-=rule.copies;save.cardFragments[id]=(save.cardFragments[id]||0)-(rule.cardFragments||0);for(const [key,cost] of Object.entries(rule.materials))save.materials[key]-=cost;item.rarity=rule.to;item.recent=false;save.stats.fusions++;telemetryRarityUpgrade(id,from,rule.to);saveProgress('card-rarity-upgrade');showToast(`${card(id).name} fused to ${rarityDef(rule.to).name}`);renderDeck()}
 function mergeAllDuplicates(){let merges=0;for(const c of CARD_POOL){const item=inv(c.id);while(canPayRarityUpgrade(item,c.id)){const rule=rarityUpgradeFor(item.rarity),from=item.rarity;item.copies-=rule.copies;save.cardFragments[c.id]=(save.cardFragments[c.id]||0)-(rule.cardFragments||0);for(const [key,cost] of Object.entries(rule.materials))save.materials[key]-=cost;item.rarity=rule.to;item.recent=false;save.stats.fusions++;telemetryRarityUpgrade(c.id,from,rule.to);merges++}}if(!merges)return showToast('No cards meet their copy, fragment, and material requirements');saveProgress('merge-all-rarity-upgrades');showToast(`Completed ${merges} rarity upgrade${merges===1?'':'s'}`);renderDeck()}
+function requestMergeAllDuplicates(){
+ const eligible=CARD_POOL.filter(c=>canPayRarityUpgrade(inv(c.id),c.id));
+ if(!eligible.length)return showToast('No cards meet their copy, fragment, and material requirements');
+ const dialog=$('#cardsMergeDialog'),summary=$('#cardsMergeSummary'),confirm=$('#cardsMergeConfirm'),cancel=$('#cardsMergeCancel');
+ if(!dialog?.showModal)return mergeAllDuplicates();
+ summary.textContent=`${eligible.length} card${eligible.length===1?' is':'s are'} eligible. All available rarity upgrades will be completed using the existing copy, fragment, and material requirements.`;
+ confirm.onclick=()=>{dialog.close();mergeAllDuplicates()};cancel.onclick=()=>dialog.close();dialog.showModal();
+}
 function sortCards(cards,mode){return [...cards].sort((a,b)=>{if(mode==='rarity')return rarityIndex(inv(b.id).rarity)-rarityIndex(inv(a.id).rarity);if(mode==='strength')return cardPower(b.id)-cardPower(a.id);if(mode==='level')return inv(b.id).level-inv(a.id).level;if(mode==='name')return a.name.localeCompare(b.name);return a.type.localeCompare(b.type)||a.name.localeCompare(b.name)})}
 function shortType(type){return {tower:'Defense',support:'Support',skill:'Skill',hero:'Run Upgrade',roadpiece:'System Road',trap:'Ground Defense'}[type]||type}
 const HERO_GEAR={
@@ -1620,7 +1629,7 @@ function miniCardHTML(c){
  const atk=c.damage?Math.max(1,Math.round(c.damage*power)):c.type==='support'?Math.round(10*power):c.type==='skill'?Math.round((c.cost||30)*power):Math.round(8*power);
  const hp=c.type==='tower'?Math.round((90+(c.cost||30)*4)*power):c.type==='support'?Math.round(120*power):c.type==='hero'?Math.round(100*power):Math.round(70*power);
  const defenseCard=c.type==='tower'||c.type==='trap';
- return `<span class="deck-card-level">LV ${item.level}</span><div class="deck-card-art"><span>${cardIconHTML(c,item.level)}</span></div><strong class="deck-card-name">${c.name}</strong>${cardGemSlotsHTML(c)}<div class="deck-card-stats ${defenseCard?'defense-stats':''}"><span>⚔ ${atk}</span>${defenseCard?'':`<span>♥ ${hp}</span>`}</div>`;
+ return `<span class="deck-card-level">LV ${item.level}</span><div class="deck-card-art">${cardArtHTML(c,{eager:true})}<span>${cardIconHTML(c,item.level)}</span></div><strong class="deck-card-name">${c.name}</strong>${cardGemSlotsHTML(c)}<div class="deck-card-stats ${defenseCard?'defense-stats':''}"><span>⚔ ${atk}</span>${defenseCard?'':`<span>♥ ${hp}</span>`}</div>`;
 }
 function groundCardById(id){return HERO_GROUND_DEFENSES.find(c=>c.id===id)}
 function renderGroundDefenseSlots(){
@@ -1781,7 +1790,7 @@ function cardHTML(c,collection=false){
  const atk=c.damage?Math.max(1,Math.round(c.damage*power)):c.type==='support'?Math.round(10*power):c.type==='skill'?Math.round((c.cost||30)*power):Math.round(8*power);
  const hp=c.type==='tower'?Math.round((90+(c.cost||30)*4)*power):c.type==='support'?Math.round(120*power):c.type==='hero'?Math.round(100*power):Math.round(70*power);
  const defenseCard=c.type==='tower'||c.type==='trap';
- return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art"><div class="art-sigil">${cardIconHTML(c,item.level)}</div></div><div class="card-copy"><h3>${c.name}</h3></div>${cardGemSlotsHTML(c)}<div class="ascension-card-xp" title="${Math.min(100,item.xp)}% card XP"><i style="width:${Math.min(100,item.xp)}%"></i></div><div class="card-primary-stats ${defenseCard?'defense-stats':''}"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span>${defenseCard?'':`<span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span>`}</div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
+ return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art">${cardArtHTML(c)}<div class="art-sigil">${cardIconHTML(c,item.level)}</div></div><div class="card-copy"><h3>${c.name}</h3></div>${cardGemSlotsHTML(c)}<div class="ascension-card-xp" title="${Math.min(100,item.xp)}% card XP"><i style="width:${Math.min(100,item.xp)}%"></i></div><div class="card-primary-stats ${defenseCard?'defense-stats':''}"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span>${defenseCard?'':`<span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span>`}</div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
 }
 function draftCardHTML(c){
  if(c.tactical)return `<span class="draft-level">TACTICAL</span><span class="draft-type">UTILITY</span><div class="draft-art"><div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>IMMEDIATE EFFECT</small><p>${c.desc}</p></div><div class="draft-cost"><span>Stage choice</span><strong>NO ESSENCE COST</strong></div>`;
@@ -2906,7 +2915,7 @@ function updateBottomNav(screen){
    const select=$('#deckTypeFilter');if(select)select.value=value;renderDeck();return;
   }
   const merge=target.closest('#mergeAllBtn');
-  if(merge&&deckScreen.contains(merge)){event.preventDefault();event.stopPropagation();mergeAllDuplicates();renderDeck();return}
+  if(merge&&deckScreen.contains(merge)){event.preventDefault();event.stopPropagation();requestMergeAllDuplicates();return}
   const action=target.closest('[data-cards-action]');
   if(action&&deckScreen.contains(action)){
    event.preventDefault();event.stopPropagation();
@@ -3124,7 +3133,7 @@ bindClick('#saveDeckBtn',()=>{if(save.deck.length!==6)return showToast('Choose e
  });
 })();
 $('#mergeOnly')?.addEventListener('change',renderDeck);
-bindClick('#mergeAllBtn',mergeAllDuplicates);
+bindClick('#mergeAllBtn',requestMergeAllDuplicates);
 bindClick('#forgeBtn',()=>{openScreen($('#forgeScreen'));renderForge()});bindClick('#forgeBack',()=>openScreen(UI.menu));
 bindClick('#codexBack',()=>openScreen(UI.menu));
 bindClick('#profileBtn',()=>{openScreen($('#profileScreen'));renderProfile()});bindClick('#profileBack',()=>openScreen(UI.menu));

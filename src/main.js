@@ -4,6 +4,7 @@ import { initializeFeedbackSystem } from './online/feedbackSystem.js';
 import { logStartupFailure, logStartupStage, withTimeout } from './online/startupWatchdog.js';
 import './UI/villageProductionUI.css';
 import './UI/battle3.css';
+import './UI/cards2.css';
 import { initializeVillageProductionUI } from './UI/villageProductionUI.js';
 
 applyReleaseMetadata();

@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 
 const baseUrl = process.env.TEST_BASE_URL || 'http://127.0.0.1:4173';
 const battleVisualOnly = process.env.BATTLE_VISUAL_ONLY === '1';
+const cardsVisualOnly = process.env.CARDS_VISUAL_ONLY === '1';
 const chromePath = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const userId = '11111111-1111-4111-8111-111111111111';
 const nowSeconds = Math.floor(Date.now() / 1000);
@@ -59,7 +60,7 @@ async function mockSupabase(context) {
         total_play_time_seconds: 0,
         last_login_at: updatedAt,
         last_seen_at: updatedAt,
-        game_version: '35.2.0',
+        game_version: '36.0.0',
         updated_at: updatedAt
       };
       return route.fulfill({
@@ -142,7 +143,7 @@ async function runViewport(browser, viewport, mobile = false) {
   }
 
   const release = await page.locator('[data-release-label]').textContent();
-  if (!release?.includes('35.2.0')) errors.push(`Visible release label is incorrect: ${release}`);
+  if (!release?.includes('36.0.0')) errors.push(`Visible release label is incorrect: ${release}`);
 
   const onboardingSkip = page.locator('#prologueSkip');
   if (await onboardingSkip.isVisible()) {
@@ -157,6 +158,17 @@ async function runViewport(browser, viewport, mobile = false) {
   await page.waitForFunction(() => document.querySelector('#accountCloudStatus')?.textContent === 'Synced', { timeout: 15000 });
   await page.waitForTimeout(350);
   await page.screenshot({path:`${villageAuditDirectory}/village-${viewportName}.png`,fullPage:false});
+  if(cardsVisualOnly){
+    const cardsAuditDirectory='test-results/cards-v36-visual-audit';await mkdir(cardsAuditDirectory,{recursive:true});
+    await page.click('#bottomNav [data-nav="cards"]');await page.waitForSelector('#deckScreen:not(.hidden)');await page.waitForTimeout(500);
+    await page.screenshot({path:`${cardsAuditDirectory}/${viewportName}-collection.png`,fullPage:false});
+    const state=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,art:[...document.querySelectorAll('#deckScreen .card-art-image')].filter(img=>{const r=img.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight}).map(img=>img.complete&&img.naturalWidth>0)}));
+    if(state.overflow>2)errors.push(`Cards ${viewportName} overflows horizontally by ${state.overflow}px`);if(state.art.some(ok=>!ok))errors.push(`Cards ${viewportName} contains unloaded tower art.`);
+    await page.click('.card-file-tab[data-card-filter="tower"]');await page.waitForTimeout(250);await page.screenshot({path:`${cardsAuditDirectory}/${viewportName}-defense.png`,fullPage:false});
+    const target=page.locator('#collectionCards [data-cards-action="inspect"]').first();if(await target.count()){await target.click();await page.waitForSelector('#cardInspectScreen:not(.hidden)');await page.waitForTimeout(250);await page.screenshot({path:`${cardsAuditDirectory}/${viewportName}-detail.png`,fullPage:false});await page.click('#inspectBack');await page.waitForSelector('#deckScreen:not(.hidden)')}
+    await page.click('.card-file-tab[data-card-filter="support"]');await page.waitForTimeout(200);await page.screenshot({path:`${cardsAuditDirectory}/${viewportName}-support.png`,fullPage:false});
+    await context.close();if(failedAssets.length)errors.push(...failedAssets);return errors;
+  }
   if(!battleVisualOnly){
   await page.click('#villageFeedbackBtn');
   await page.waitForSelector('#testerFeedbackModal:not(.hidden)');
@@ -280,6 +292,32 @@ async function runViewport(browser, viewport, mobile = false) {
 
     await page.click('#bottomNav [data-nav="cards"]');
     await page.waitForSelector('#deckScreen:not(.hidden)');
+    const cardsAuditDirectory = 'test-results/cards-v36-visual-audit';
+    await mkdir(cardsAuditDirectory, { recursive: true });
+    await page.waitForTimeout(500);
+    await page.screenshot({path:`${cardsAuditDirectory}/${viewportName}-collection.png`,fullPage:false});
+    const cardVisualState=await page.evaluate(() => ({
+      overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+      art:[...document.querySelectorAll('#deckScreen .card-art-image')].map(img=>({src:img.currentSrc||img.src,loaded:img.complete&&img.naturalWidth>0})),
+      cards:document.querySelectorAll('#collectionCards .portrait-card').length
+    }));
+    if(cardVisualState.overflow>2)errors.push(`Cards ${viewportName} overflows horizontally by ${cardVisualState.overflow}px`);
+    if(cardVisualState.art.some(image=>!image.loaded))errors.push(`Cards ${viewportName} contains unloaded tower art.`);
+    await page.click('.card-file-tab[data-card-filter="tower"]');
+    await page.waitForTimeout(250);
+    await page.screenshot({path:`${cardsAuditDirectory}/${viewportName}-defense.png`,fullPage:false});
+    const detailTarget=page.locator('#collectionCards [data-cards-action="inspect"]').first();
+    if(await detailTarget.count()){
+      await detailTarget.click();
+      await page.waitForSelector('#cardInspectScreen:not(.hidden)');
+      await page.waitForTimeout(250);
+      await page.screenshot({path:`${cardsAuditDirectory}/${viewportName}-detail.png`,fullPage:false});
+      await page.click('#inspectBack');
+      await page.waitForSelector('#deckScreen:not(.hidden)');
+    }
+    await page.click('.card-file-tab[data-card-filter="support"]');
+    await page.waitForTimeout(200);
+    await page.screenshot({path:`${cardsAuditDirectory}/${viewportName}-support.png`,fullPage:false});
     for (const filter of ['equipment', 'gems', 'heroProfile']) {
       await page.click(`.card-file-tab[data-card-filter="${filter}"]`);
       await page.waitForTimeout(100);
@@ -328,7 +366,7 @@ try {
   const desktopErrors = await runViewport(browser, { width: 1440, height: 900 });
   const tabletErrors = await runViewport(browser, { width: 1024, height: 768 }, true);
   const mobileErrors = await runViewport(browser, { width: 390, height: 844 }, true);
-  const unavailableAuthErrors = battleVisualOnly?[]:await runUnavailableAuthCheck(browser);
+  const unavailableAuthErrors = battleVisualOnly||cardsVisualOnly?[]:await runUnavailableAuthCheck(browser);
   const errors = [...desktopErrors, ...tabletErrors, ...mobileErrors, ...unavailableAuthErrors];
   if (errors.length) {
     console.error(`Production smoke test failed:\n${errors.map(error => `- ${error}`).join('\n')}`);
