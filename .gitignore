@@ -41,3 +41,4 @@ __pycache__/
 
 # Bot builds (credential-free bundles used by the Playwright scripts)
 dist-*/
+*.tmp.*

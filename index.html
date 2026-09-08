@@ -1282,90 +1282,8 @@
 			</div>
 		</section>
 
-		<section id="deckScreen" class="screen hidden">
-			<div class="panel cards-deck-panel">
-				<div id="cardsBuildBanner" class="cards-build-banner" role="status"><strong>THE VILLAGE · <span data-release-label>V35.2.0 — TESTER CHRONICLE</span></strong><span>ASCENSION ARMORY</span><small>Cards · Equipment · Gems · Companions · preserved progression</small></div>
-				<div class="cards-command-header">
-					<div><span class="section-kicker">HUNTER LOADOUT</span>
-						<h2>Battle Deck</h2>
-						<p>Choose a hunter, equip six cards, and prepare your passive defenses.</p>
-					</div>
-					<div id="deckCounter" class="deck-count">0 / 6</div>
-				</div>
-				<div class="deck-zone">
-					<div class="section-kicker deck-title-kicker">ACTIVE LOADOUT</div>
-					<div class="deck-loadout">
-						<button id="deckHeroCard" class="deck-hero-card" type="button" aria-label="Open selected hunter">
-							<span id="deckHeroPortrait" class="deck-hero-portrait">⚔️</span>
-							<span class="deck-hero-copy">
-								<small>SELECTED HUNTER</small>
-								<strong id="deckHeroName">Shadow</strong>
-								<span id="deckHeroLevel">Lv 1</span>
-								<span id="deckHeroXP" class="deck-hero-xp"><i></i></span>
-							</span>
-							<span id="deckHeroGear" class="deck-hero-gear" aria-label="Hunter equipment"></span>
-							<span class="hero-passive-heading">PASSIVE GROUND DEFENSES</span>
-							<span class="hero-passive-subtitle">These bonuses apply to this deck</span>
-							<span id="groundDefenseSlots" class="ground-defense-slots hero-ground-defense-slots" aria-label="Hero ground defense slots"></span>
-							<span id="deckHeroSupports" class="deck-hero-supports visually-hidden" aria-hidden="true"></span>
-						</button>
-						<div class="loadout-card-column">
-							<div id="equippedDeck" class="equipped-deck" aria-label="Six-card battle deck"></div>
-						</div>
-					</div>
-					<div id="deckAnalysis" class="deck-analysis"></div>
-				</div>
-				<div class="collection-divider"><span>COLLECTION</span></div>
-				<div class="card-file-tabs" role="tablist" aria-label="Card categories">
-					<button type="button" class="card-file-tab active" data-card-filter="all"><b>✦</b><span>All Cards</span><small>Entire collection</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="tower"><b>♜</b><span>Defense</span><small>Attack towers</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="support"><b>✚</b><span>Support</span><small>Tower enhancers</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="skill"><b>⚔</b><span>Battle Skills</span><small>Active powers</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="hero"><b>♛</b><span>Run Upgrades</span><small>Hunter bonuses</small></button>
-					<button type="button" class="card-file-tab hero-file-tab" data-card-filter="heroProfile"><b>⚔</b><span>Hero</span><small>Shadow & JP</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="ground"><b>✦</b><span>Passives</span><small>Traps & wards</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="equipment"><b>🛡</b><span>Equipment</span><small>Shadow loadout</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="gems"><b>◆</b><span>Gems</span><small>Tower elements</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="fragments"><b>✧</b><span>Fragments</span><small>Forge materials</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="fusion"><b>⚗</b><span>Fusion</span><small>Hidden recipes</small></button>
-					<button type="button" class="card-file-tab" data-card-filter="consumables"><b>🧪</b><span>Consumables</span><small>Future supplies</small></button>
-				</div>
-				<div class="deck-tools compact-tools">
-					<select id="deckTypeFilter" class="visually-hidden">
-						<option value="all">All Types</option>
-						<option value="tower">Defense</option>
-						<option value="support">Support</option>
-						<option value="skill">Skill</option>
-						<option value="hero">Run Upgrade</option>
-						<option value="heroProfile">Hero</option>
-						<option value="ground">Passives</option>
-						<option value="equipment">Equipment</option>
-						<option value="gems">Gems</option>
-						<option value="fragments">Fragments</option>
-						<option value="fusion">Fusion</option>
-						<option value="consumables">Consumables</option>
-					</select>
-					<select id="deckSort">
-						<option value="type">Sort: Type</option>
-						<option value="rarity">Sort: Rarity</option>
-						<option value="strength">Sort: Strength</option>
-						<option value="level">Sort: Level</option>
-						<option value="name">Sort: Name</option>
-						<option value="recent">Sort: Recent</option>
-					</select>
-					<label class="merge-toggle"><input id="mergeOnly" type="checkbox"> Merge ready</label>
-					<button id="mergeAllBtn" class="merge-all-btn" type="button" disabled>Merge All Duplicates</button>
-				</div>
-				<div id="collectionCards" class="cards portrait-grid"></div>
-				<div class="row center sticky-actions"><button id="saveDeckBtn" class="btn primary">Save Deck</button><button id="backBtn" class="btn">Back</button></div>
-			</div>
-		</section>
+		<section id="deckScreen" class="screen hidden"></section>
 
-		<section id="cardInspectScreen" class="screen hidden">
-			<div class="panel inspect-panel"><button id="inspectBack" class="btn inspect-back" type="button" data-inspect-action="return" onpointerup="return window.__returnToCardsDeck(event)" onclick="return window.__returnToCardsDeck(event)">← Return to Cards &amp; Deck</button>
-				<div id="cardDetail" class="card-detail-large"></div>
-			</div>
-		</section>
 		<dialog id="cardsMergeDialog" aria-labelledby="cardsMergeTitle">
 			<div class="merge-dialog-inner">
 				<span class="section-kicker">ARCANE FORGE</span>
@@ -1509,21 +1427,6 @@
 			</div>
 		</div>
 	</div>
-	<script>
-		window.__returnToCardsDeck = function(event) {
-			if (event) { event.preventDefault && event.preventDefault();
-				event.stopPropagation && event.stopPropagation(); }
-			var inspect = document.getElementById('cardInspectScreen');
-			var deck = document.getElementById('deckScreen');
-			if (inspect) inspect.classList.add('hidden');
-			if (deck) deck.classList.remove('hidden');
-			document.body.classList.add('cards-native-scroll');
-			document.body.classList.remove('battle-mode');
-			document.querySelectorAll('#bottomNav [data-nav]').forEach(function(button) { button.classList.toggle('active', button.getAttribute('data-nav') === 'cards'); });
-			try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch (_) { window.scrollTo(0, 0); }
-			return false;
-		};
-	</script>
 	<script type="module" src="/src/main.js"></script>
 	<script>
 		(function() {
