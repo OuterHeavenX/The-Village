@@ -356,14 +356,36 @@ function bindAuthUI() {
   window.addEventListener('village-cloud-status', updateAccountPanel);
 }
 
+// A static deployment (GitHub Pages, Cloudflare Pages without build variables,
+// a plain file server) has no Supabase credentials baked in. Before this the
+// gate dead-ended on a sign-in form that could never succeed and the game was
+// simply unplayable. Cloud save already no-ops without an active user, so the
+// game runs correctly against local storage alone.
+async function enterLocalOnlyGame(reason) {
+  if (gameStarted) return true;
+  logStartupStage('Local-only startup', reason);
+  setLoading('Entering The Village…');
+  setCloudOfflineStatus('Local play — progress is saved in this browser');
+  try {
+    await withTimeout(startGameCallback(), 'Local-only UI initialization', 30000);
+    gameStarted = true;
+    hideSplash('game');
+    logStartupStage('Show login or resume session', 'local-only session');
+    return true;
+  } catch (error) {
+    logStartupFailure('Local-only startup', error);
+    showStartupFailure(error);
+    return false;
+  }
+}
+
 export async function bootstrapAuthentication(startGame) {
   logStartupStage('App boot');
   startGameCallback = startGame;
   bindAuthUI();
   revealAuth();
   if (supabaseConfigurationError || !supabase) {
-    hideSplash('login');
-    setAuthFeedback(`${supabaseConfigurationError} Online sign-in is unavailable until configuration is restored.`, 'error');
+    await enterLocalOnlyGame(supabaseConfigurationError || 'Supabase client unavailable');
     return;
   }
 
