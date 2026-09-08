@@ -1176,7 +1176,7 @@ window.VillageBattleAPI={
   },
   tapTile(x,y){const p=screenPointForTile(Number(x),Number(y));if(!p)return {ok:false,reason:'off-screen'};handleBattleTap({clientX:p.clientX,clientY:p.clientY,pointerId:-1});return {ok:true,...p}},
   routes(){return G?{layout:G.layout||'cathedral',open:G.routes.length,plans:G.roadPlans.length,points:G.routes.map((_,i)=>routePoints(i)),events:(G.roadEvents||[]).map(e=>({wave:e.wave,type:e.type,route:e.routeIndex,applied:!!e.applied}))}:null},
-  state(){const limits=G?battlefieldLimits(G):null;return G?{active:true,layout:G.layout||'cathedral',battle3d:battle3d.stats(),wave:G.wave,hp:G.hp,kills:G.kills,enemies:G.enemies.filter(e=>!e.dead).length,pendingCard:G.pendingCard?.id||null,speed:G.speed,paused:G.paused,state:G.state,chapter:G.chapter?.number||null,structures:G.towers.length+G.traps.length,limits,shadowLevel:currentShadowLevel(),draculaTooth:!!save.uniqueBossDrops.draculaTooth}:{active:false};}
+  state(){const limits=G?battlefieldLimits(G):null;return G?{active:true,layout:G.layout||'cathedral',battle3d:battle3d.stats(),cameraTour:G.cameraTour?.phase||null,camera:{...G.camera},wave:G.wave,hp:G.hp,kills:G.kills,enemies:G.enemies.filter(e=>!e.dead).length,pendingCard:G.pendingCard?.id||null,speed:G.speed,paused:G.paused,state:G.state,chapter:G.chapter?.number||null,structures:G.towers.length+G.traps.length,limits,shadowLevel:currentShadowLevel(),draculaTooth:!!save.uniqueBossDrops.draculaTooth}:{active:false};}
 };
 function resize(){
  const r=canvas.getBoundingClientRect();
@@ -1417,16 +1417,21 @@ function updateCameraTour(dt){
  const t=G?.cameraTour;if(!t)return;
  t.time+=dt;
  const ease=v=>v<.5?2*v*v:1-Math.pow(-2*v+2,2)/2;
+ // The 2D board pans in screen pixels; the 3D camera cannot use those, so the
+ // tour also carries the world point it is looking at and how far it has
+ // swung there (0-1). game.js keeps both in step; the 3D scene reads `focus`.
+ const focus=(w)=>{if(t.focus)G.camera.focus={x:t.focus.x,y:t.focus.y,w:Math.max(0,Math.min(1,w))}};
  if(t.phase==='out'){
   const q=ease(Math.min(1,t.time/t.duration));
-  G.camera.zoom=t.from.zoom+(t.to.zoom-t.from.zoom)*q;G.camera.panX=t.from.panX+(t.to.panX-t.from.panX)*q;G.camera.panY=t.from.panY+(t.to.panY-t.from.panY)*q;clampCamera();
+  G.camera.zoom=t.from.zoom+(t.to.zoom-t.from.zoom)*q;G.camera.panX=t.from.panX+(t.to.panX-t.from.panX)*q;G.camera.panY=t.from.panY+(t.to.panY-t.from.panY)*q;clampCamera();focus(q);
   if(t.time>=t.duration){t.phase='hold';t.time=0}
  }else if(t.phase==='hold'){
+  focus(1);
   if(t.time>=t.hold){t.phase='back';t.time=0;t.from={...G.camera};t.to={...t.back}}
  }else{
   const q=ease(Math.min(1,t.time/t.duration));
-  G.camera.zoom=t.from.zoom+(t.to.zoom-t.from.zoom)*q;G.camera.panX=t.from.panX+(t.to.panX-t.from.panX)*q;G.camera.panY=t.from.panY+(t.to.panY-t.from.panY)*q;clampCamera();
-  if(t.time>=t.duration){const done=t.onComplete;G.cameraTour=null;done?.()}
+  G.camera.zoom=t.from.zoom+(t.to.zoom-t.from.zoom)*q;G.camera.panX=t.from.panX+(t.to.panX-t.from.panX)*q;G.camera.panY=t.from.panY+(t.to.panY-t.from.panY)*q;clampCamera();focus(1-q);
+  if(t.time>=t.duration){const done=t.onComplete;G.cameraTour=null;delete G.camera.focus;done?.()}
  }
 }
 function beginNextWaveAfterExpansion(){
@@ -2473,7 +2478,7 @@ function bossRouteProgress(e){const points=routePoints(e.routeIndex||0);return p
 function focusCameraOnBoss(e,hold=1.05){
  if(!G||!e||e.dead)return;
  const from={...G.camera},to=cameraTargetForWorld(e.x*GRID.tile,e.y*GRID.tile,Math.min(CAMERA_LIMITS.maxZoom,Math.max(1.34,G.camera.zoom*1.32)));
- G.cameraTour={phase:'out',time:0,duration:.42,hold,from,to,back:{zoom:1,panX:0,panY:0},onComplete:null};
+ G.cameraTour={phase:'out',time:0,duration:.42,hold,from,to,back:{zoom:1,panX:0,panY:0},onComplete:null,focus:{x:e.x,y:e.y}};
 }
 function updateBossPresentation(e,dt){
  if(!e?.boss)return false;
@@ -3017,11 +3022,16 @@ function battleView3D(){
  if(fam){const visual=COMPANION_BEHAVIOR_REGISTRY[fam.id]?.visual||{},orbit=((visual.orbitRadius||38)+(fam.level||1)*.35)/64;sprites.push({img:emojiSprite(fam.icon),cell:64,frame:0,row:0,x:G.hero.x+Math.cos(fam.angle||0)*orbit,y:G.hero.y+Math.sin(fam.angle||0)*orbit*.4,size:34,lift:1.05,lean:0})}
  const towers=G.towers.map(t=>{const r=rasterTower(t);return {canvas:r.canvas,key:r.key,x:t.x,y:t.y,baseline:r.baseline}});
  const shots=G.shots.map(s=>({x:s.x,y:s.y,color:s.color,size:s.archer?.26:s.kind==='scripture'?.5:.4}));
+ // Synergy links between towers, with the mote that rides each one.
+ const links=[];
+ for(const t of G.towers)for(const l of synergyLinksFor(t)){const tint=(SYNERGY_STYLE[l.key]||{}).tint||'#ffe58a',pulse=.45+.30*Math.sin(G.time*3.2+(t.x+t.y)*.9),k=(G.time*.55+(t.x*.31+t.y*.17))%1;links.push({ax:t.x+.5,ay:t.y+.5,bx:l.n.x+.5,by:l.n.y+.5,color:tint,alpha:pulse});shots.push({x:l.n.x+.5+(t.x-l.n.x)*k,y:l.n.y+.5+(t.y-l.n.y)*k,color:tint,size:.2+.08*Math.sin(G.time*7),lift:.3})}
+ const lanes=(G.laneShots||[]).map(l=>({x:l.x,y:l.y,dx:l.dx,dy:l.dy,length:l.length,q:1-Math.max(0,l.life/l.maxLife),color:l.color||'#d9ecff'}));
  const traps=G.traps.map(t=>({x:t.x,y:t.y,color:t.color}));
  const particles=G.particles.map(p=>({x:p.x,y:p.y,color:p.color,alpha:Math.max(0,Math.min(1,p.maxLife?p.life/p.maxLife:p.life))}));
  const rings=(G.holyRains||[]).map(r=>({x:r.x,y:r.y,radius:r.radius,color:'#8edcff',alpha:.15+.45*Math.max(0,1-r.elapsed/r.duration)}));
+ if(G.roadReveal){const q=Math.max(0,G.roadReveal.life/G.roadReveal.maxLife);for(const cell of G.roadReveal.cells)rings.push({x:cell.x+.5,y:cell.y+.5,radius:.2+.5*(1-q),color:'#d1b078',alpha:.55*q})}
  const selected=G.selectedTower?{x:G.selectedTower.x,y:G.selectedTower.y,range:towerCombatRange(G.selectedTower)}:null;
- return {time:G.time,width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,towers,shots,traps,particles,rings};
+ return {time:G.time,width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0,focus:G.camera?.focus||null},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,towers,shots,traps,particles,rings,links,lanes};
 }
 function draw3D(){
  battleTelemetryOverlay.update(G,nextChoiceMilestone(G));
@@ -3037,6 +3047,16 @@ function draw3D(){
   const barW=e.boss?96:e.mini?46:e.elite?42:36,barH=e.boss?7:4,x=p.x,y=p.y+6;
   ctx.fillStyle='#160b12';ctx.fillRect(x-barW/2,y,barW,barH);ctx.fillStyle=e.boss?'#c22d55':'#d94458';ctx.fillRect(x-barW/2,y,barW*Math.max(0,e.hp/e.max),barH);ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.strokeRect(x-barW/2,y,barW,barH);
  }
+ // Tower badges: level stars under the base, support icons and gem slots above.
+ ctx.textAlign='center';ctx.textBaseline='middle';
+ for(const t of G.towers){
+  const cx=t.x+.5,cy=t.y+.5,base=battle3d.project(cx,cy);if(!base.visible)continue;
+  if((t.level||1)>1){ctx.font='11px serif';ctx.fillStyle='#ffe69c';ctx.fillText('★'.repeat(Math.min(5,t.level)),base.x,base.y+12)}
+  const top=battle3d.project(cx,cy,groundHeight(cx,cy)+1.55);
+  if(t.supports?.length){ctx.font='12px serif';t.supports.forEach((s,i)=>{const bx=top.x+(i-(t.supports.length-1)/2)*16;ctx.fillStyle='#15101ddd';ctx.beginPath();ctx.arc(bx,top.y,9,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(s.icon,bx,top.y)})}
+  if(!t.supportOnly){const gems=inv(t.id).gemSlots.map(ascensionGemDef).filter(Boolean);if(gems.length){ctx.font='11px serif';const gy=top.y-(t.supports?.length?20:0);gems.forEach((gem,i)=>{const gx=top.x+(i-(gems.length-1)/2)*16;ctx.fillStyle='#09070ddd';ctx.strokeStyle=gem.color||'#e8c77a';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(gx,gy,8,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.fillText(gem.icon,gx,gy)})}}
+ }
+ if(G.time<=MGS.alertUntil){const left=MGS.alertUntil-G.time,pop=Math.min(1,(1.45-left)*7),rise=(1-Math.min(1,left/1.45))*.3,p=battle3d.project(MGS.alertX,MGS.alertY,groundHeight(MGS.alertX,MGS.alertY)+1.9+rise);if(p.visible){ctx.save();ctx.globalAlpha=Math.min(1,left*3.2);ctx.translate(p.x,p.y);ctx.scale(.7+pop*.45,.7+pop*.45);ctx.font='bold 46px Georgia, serif';ctx.lineWidth=6;ctx.strokeStyle='#160d12';ctx.strokeText('!',0,0);ctx.fillStyle='#ffe14d';ctx.fillText('!',0,0);ctx.restore()}}
  for(const f of G.floaters){
   const p=battle3d.project(f.x,f.y,groundHeight(f.x,f.y)+.9);if(!p.visible)continue;
   const pop=1+.55*(1-Math.pow(1-(f.pop??1),3))-.55,sz=Math.round((f.size||12)*(.55+.45*(f.pop??1))*(1+.18*pop));
