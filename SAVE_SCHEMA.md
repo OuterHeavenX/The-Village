@@ -91,7 +91,7 @@ The cloud stores a bundle of *storage entries*, not the game object:
 {
   "format": "the-village-cloud-save",
   "schemaVersion": 1,
-  "gameVersion": "36.0.0",
+  "gameVersion": "37.0.0",
   "savedAt": "…",
   "entries": { "relicsEclipseSave": "…", "rotk.village.living.v31_3": "…" }
 }

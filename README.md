@@ -5,7 +5,7 @@ game. You develop a persistent settlement, assemble a card-driven defensive
 loadout, guide Shadow and a familiar, and defend branching roads through a
 twenty-chapter campaign.
 
-Current version: **36.0.0 — Gothic Collection**
+Current version: **37.0.0 — Siege of the Keep**
 
 Village development materially changes battle, and battle progression opens
 village research. That loop is the point of the game:

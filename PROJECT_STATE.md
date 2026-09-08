@@ -13,7 +13,7 @@ file before touching the code, read this one, then `ARCHITECTURE.md`.
 
 | | |
 |---|---|
-| Version | 36.0.0 — Gothic Collection (`src/config/release.js` is the single source) |
+| Version | 37.0.0 — Siege of the Keep (`src/config/release.js` is the single source; the footer also shows the build's commit) |
 | Engine | None. Hand-written JavaScript, ES modules, no framework |
 | Build | Vite 7 |
 | Rendering | Three.js r128 for the Village and (since Battle 4.0) the battlefield, with the Canvas 2D board as fallback; DOM/CSS for all UI |

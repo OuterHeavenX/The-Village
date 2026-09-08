@@ -60,7 +60,7 @@ async function mockSupabase(context) {
         total_play_time_seconds: 0,
         last_login_at: updatedAt,
         last_seen_at: updatedAt,
-        game_version: '36.0.0',
+        game_version: '37.0.0',
         updated_at: updatedAt
       };
       return route.fulfill({
@@ -143,7 +143,7 @@ async function runViewport(browser, viewport, mobile = false) {
   }
 
   const release = await page.locator('[data-release-label]').textContent();
-  if (!release?.includes('36.0.0')) errors.push(`Visible release label is incorrect: ${release}`);
+  if (!release?.includes('37.0.0')) errors.push(`Visible release label is incorrect: ${release}`);
 
   const onboardingSkip = page.locator('#prologueSkip');
   if (await onboardingSkip.isVisible()) {
