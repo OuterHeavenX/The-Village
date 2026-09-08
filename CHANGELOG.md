@@ -120,6 +120,11 @@ removed; existing saves are untouched.
 - `ARCHITECTURE.md`, `PROJECT_STATE.md`, `ROADMAP.md`, `SAVE_SCHEMA.md`,
   `DEPLOYMENT.md` and `KNOWN_ISSUES.md` at the repository root.
 - A GitHub Pages deployment workflow.
+- **Battle 4.0, Stage A.** `docs/BATTLE_4_DESIGN.md` (the keep-at-centre
+  arena with breaches instead of road growth), the headless Blender generator
+  `tools/blender/build_battlefield.py`, and its output
+  `assets/battlefield3d/keep_arena.glb` plus `keep_arena.layout.json`. Nothing
+  in the game loads them yet; Stage B adds the renderer behind a flag.
 
 ### Repository
 
