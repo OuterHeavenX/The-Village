@@ -124,6 +124,10 @@ removed; existing saves are untouched.
   arena with breaches instead of road growth), the headless Blender generator
   `tools/blender/build_battlefield.py`, and its output
   `assets/battlefield3d/keep_arena.glb` plus `keep_arena.layout.json`.
+- **3D battlefield: the remaining 2D touches.** Synergy links between
+  towers, level stars, support icons and gem badges, lane shots, the "!"
+  alert, the boss camera swing and the breach reveal (rubble sinks away as
+  the gate falls) now all appear on the 3D battlefield too.
 - **Battle 4.0, Stage C: the 3D battlefield is the default.** A bot played
   chapters 1–3 on both boards through new `VillageBattleAPI` hooks
   (`step`, `placementOptions`, `pads`, `tapTile`, `routes`); what it found

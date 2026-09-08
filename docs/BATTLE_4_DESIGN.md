@@ -140,12 +140,15 @@ default until Stage C.
   (id, level, animation phase, supports) into a 128 px canvas and shown the
   same way; `rasterTower()` in `game.js` swaps the module's `ctx` for one
   call, which is why `ctx` became `let`.
-- **Not carried over yet** (still 2D-only): the synergy links between towers,
-  level stars and gem badges above towers, the MGS alert, lane projectile
-  art (lane shots are not drawn), the road-reveal dust, corpses' hit flash,
-  boss camera shake beyond what `shakeOffset()` applies to the overlay.
-  Projectiles are glow sprites in the shot's colour; particles are a single
-  `Points` cloud (cap 900).
+- **Carried over after Stage C:** synergy links (flat additive strips between
+  towers with the mote riding each), level stars, support icons and gem
+  badges (projected overlay), lane shots (a strip that grows along the lane),
+  the "!" alert, the boss camera swing (the tour now carries a world focus
+  point and a 0–1 weight that the 3D camera blends toward), and the breach
+  reveal (rubble sinks away over 0.8 s, reveal rings on the new road).
+  Still 2D-only: corpses' hit flash and the boss screen shake beyond what
+  `shakeOffset()` applies to the overlay. Projectiles are glow sprites in the
+  shot's colour; particles are a single `Points` cloud (cap 900).
 - **Grass** samples the terrain's vertex-colour G channel: 21.8k blades on
   desktop, 4.6k on the phone tier (`(pointer:coarse)` and a short side under
   700 px), with a vertex-shader sway. Draw calls sit around 60 before towers

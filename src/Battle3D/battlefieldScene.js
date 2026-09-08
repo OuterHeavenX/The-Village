@@ -31,7 +31,9 @@ export const BATTLE_VIEW_SHAPE = `
   shots: [{ x, y, color, size }],
   traps: [{ x, y, color }],
   particles: [{ x, y, color, alpha, size }],
-  rings: [{ x, y, radius, color, alpha }]
+  rings: [{ x, y, radius, color, alpha }],
+  links: [{ ax, ay, bx, by, color, alpha }],   // synergy links between towers
+  lanes: [{ x, y, dx, dy, length, q, color }]  // lane shots, q = 0..1 progress
 }`;
 
 const GLB_URL = new URL('../../assets/battlefield3d/keep_arena.glb', import.meta.url).href;
@@ -442,6 +444,41 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     return ring;
   }
 
+  // Flat glowing strips: synergy links between towers and lane shots.
+  const stripGeometry = new THREE.PlaneGeometry(1, 1);
+  stripGeometry.translate(.5, 0, 0);   // origin at one end, +x along the strip
+  disposables.push(stripGeometry);
+  function makeStripPool() {
+    const pool = [];
+    return {
+      acquire(i) {
+        let mesh = pool[i];
+        if (!mesh) {
+          mesh = new THREE.Mesh(stripGeometry, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+          mesh.rotation.order = 'YXZ';
+          markerGroup.add(mesh);
+          pool[i] = mesh;
+        }
+        mesh.visible = true;
+        return mesh;
+      },
+      release(from) { for (let i = from; i < pool.length; i++) pool[i].visible = false; },
+      dispose() { for (const mesh of pool) mesh.material.dispose(); }
+    };
+  }
+  const linkPool = makeStripPool(), lanePool = makeStripPool();
+  function layStrip(mesh, x0, y0, x1, y1, width, lift) {
+    const dx = x1 - x0, dy = y1 - y0, length = Math.max(.01, Math.hypot(dx, dy));
+    const h = Math.max(groundHeight(x0, y0), groundHeight(x1, y1)) + lift;
+    mesh.position.set(x0, h, y0);
+    mesh.rotation.set(-Math.PI / 2, -Math.atan2(dy, dx), 0);
+    mesh.scale.set(length, width, 1);
+  }
+
+  // Rubble sinks away over a moment when its gate breaches, instead of vanishing.
+  const rubbleOpenedAt = new Map();
+  let lastOpenRoutes = 0;
+
   // ---- camera --------------------------------------------------------------
   let width = 1, height = 1, baseDistance = 24;
   const target = new THREE.Vector3(KEEP_CENTER.x, .5, KEEP_CENTER.y);
@@ -470,6 +507,14 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       Math.max(1.5, Math.min(COLS - 1.5, KEEP_CENTER.x + panX)),
       groundHeight(KEEP_CENTER.x, KEEP_CENTER.y) + .4,
       Math.max(2, Math.min(ROWS - 1, KEEP_CENTER.y + .6 + panZ)));
+    const focus = view?.camera?.focus;
+    if (focus && focus.w > 0) {
+      // Spawn points sit outside the walls; keep the look-at inside the arena.
+      const w = Math.min(1, focus.w), fx = Math.max(1.5, Math.min(COLS - 1.5, focus.x)), fz = Math.max(2.5, Math.min(ROWS - 2.5, focus.y));
+      target.x += (fx - target.x) * w;
+      target.y += (groundHeight(fx, fz) + .4 - target.y) * w;
+      target.z += (fz - target.z) * w;
+    }
     const distance = baseDistance / zoom;
     camera.position.set(target.x, target.y + Math.sin(PITCH) * distance, target.z + Math.cos(PITCH) * distance);
     camera.lookAt(target);
@@ -504,7 +549,21 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       keepEmissive.setRGB(damage * .32, damage * .04, 0);
       for (const material of keepMaterials) if (material.emissive) material.emissive.copy(keepEmissive);
     }
-    for (const [i, road] of KEEP_ROAD_ORDER.entries()) for (const piece of rubble.get(road) || []) piece.visible = i >= (view.openRoutes || 1);
+    const openRoutes = view.openRoutes || 1;
+    if (openRoutes < lastOpenRoutes) rubbleOpenedAt.clear();   // a new battle re-seals the gates
+    lastOpenRoutes = openRoutes;
+    for (const [i, road] of KEEP_ROAD_ORDER.entries()) {
+      const open = i < openRoutes;
+      if (open && !rubbleOpenedAt.has(road)) rubbleOpenedAt.set(road, i === 0 ? -1e9 : view.time || 0);
+      if (!open) rubbleOpenedAt.delete(road);
+      const t = open ? Math.min(1, ((view.time || 0) - rubbleOpenedAt.get(road)) / .8) : 0;
+      for (const piece of rubble.get(road) || []) {
+        if (piece.userData.restY === undefined) { piece.userData.restY = piece.position.y; piece.userData.restScale = piece.scale.x; }
+        piece.visible = !open || t < 1;
+        piece.position.y = piece.userData.restY - t * .9;
+        piece.scale.setScalar(piece.userData.restScale * (1 - t * .5));
+      }
+    }
 
     for (const pad of pads.values()) pad.visible = false;
     if (view.placing && view.placing !== 'trap') for (const slot of view.pads || []) {
@@ -588,6 +647,25 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     for (let i = n; i < effectRingPool.length; i++) effectRingPool[i].visible = false;
 
     n = 0;
+    for (const link of view.links || []) {
+      const mesh = linkPool.acquire(n++);
+      mesh.material.color.copy(cssColor(link.color, '#ffe58a'));
+      mesh.material.opacity = (link.alpha ?? .5) * .8;
+      layStrip(mesh, link.ax, link.ay, link.bx, link.by, .09, .22);
+    }
+    linkPool.release(n);
+
+    n = 0;
+    for (const lane of view.lanes || []) {
+      const mesh = lanePool.acquire(n++);
+      const d = Math.max(.2, lane.length * lane.q);
+      mesh.material.color.copy(cssColor(lane.color, '#d9ecff'));
+      mesh.material.opacity = .25 + .65 * (1 - lane.q);
+      layStrip(mesh, lane.x, lane.y, lane.x + lane.dx * d, lane.y + lane.dy * d, .16, .45);
+    }
+    lanePool.release(n);
+
+    n = 0;
     for (const p of view.particles || []) {
       if (n >= PARTICLE_CAP) break;
       const c = cssColor(p.color, '#ffffff'), a = Math.max(0, Math.min(1, p.alpha ?? 1));
@@ -606,7 +684,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); lost = true; onContextLost?.(); }, false);
 
   function dispose() {
-    spritePool.dispose(); towerPool.dispose();
+    spritePool.dispose(); towerPool.dispose(); linkPool.dispose(); lanePool.dispose();
     for (const s of shotPool) s.material.dispose();
     for (const d of trapPool) d.material.dispose();
     for (const r of effectRingPool) r.material.dispose();
@@ -624,6 +702,6 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     canvas, ready, dressed, render, resize, dispose, worldAt, project,
     get lost() { return lost; },
     get quality() { return quality; },
-    stats() { return { grass: grass?.count || 0, stones: stones?.count || 0, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, textures: textures.size }; }
+    stats() { return { grass: grass?.count || 0, stones: stones?.count || 0, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, textures: textures.size, rubble: Object.fromEntries(KEEP_ROAD_ORDER.map(road => [road, (rubble.get(road) || []).slice(0, 1).map(p => ({ visible: p.visible, y: +p.position.y.toFixed(2), s: +p.scale.x.toFixed(2) }))[0] || null])) }; }
   };
 }
