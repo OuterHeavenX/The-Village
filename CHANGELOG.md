@@ -124,6 +124,20 @@ removed; existing saves are untouched.
   arena with breaches instead of road growth), the headless Blender generator
   `tools/blender/build_battlefield.py`, and its output
   `assets/battlefield3d/keep_arena.glb` plus `keep_arena.layout.json`.
+- **Battle 4.0, Stage C: the 3D battlefield is the default.** A bot played
+  chapters 1–3 on both boards through new `VillageBattleAPI` hooks
+  (`step`, `placementOptions`, `pads`, `tapTile`, `routes`); what it found
+  reshaped the keep layout: roads lengthened to 16–18 tiles, enemies walk at
+  0.82× there so travel time matches the cathedral road, the second front
+  now opens in a chapter's last three waves until chapter 5 (two fronts from
+  5, three from 11), and "Next Wave" is locked on the same cadence as the
+  cathedral board. `?battle3d=0` or the ♫ panel toggle restores the classic
+  board, which is also the fallback when WebGL is unavailable. Results are in
+  `docs/BATTLE_4_DESIGN.md`.
+- **Chapter clears no longer crash on Passive Card rewards.** Chapter 1's
+  reward list includes a Passive Card that is not in the card pool; the
+  results screen threw and fell into its recovery path (which still saved
+  progress, but skipped the reward summary).
 - **Battle 4.0, Stage B: the 3D battlefield preview.** `?battle3d=1` (or the
   ♫ panel toggle) plays the next battle on the keep-at-centre arena: a
   Three.js scene built from the Blender GLB with hills, instanced grass, the

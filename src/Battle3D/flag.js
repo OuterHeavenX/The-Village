@@ -1,11 +1,12 @@
-// The Battle 4.0 preview switch. Off by default until Stage C; see
-// docs/BATTLE_4_DESIGN.md.
+// The Battle 4.0 switch. On by default since Stage C (docs/BATTLE_4_DESIGN.md);
+// the classic 2D board remains the fallback when WebGL is unavailable and can
+// be chosen explicitly.
 //
-// `?battle3d=1` turns the 3D battlefield on for this browser and `?battle3d=0`
-// turns it off again; the choice is remembered in localStorage so a tester can
-// keep playing without the query string. The Settings panel toggle writes the
-// same key. Deliberately not part of the save (and so not cloud-synced): it
-// is a device capability choice, not progress.
+// `?battle3d=0` turns the 3D battlefield off for this browser and `?battle3d=1`
+// turns it back on; the choice is remembered in localStorage so a tester can
+// keep playing without the query string. The ♫ panel toggle writes the same
+// key. Deliberately not part of the save (and so not cloud-synced): it is a
+// device capability choice, not progress.
 
 const STORAGE_KEY = 'village.battle3d';
 
@@ -28,15 +29,20 @@ function writeStorage(value) {
 
 let cached = null;
 
+const DEFAULT_ON = true;
+
 function resolve() {
   const search = new URLSearchParams(globalThis.location?.search || '');
   if (search.has('battle3d')) {
     const raw = String(search.get('battle3d') || '').toLowerCase();
     const on = !(raw === '0' || raw === 'false' || raw === 'off');
-    writeStorage(on ? '1' : null);
+    writeStorage(on ? '1' : '0');
     return on;
   }
-  return readStorage() === '1';
+  const stored = readStorage();
+  if (stored === '1') return true;
+  if (stored === '0') return false;
+  return DEFAULT_ON;
 }
 
 export function battle3dEnabled() {
@@ -46,6 +52,6 @@ export function battle3dEnabled() {
 
 export function setBattle3dEnabled(on) {
   cached = !!on;
-  writeStorage(cached ? '1' : null);
+  writeStorage(cached ? '1' : '0');
   return cached;
 }

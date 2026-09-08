@@ -24,13 +24,15 @@ different and more dangerous thing.
   touch stream (iPad profile). iOS Safari's long-press behaviour (text
   selection, the callout) is untested. Tapping `+`, the detail sheet and swap
   mode cover the same actions without a drag.
-- **The 3D battlefield preview on real GPUs.** `?battle3d=1` was exercised
+- **The 3D battlefield on real GPUs.** The default battlefield was exercised
   only under SwiftShader in headless Chromium, which proves the scene, the
-  raycast placement and the breach logic but says nothing about frame rate.
+  raycast placement, the breach logic and (via the bot) that whole chapters
+  play out the same as on the 2D board, but says nothing about frame rate.
   The phone tier caps grass at ~5k blades and pixel ratio at 1.5; whether a
   2020 iPhone holds 60 fps with 20 enemies on screen is untested. If WebGL
   fails or the context is lost, the battle falls back to the 2D board with
-  the keep layout, which is playable but has no keep art.
+  the keep layout, which is playable but has no keep art. `?battle3d=0`
+  restores the classic board if a device struggles.
 - **Supabase against a live project — partially.** Confirmed directly on the
   production project after restoring it from a pause: `profiles`,
   `player_saves` and `tester_feedback` exist with row-level security enabled,

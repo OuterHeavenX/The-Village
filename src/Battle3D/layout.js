@@ -18,13 +18,26 @@ export const KEEP_TILES = Object.freeze(layoutData.keep.tiles.map(([x, y]) => ({
 
 const BREACH_LABELS = ['WEST GATE BREACHED', 'NORTH GATE BREACHED', 'EAST GATE BREACHED'];
 
+// The cathedral road grows to 23 tiles by mid-chapter; the keep's roads stay
+// 16-18 and the next-wave call is locked on fewer waves, so enemies reached
+// the door about 30% sooner in the Stage C bot runs and chapters 2-3 fell.
+// Walking speed is the one lever that scales every enemy and every road the
+// same way; this brings travel time back to the cathedral board's.
+export const KEEP_LAYOUT_TUNING = Object.freeze({ enemySpeed: .82 });
+
 // Completed-wave numbers at which the sealed gates fall, by campaign stage.
-// Chapter 1 has 8 waves, chapter 12 has 22; later chapters open every gate.
+// Mirrors the cathedral board's front count: one road through chapter 4 (a
+// single breach in the last three waves as the finale twist), two fronts
+// from chapter 5, three from chapter 11. The Stage C bot lost every chapter
+// 2-3 run when the first breach came at wave 4 - a second front that early
+// doubles the road a starting deck must cover.
 export function breachWavesForStage(stage = 1) {
   const n = Math.max(1, Number(stage) || 1);
   if (n === 1) return [5];
-  if (n <= 4) return [4, 8];
-  if (n <= 10) return [3, 6, 9];
+  if (n === 2) return [7];
+  if (n === 3) return [9];
+  if (n === 4) return [11];
+  if (n <= 10) return [4, 8];
   return [2, 5, 8];
 }
 
