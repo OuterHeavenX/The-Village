@@ -1,6 +1,85 @@
-# THE VILLAGE — PROJECT STATE
+# THE VILLAGE — CHANGELOG
 
-**Current baseline:** V36.0.0 — GOTHIC COLLECTION
+Release history, newest first. This file was previously `PROJECT_STATE.md`; it
+had grown into a 6,400-line running log rather than a statement of current
+state, so it was renamed to what it actually is. `PROJECT_STATE.md` is now a
+short snapshot of the game as it stands today.
+
+Entries from V36.0.0 downwards are the original release notes, unedited. The
+per-release patch notes they summarise are in `docs/patch_notes/`.
+
+## Unreleased — Audit and stabilisation pass
+
+Engineering pass over the V36.0.0 baseline. No gameplay content was added or
+removed; existing saves are untouched.
+
+### Fixed
+
+- **Unreadable saves are quarantined instead of discarded.** A save that failed
+  to parse, or that parsed to something other than an object, used to be
+  dropped: the player silently started a new profile and the next autosave
+  overwrote the damaged original. The raw text is now copied to
+  `village.saveRecovery.damaged.<timestamp>` first, capped at three copies.
+- **Living Village state is saved.** The Living Village store (claimed secrets,
+  visits) and the construction store (in-progress builds, blessings, trophies)
+  called `queueCloudSave()` after every write, but their `rotk.village.*` keys
+  matched none of the save-key patterns, so none of it was ever collected. It
+  was missing from cloud saves, from save exports and from recovery backups, and
+  a full reset left it behind. All three patterns now cover those keys.
+- **The Herb Garden and Gem Forge are reachable.** Both were in the build
+  catalog but were neither starters nor unlocked by any research, so no build
+  menu could ever show them. The Herb Garden now comes with Moon Orchardry
+  (chapter 3) and the Gem Forge with Arcane Mastery (chapter 17). The Gem Forge
+  also had no 3D model and would have placed as an empty plot.
+- **The game runs without cloud accounts.** Startup dead-ended on a sign-in form
+  that could not succeed when no Supabase credentials were configured, making
+  every static deployment unplayable. It now boots straight into local play.
+  When Supabase *is* configured but unreachable, the sign-in form is still
+  shown, as before.
+- **The audio control no longer covers Tester Feedback on tablets.** Between
+  481px and 1100px the two overlapped and the audio button took every tap, so
+  the feedback button was unreachable at both iPad portrait and landscape.
+- **Save exports no longer nest earlier backups.** Each export embedded the
+  previous recovery snapshot, so bundles compounded on every save.
+
+### Changed
+
+- Production builds use a relative base, so the same `dist/` works from a root
+  domain and from a path prefix such as a GitHub Pages project site.
+- The battle canvas is no longer repainted 60 times a second while no battle is
+  running. Idle full-canvas repaints per frame: 1 before, 0 after; in battle it
+  is unchanged at 1 per frame.
+- The Village's four independent animation loops are driven by one. Idle rAF
+  callbacks per frame: 6 before, 3 after.
+- Village construction, research and campaign chapter data moved to `src/data/`
+  as pure data modules shared by the UI, the engine and the validators.
+- One debug flag replaces four scattered ones: `?debug=1`, or a channel list
+  such as `?debug=overlay,visual`. The battle telemetry overlay and the state
+  validator are now reachable on deployed builds, where they were previously
+  compiled out.
+
+### Added
+
+- `scripts/validate-content.mjs`, run as part of `npm run build`: duplicate
+  registry ids, research unlocking buildings that do not exist, research gated
+  behind chapters that do not exist, buildings with no 3D model, and buildings
+  no route in the game can reach.
+- `ARCHITECTURE.md`, `PROJECT_STATE.md`, `ROADMAP.md`, `SAVE_SCHEMA.md`,
+  `DEPLOYMENT.md` and `KNOWN_ISSUES.md` at the repository root.
+- A GitHub Pages deployment workflow.
+
+### Repository
+
+- The 100 loose `PATCH_NOTES_*` files in the repository root moved to
+  `docs/patch_notes/`, joining the 61 already there.
+- Removed `README.txt`, a stale duplicate of `README.md` two major versions old,
+  and the empty `shaders/` placeholder.
+
+---
+
+# Release history
+
+**Baseline at the time of this pass:** V36.0.0 — GOTHIC COLLECTION
 
 ## V36.0.0 GOTHIC COLLECTION
 
