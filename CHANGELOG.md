@@ -123,8 +123,16 @@ removed; existing saves are untouched.
 - **Battle 4.0, Stage A.** `docs/BATTLE_4_DESIGN.md` (the keep-at-centre
   arena with breaches instead of road growth), the headless Blender generator
   `tools/blender/build_battlefield.py`, and its output
-  `assets/battlefield3d/keep_arena.glb` plus `keep_arena.layout.json`. Nothing
-  in the game loads them yet; Stage B adds the renderer behind a flag.
+  `assets/battlefield3d/keep_arena.glb` plus `keep_arena.layout.json`.
+- **Battle 4.0, Stage B: the 3D battlefield preview.** `?battle3d=1` (or the
+  ♫ panel toggle) plays the next battle on the keep-at-centre arena: a
+  Three.js scene built from the Blender GLB with hills, instanced grass, the
+  Village's own keep model, four full-length roads and sealed gates that
+  breach at authored waves instead of a road that grows. Enemies, towers,
+  Shadow and the familiar are billboards of the existing art; health bars
+  and damage numbers are projected onto the 2D canvas above. The simulation
+  is untouched and the classic 2D battle stays the default. See
+  `docs/BATTLE_4_DESIGN.md` for what is and is not carried over.
 
 ### Repository
 

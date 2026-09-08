@@ -13,6 +13,9 @@ import { NEW_CORE_TOWERS, coreTower } from './Towers/towerRegistry.js';
 import { preloadCoreTowerAtlases, renderCoreGothicTower } from './Towers/towerAnimations.js';
 import { drawLaneProjectileAsset, drawProjectileAsset, impactPalette } from './projectileSystem.js';
 import { authoredRoadPlans, CATHEDRAL_ENTRANCE } from './Environment/roadRegistry.js';
+import { battle3dEnabled, setBattle3dEnabled } from '../Battle3D/flag.js';
+import { KEEP_CENTER, groundHeight, keepRoadPlans, routeSpawnPoint, routeTargetPoint } from '../Battle3D/layout.js';
+import { battle3d } from '../Battle3D/battleBridge.js';
 import { battleEvent, diagnosticSnapshot, installCanvasDiagnostics, validateBattleState } from './battleDiagnostics.js';
 import { weightedDraftPool } from './Cards/draftWeights.js';
 import { waveBreathingPeriod, waveIdentity, waveSpawnCount } from './waveDirector.js';
@@ -48,7 +51,10 @@ import { CAMPAIGN_CHAPTERS } from '../data/campaign.js';
 'use strict';
 // V32.4.1 — Stability audit, cleanup, Shadow Familiars and evolving battle Keep.
 // V27.4 Split Roads: connected branching routes and multi-front enemy assaults.
-const $=s=>document.querySelector(s), canvas=$('#game'), ctx=canvas.getContext('2d');
+const $=s=>document.querySelector(s), canvas=$('#game');
+// `let`, not `const`: rasterTower() below points every 2D draw helper at an
+// offscreen canvas for one call so the 3D battlefield can reuse the tower art.
+let ctx=canvas.getContext('2d');
 installCanvasDiagnostics(canvas);
 preloadBattlefield();
 preloadCathedral();
@@ -1106,7 +1112,7 @@ window.VillageBattleAPI={
     if(G.enemies.length)return {ok:false,reason:'living-enemies'};
     const target=Math.max(1,Math.min(G.chapterWaves,Math.floor(Number(wave)||1))),from=Math.max(1,G._visualAuditRoadWave||1);G.paused=true;
     for(let completed=from;completed<target;completed++)growRoadAfterWave(completed);
-    G._visualAuditRoadWave=target;G.wave=target;bumpRoadVersion();draw();
+    G._visualAuditRoadWave=target;G.wave=target;bumpRoadVersion();paint();
     return {ok:true,wave:target,routes:G.routes.map(route=>route.length),pending:(G.roadEvents||[]).filter(event=>!event.applied).map(event=>({wave:event.wave,type:event.type,routeIndex:event.routeIndex}))};
   },
   diagnostics(){return diagnosticSnapshot(G,{session:battleSessionId,activeTimers:[...battleTimers.values()],overlays:[...document.querySelectorAll('#gameOver,#choices,#battleUpgradeModal,#battleCinematic,#chapterTenCinematic,#waveBanner,#bossWrap,#placementBar,#towerInspector,#dropBanner,#codecOverlay,#mgsCry')].map(node=>({id:node.id,hidden:node.classList.contains('hidden'),display:getComputedStyle(node).display})),bodyClasses:[...document.body.classList],canvas:{width:canvas.width,height:canvas.height,cssWidth:W,cssHeight:H},context:{alpha:ctx.globalAlpha,composite:ctx.globalCompositeOperation,filter:ctx.filter,shadowBlur:ctx.shadowBlur,shadowColor:ctx.shadowColor,transform:[...ctx.getTransform().toFloat32Array()]},frame:canvasFrameSignature()})},
@@ -1137,7 +1143,12 @@ window.VillageBattleAPI={
     if(!G||G.chapter?.number!==10||new URLSearchParams(location.search).get('visualAudit')!=='1')return {ok:false,reason:'visual-audit-stage-10-only'};
     save.uniqueBossDrops.draculaTooth=false;G.lastBossDeath={x:G.hero.x,y:G.hero.y,form:3,type:'golem',name:'Golem of Three Forms'};playDraculaToothCinematic();return {ok:true};
   },
-  state(){const limits=G?battlefieldLimits(G):null;return G?{active:true,speed:G.speed,paused:G.paused,state:G.state,chapter:G.chapter?.number||null,structures:G.towers.length+G.traps.length,limits,shadowLevel:currentShadowLevel(),draculaTooth:!!save.uniqueBossDrops.draculaTooth}:{active:false};}
+  // Bot and audit hooks: tiles in, taps out, so a script can play the board
+  // the same way on the 2D and 3D battlefields.
+  pads(){if(!G)return [];return placementSlots(G,GRID.cols,GRID.rows).map(slot=>({x:slot.x,y:slot.y,valid:validTowerTile(slot.x,slot.y)}))},
+  tapTile(x,y){const p=screenPointForTile(Number(x),Number(y));if(!p)return {ok:false,reason:'off-screen'};handleBattleTap({clientX:p.clientX,clientY:p.clientY,pointerId:-1});return {ok:true,...p}},
+  routes(){return G?{layout:G.layout||'cathedral',open:G.routes.length,plans:G.roadPlans.length,points:G.routes.map((_,i)=>routePoints(i)),events:(G.roadEvents||[]).map(e=>({wave:e.wave,type:e.type,route:e.routeIndex,applied:!!e.applied}))}:null},
+  state(){const limits=G?battlefieldLimits(G):null;return G?{active:true,layout:G.layout||'cathedral',battle3d:battle3d.stats(),wave:G.wave,hp:G.hp,kills:G.kills,enemies:G.enemies.filter(e=>!e.dead).length,pendingCard:G.pendingCard?.id||null,speed:G.speed,paused:G.paused,state:G.state,chapter:G.chapter?.number||null,structures:G.towers.length+G.traps.length,limits,shadowLevel:currentShadowLevel(),draculaTooth:!!save.uniqueBossDrops.draculaTooth}:{active:false};}
 };
 function resize(){
  const r=canvas.getBoundingClientRect();
@@ -1158,6 +1169,7 @@ function resize(){
  // Bias the initial siege framing toward the painted cathedral. The lower breach
  // remains reachable through the existing pan/center controls.
  oy=Math.min(0,(H-worldH*scale)*.12);
+ battle3d.resize();
 }
 addEventListener('resize',resize);visualViewport?.addEventListener('resize',resize);new ResizeObserver(resize).observe(canvas);resize();
 let battleSessionId=0;
@@ -1237,6 +1249,9 @@ function generateCentralPlan(){
  return route;
 }
 function generateRoadPlans(chapterNumber=1){
+ // Battle 4.0 preview: the keep-at-centre arena with full roads and breaches
+ // instead of a growing road. docs/BATTLE_4_DESIGN.md.
+ if(battle3dEnabled())return keepRoadPlans(chapterNumber);
  return authoredRoadPlans(chapterNumber);
  /* Legacy procedural generator retained below for save/debug archaeology only.
  const left=generateBranchPlan(-1),right=generateBranchPlan(1),center=generateCentralPlan();
@@ -1259,17 +1274,19 @@ function generateRoadPlans(chapterNumber=1){
 function rebuildVisiblePath(){
  if(!G)return;
  const seen=new Set(),all=[];
- for(const route of G.routes||[]){
+ for(const route of (G.layout==='keep'?G.roadPlans:G.routes)||[]){
   for(const p of route){const k=key(p.x,p.y);if(!seen.has(k)){seen.add(k);all.push({x:p.x,y:p.y})}}
  }
  G.path=all;
  bumpRoadVersion();
 }
 function generateStartingRoad(setup=generateRoadPlans()){
- const plans=setup.plans;
- const routes=[plans[0].slice(0,setup.initialLength||ROAD_GROWTH.startingTiles)],seen=new Set(),path=[];
- for(const route of routes)for(const cell of route){const id=key(cell.x,cell.y);if(!seen.has(id)){seen.add(id);path.push({...cell})}}
- return {pattern:setup.pattern,plans,routes,path,events:setup.events||[]};
+ const plans=setup.plans,keep=setup.layout==='keep';
+ // Keep layout: the first road is whole from wave 1 and every road is on the
+ // board (and so in `path`, which drives placement) even while sealed.
+ const routes=[plans[0].slice(0,keep?plans[0].length:(setup.initialLength||ROAD_GROWTH.startingTiles))],seen=new Set(),path=[];
+ for(const route of (keep?plans:routes))for(const cell of route){const id=key(cell.x,cell.y);if(!seen.has(id)){seen.add(id);path.push({...cell})}}
+ return {pattern:setup.pattern,layout:setup.layout||'cathedral',plans,routes,path,events:setup.events||[]};
 }
 function activeRoadEndpoints(){return (G?.routes||[]).filter(r=>r.length).map((r,i)=>({...r.at(-1),routeIndex:i}));}
 function appendRouteTile(routeIndex){
@@ -1300,8 +1317,8 @@ function roadGrowthForWave(completedWave){if(completedWave<=10)return 1;if(compl
 function growRoadAfterWave(completedWave){
  const added=[];
  const scheduled=(G.roadEvents||[]).filter(event=>event.wave===completedWave&&!event.applied);
- for(const event of scheduled){event.applied=true;if(event.type==='OPEN_ROUTE'){while(G.routes.length<=event.routeIndex)G.routes.push(G.roadPlans[G.routes.length].slice(0,4));rebuildVisiblePath();G.branchActive=true;G.spawnMode='split';battleEvent('road-breach-opened',{wave:completedWave,route:event.routeIndex});}const target=G.routes[event.routeIndex];if(!target)continue;for(let i=0;i<event.count&&target.length<G.roadPlans[event.routeIndex].length;i++){const cell=appendRouteTile(event.routeIndex);if(cell&&!cell.shared)added.push(cell)}if(event.label)showToast(event.label,1900)}
- if(scheduled.length)return added;
+ for(const event of scheduled){event.applied=true;if(event.type==='OPEN_ROUTE'){while(G.routes.length<=event.routeIndex)G.routes.push(G.roadPlans[G.routes.length].slice(0,G.layout==='keep'?undefined:4));rebuildVisiblePath();G.branchActive=true;G.spawnMode='split';battleEvent('road-breach-opened',{wave:completedWave,route:event.routeIndex});if(G.layout==='keep')added.push(...G.routes[event.routeIndex].map(cell=>({...cell,routeIndex:event.routeIndex})));}const target=G.routes[event.routeIndex];if(!target)continue;for(let i=0;i<event.count&&target.length<G.roadPlans[event.routeIndex].length;i++){const cell=appendRouteTile(event.routeIndex);if(cell&&!cell.shared)added.push(cell)}if(event.label)showToast(event.label,1900)}
+ if(scheduled.length||G.layout==='keep')return added; // keep layout: breaches only, the roads never grow
  const count=completedWave%3===0?roadGrowthForWave(completedWave):0;
  for(let i=0;i<count;i++){
   let routeIndex=0;
@@ -1317,6 +1334,14 @@ function growRoadAfterWave(completedWave){
  if(added.length){for(const cell of added)burst(cell.x+.5,cell.y+.5,G.map.accent||'#d7b268',18);playTone(185,.11,'square',.03)}
  return added;
 }
+// Where an enemy on a route stands while it hits the objective, and where the
+// objective is for the keep's own defenders. One gate in the cathedral layout,
+// one door per road in the keep layout.
+function gatePoint(routeIndex=0){
+ if(G?.layout==='keep'){const route=G.routes?.[routeIndex]||G.routes?.[0];if(route?.length)return routeTargetPoint(route)}
+ return {x:CATHEDRAL.gateX,y:CATHEDRAL.gateY};
+}
+function defenceCenter(){return G?.layout==='keep'?{x:KEEP_CENTER.x,y:KEEP_CENTER.y}:{x:CATHEDRAL.gateX,y:CATHEDRAL.gateY}}
 function routePoints(routeIndex=0){
  if(routePointsCache.v!==roadVersion){routePointsCache.points=[];routePointsCache.v=roadVersion}
  const hit=routePointsCache.points[routeIndex];
@@ -1325,6 +1350,8 @@ function routePoints(routeIndex=0){
  const outer=route.at(-1);
  const pts=!outer
   ?[{x:CATHEDRAL.gateX,y:CATHEDRAL.gateY}]
+  :G?.layout==='keep'
+  ?[routeSpawnPoint(route),...[...route].reverse().map(p=>({x:p.x+.5,y:p.y+.5})),routeTargetPoint(route)]
   :[{x:outer.x+.5,y:outer.y+1.4},...[...route].reverse().map(p=>({x:p.x+.5,y:p.y+.5})),{x:CATHEDRAL.gateX,y:CATHEDRAL.gateY}];
  routePointsCache.points[routeIndex]=pts;
  return pts;
@@ -1400,8 +1427,10 @@ function freshGame(mode='chapter',chapterId=null){
  const weather=WEATHERS[0];
  const villageBonus=villageBattleBonuses();
  const map=chapter?(MAPS.find(m=>m.id===chapter.map)||MAPS[0]):MAPS[Math.floor(Math.random()*MAPS.length)];save.discoveredMaps[map.id]=true;
+ const heroStart=roadSetup.layout==='keep'?{x:KEEP_CENTER.x-1.1,y:KEEP_CENTER.y+2.1}:{x:CATHEDRAL.gateX-1.25,y:3.35};
  const heroDef=HEROES.find(h=>h.id===save.selectedHero)||HEROES[0];const up=save.keepUpgrades,kb=save.kingdom.buildings||{},equippedRelic=RELICS.find(r=>r.id===save.equippedRelic)||null;
- G={mode,map,state:'play',paused:true,speed:1,time:0,last:performance.now(),hp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp,maxHp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp,essence:40,maxEssence:40,pendingEssence:0,essenceCarry:0,faerieEssenceRemainder:0,wave:1,kills:0,xp:0,xpNeed:8,level:1,battlePoints:0,cardUpgrades:{},path,towers:[],traps:[],enemies:[],shots:[],laneShots:[],particles:[],floaters:[],corpses:[],selected:null,selectedTower:null,towerEditMode:null,towerEditFirst:null,towerEditWasPaused:null,hand:[...save.deck.map(id=>({...card(id),coolLeft:0})),...save.groundDefenseSlots.map(groundCardById).filter(Boolean).map(c=>({...c,coolLeft:0}))],drawWeights:{},pickCounts:{},spawnLeft:5,spawnTimer:0,waveDelay:2,chapterWaves:mode==='endless'?999:chapter.waves,chapter,chapterCleared:false,roadPattern:roadSetup.pattern,roadPlans,routes,roadEvents:roadSetup.events,branchWaves:[],branchActive:false,spawnMode:'single',spawnPattern:'single',spawnSequence:0,rushRoute:0,hero:{x:CATHEDRAL.gateX-1.25,y:3.35,facing:'down',walking:false,anim:0,hp:100,max:100,rate:.48,t:0,damage:22*(1+(up.hunter||0)*.03+(kb.library||0)*.03)*villageBonus.heroDamage,range:2.5,holy:false,crit:.05,frenzy:0,def:heroDef},shake:0,flash:0,boss:false,globalDamage:(1+(kb.forge||0)*.02)*villageBonus.towerDamage,pendingWave:true,pendingCard:null,placementRotation:0,hoverTile:null,weather,relic:equippedRelic,relicKillCount:0,killChain:0,miniBossDefeated:false,openingDraft:false,activeDraftCard:null,draftChoices:null,draftChoiceCommitted:false,runDrops:[],roadMisses:0,lastDropAt:0,bossIntroPlayed:false,ambient:Array.from({length:42},(_,i)=>({x:Math.random()*GRID.cols,y:Math.random()*GRID.rows,v:.08+Math.random()*.18,phase:Math.random()*6.28,kind:i%3})),familiar:{...familiarDef(),...familiarState(save.familiars.equipped),t:1.1,angle:0},keepLevel:keepBattleLevel(),archerTimers:Array.from({length:Math.max(0,keepBattleLevel()-1)},(_,i)=>.6+i*.45),camera:{zoom:1,panX:0,panY:0},cameraPulse:0,hitStop:0,bossImpactWindow:false,rainSplashTimer:0,holyRains:[],queuedSkills:[],comboTimer:0,comboBest:0,weatherFlash:0,waveTransition:false,cameraTour:null};
+ G={mode,map,state:'play',paused:true,speed:1,time:0,last:performance.now(),hp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp,maxHp:20+(heroDef.bonus.hp||0)+(up.walls||0)+(kb.chapel||0)+villageBonus.gateHp,essence:40,maxEssence:40,pendingEssence:0,essenceCarry:0,faerieEssenceRemainder:0,wave:1,kills:0,xp:0,xpNeed:8,level:1,battlePoints:0,cardUpgrades:{},path,towers:[],traps:[],enemies:[],shots:[],laneShots:[],particles:[],floaters:[],corpses:[],selected:null,selectedTower:null,towerEditMode:null,towerEditFirst:null,towerEditWasPaused:null,hand:[...save.deck.map(id=>({...card(id),coolLeft:0})),...save.groundDefenseSlots.map(groundCardById).filter(Boolean).map(c=>({...c,coolLeft:0}))],drawWeights:{},pickCounts:{},spawnLeft:5,spawnTimer:0,waveDelay:2,chapterWaves:mode==='endless'?999:chapter.waves,chapter,chapterCleared:false,roadPattern:roadSetup.pattern,layout:roadSetup.layout,roadPlans,routes,roadEvents:roadSetup.events,branchWaves:[],branchActive:false,spawnMode:'single',spawnPattern:'single',spawnSequence:0,rushRoute:0,hero:{x:heroStart.x,y:heroStart.y,facing:'down',walking:false,anim:0,hp:100,max:100,rate:.48,t:0,damage:22*(1+(up.hunter||0)*.03+(kb.library||0)*.03)*villageBonus.heroDamage,range:2.5,holy:false,crit:.05,frenzy:0,def:heroDef},shake:0,flash:0,boss:false,globalDamage:(1+(kb.forge||0)*.02)*villageBonus.towerDamage,pendingWave:true,pendingCard:null,placementRotation:0,hoverTile:null,weather,relic:equippedRelic,relicKillCount:0,killChain:0,miniBossDefeated:false,openingDraft:false,activeDraftCard:null,draftChoices:null,draftChoiceCommitted:false,runDrops:[],roadMisses:0,lastDropAt:0,bossIntroPlayed:false,ambient:Array.from({length:42},(_,i)=>({x:Math.random()*GRID.cols,y:Math.random()*GRID.rows,v:.08+Math.random()*.18,phase:Math.random()*6.28,kind:i%3})),familiar:{...familiarDef(),...familiarState(save.familiars.equipped),t:1.1,angle:0},keepLevel:keepBattleLevel(),archerTimers:Array.from({length:Math.max(0,keepBattleLevel()-1)},(_,i)=>.6+i*.45),camera:{zoom:1,panX:0,panY:0},cameraPulse:0,hitStop:0,bossImpactWindow:false,rainSplashTimer:0,holyRains:[],queuedSkills:[],comboTimer:0,comboBest:0,weatherFlash:0,waveTransition:false,cameraTour:null};
+ if(G.layout==='keep'&&battle3dEnabled())battle3d.mount(canvas);
  G.draftsCompleted=0;G.recentDrafts=[];G.essence=0;G.essenceEarned=0;G.essenceSpent=0;G.maxEssence=essenceCapacity(G);G.lastDraftTime=-Infinity;G.lastDraftWave=0;G.lastMeaningfulDecisionAt=0;G.economyDeadEndTime=0;activateBattle3Runtime(G);
  const onboarding=EARLY_STAGE_DIFFICULTY[chapterNumber];if(onboarding?.gateHealth){G.hp+=onboarding.gateHealth;G.maxHp+=onboarding.gateHealth;}
  beginProgressionTelemetry({stage:chapterNumber,accountPower:save.deck.reduce((sum,id)=>sum+cardPower(id),0)});
@@ -1866,7 +1895,7 @@ function validRoadPiece(c,anchor,rot=0){const cells=roadCells(c,anchor,rot),set=
 function placeRoadPiece(c,anchor,rot=0){const cells=roadCells(c,anchor,rot);if(!validRoadPiece(c,anchor,rot))return false;for(const p of cells)G.path.push(p);bumpRoadVersion();return true}
 
 function adjacent4(x,y){return [{x:x+1,y},{x:x-1,y},{x,y:y+1},{x,y:y-1}]}
-function isReservedRoadFrontier(x,y){if(!G)return false;const k=key(x,y);for(let i=0;i<(G.routes||[]).length;i++){const route=G.routes[i],plan=G.roadPlans?.[i]||[];for(const p of plan.slice(route.length,route.length+3))if(key(p.x,p.y)===k)return true;}if(!G.branchActive){for(const p of (G.roadPlans?.[1]||[]).slice(4,9))if(key(p.x,p.y)===k)return true;}return false;}
+function isReservedRoadFrontier(x,y){if(!G||G.layout==='keep')return false;const k=key(x,y);for(let i=0;i<(G.routes||[]).length;i++){const route=G.routes[i],plan=G.roadPlans?.[i]||[];for(const p of plan.slice(route.length,route.length+3))if(key(p.x,p.y)===k)return true;}if(!G.branchActive){for(const p of (G.roadPlans?.[1]||[]).slice(4,9))if(key(p.x,p.y)===k)return true;}return false;}
 function validTowerTile(x,y){
  if(!inside(x,y)||pathSet().has(key(x,y)))return false;
  const existing=G.towers.find(t=>t.x===x&&t.y===y);
@@ -1931,7 +1960,17 @@ function pointerCanvasPoint(e){
  const r=canvas.getBoundingClientRect();const sx=W/Math.max(1,r.width),sy=H/Math.max(1,r.height);
  return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
 }
-function pointerWorldPoint(e){const p=pointerCanvasPoint(e),c=cameraTransform();return{x:(p.x-c.x)/c.worldScale,y:(p.y-c.y)/c.worldScale}}
+// Screen position (client coordinates) of a tile centre on whichever
+// battlefield is showing; the inverse of pointerTile() for scripts.
+function screenPointForTile(x,y){
+ const r=canvas.getBoundingClientRect();
+ let px,py;
+ if(battle3d.active){const p=battle3d.project(x+.5,y+.5);if(!p.visible)return null;px=p.x;py=p.y}
+ else{const c=cameraTransform();px=c.x+(x+.5)*GRID.tile*c.worldScale;py=c.y+(y+.5)*GRID.tile*c.worldScale}
+ if(px<0||py<0||px>W||py>H)return null;
+ return {clientX:r.left+px*(r.width/Math.max(1,W)),clientY:r.top+py*(r.height/Math.max(1,H)),x:px,y:py};
+}
+function pointerWorldPoint(e){if(battle3d.active){const p=battle3d.worldAt(e.clientX,e.clientY);return p?{x:p.x*GRID.tile,y:p.y*GRID.tile}:{x:-1e6,y:-1e6}}const p=pointerCanvasPoint(e),c=cameraTransform();return{x:(p.x-c.x)/c.worldScale,y:(p.y-c.y)/c.worldScale}}
 function pointerTile(e){const p=pointerWorldPoint(e);return{x:Math.floor(p.x/GRID.tile),y:Math.floor(p.y/GRID.tile)};}
 function zoomCameraAt(screenPoint,nextZoom){
  if(!G?.camera)return;const before=cameraTransform(),wx=(screenPoint.x-before.x)/before.worldScale,wy=(screenPoint.y-before.y)/before.worldScale;
@@ -2635,7 +2674,7 @@ function update(dt,syncHud=true,visualDt=dt){
  if(G.weather.id==='rain'){G.rainSplashTimer=(G.rainSplashTimer||0)-dt;if(G.rainSplashTimer<=0){G.rainSplashTimer=.055+Math.random()*.09;const rx=Math.random()*GRID.cols,ry=Math.random()*GRID.rows;G.particles.push({x:rx,y:ry,vx:0,vy:0,life:.22,color:'#b9dcff',kind:'splash',size:3+Math.random()*4});}}
  syncNextWaveButton();G.spawnTimer-=dt;if(G.spawnLeft>0&&G.spawnTimer<=0){spawnEnemy();G.spawnLeft--;G.spawnTimer=Math.max(.24,(1.15-G.wave*.025)*.88)}
  if(G.spawnLeft===0&&G.enemies.length===0&&!G.pendingWave&&!G.waveTransition){G.waveDelay-=dt;if(G.waveDelay<=0){if(G.mode!=='endless'&&G.wave>=G.chapterWaves){chapterClear();return;}beginWaveTransition();return;}}
- for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);updateGolemBoss(e,dt);if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt;hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);floatText(CATHEDRAL.gateX,CATHEDRAL.gateY-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);const liveSummons=G.enemies.filter(x=>!x.dead&&x.summonedBy===e).length,summonCap=e.boss?6:4;/* a boss raised 3 every 5 s with no ceiling: 25-27 enemies piled up at the boss wave and the finale became a slow grind */for(let i=0;i<summonCount&&liveSummons+i<summonCap;i++)G.enemies.push({summonedBy:e,x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62,reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;e.x=CATHEDRAL.gateX;e.y=CATHEDRAL.gateY;continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;e.x=CATHEDRAL.gateX;e.y=CATHEDRAL.gateY;break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
+ for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);updateGolemBoss(e,dt);if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt;hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);{const gp=gatePoint(e.routeIndex||0);floatText(gp.x,gp.y-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');}playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);const liveSummons=G.enemies.filter(x=>!x.dead&&x.summonedBy===e).length,summonCap=e.boss?6:4;/* a boss raised 3 every 5 s with no ceiling: 25-27 enemies piled up at the boss wave and the finale became a slow grind */for(let i=0;i<summonCount&&liveSummons+i<summonCap;i++)G.enemies.push({summonedBy:e,x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62,reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
  for(const trap of G.traps){
   trap.t-=dt;
   const radius=trap.effect==='blast'?1.25:.68;
@@ -2659,12 +2698,12 @@ function update(dt,syncHud=true,visualDt=dt){
  const archerCount=Math.max(0,(G.keepLevel||1)-1);
  for(let i=0;i<archerCount;i++){
   G.archerTimers[i]=(G.archerTimers[i]??(i*.35))-dt;
-  if(G.archerTimers[i]<=0){let target=null,bd=5.2+(G.keepLevel||1)*.25;for(const e of G.enemies){if(e.dead)continue;const d=Math.hypot(e.x-CATHEDRAL.gateX,e.y-CATHEDRAL.gateY);if(d<bd){target=e;bd=d}}if(target){G.shots.push({x:CATHEDRAL.gateX+(i-(archerCount-1)/2)*.24,y:CATHEDRAL.gateY-.55,target,speed:8.5,damage:5+(G.keepLevel||1)*2.4,color:'#e8d5a0',holy:false,life:2,kind:'arrow',archer:true});G.archerTimers[i]=1.9-Math.min(.55,(G.keepLevel||1)*.08)+i*.08}else G.archerTimers[i]=.25}
+  if(G.archerTimers[i]<=0){let target=null,bd=5.2+(G.keepLevel||1)*.25;for(const e of G.enemies){if(e.dead)continue;const dc=defenceCenter(),d=Math.hypot(e.x-dc.x,e.y-dc.y);if(d<bd){target=e;bd=d}}if(target){const dc=defenceCenter();G.shots.push({x:dc.x+(i-(archerCount-1)/2)*.24,y:dc.y-.55,target,speed:8.5,damage:5+(G.keepLevel||1)*2.4,color:'#e8d5a0',holy:false,life:2,kind:'arrow',archer:true});G.archerTimers[i]=1.9-Math.min(.55,(G.keepLevel||1)*.08)+i*.08}else G.archerTimers[i]=.25}
  }
  updateAscensionCompanion(dt);
  // V25.6: Kael is an autonomous defender during battle. He patrols in
  // front of the cathedral, turns toward nearby threats, and attacks alone.
- const patrolCenter={x:CATHEDRAL.gateX,y:CATHEDRAL.gateY+1.15};
+ const patrolCenter=G.layout==='keep'?{x:KEEP_CENTER.x,y:KEEP_CENTER.y+2.2}:{x:CATHEDRAL.gateX,y:CATHEDRAL.gateY+1.15};
  let heroTarget=null,heroTargetDistance=Infinity;
  for(const enemy of G.enemies){
   if(enemy.dead)continue;
@@ -2895,7 +2934,7 @@ function draw(){
  ctx.globalAlpha=.16;ctx.fillStyle=map.accent||'#8c5b74';for(let i=0;i<28;i++){const px=(i*97+(G?.time||0)*7)%Math.max(W,1),py=oy+GRID.rows*GRID.tile*scale+((i*53)%Math.max(90,H-oy));ctx.beginPath();ctx.arc(px,py,1+(i%3),0,7);ctx.fill()}ctx.globalAlpha=1;
  const cam=cameraTransform(),pixelX=Math.round((cam.x+sx)*DPR)/DPR,pixelY=Math.round((cam.y+sy)*DPR)/DPR;ctx.save();ctx.translate(pixelX,pixelY);ctx.scale(cam.worldScale,cam.worldScale);
  const gw=GRID.cols*GRID.tile,gh=GRID.rows*GRID.tile;renderBattlefieldFoundation(ctx,{map,width:gw,height:gh,time:G?.time||0});
- if(G){for(const route of G.routes||[G.path])renderIntegratedRoad(ctx,[{x:CATHEDRAL.gateX-.5,y:CATHEDRAL.gateY-.5},...route],{tileSize:GRID.tile,mapId:map.id});renderBattlefieldStructures(ctx,{routes:G.routes,plans:G.roadPlans,tileSize:GRID.tile,time:G.time});if(visualDebug())renderRoadNetworkDebug(ctx,{plans:G.roadPlans,routes:G.routes,events:G.roadEvents,cathedral:{x:CATHEDRAL.gateX,y:CATHEDRAL.gateY},tileSize:GRID.tile});
+ if(G){for(const route of (G.layout==='keep'?G.roadPlans:G.routes)||[G.path])renderIntegratedRoad(ctx,G.layout==='keep'?route:[{x:CATHEDRAL.gateX-.5,y:CATHEDRAL.gateY-.5},...route],{tileSize:GRID.tile,mapId:map.id});renderBattlefieldStructures(ctx,{routes:G.routes,plans:G.roadPlans,tileSize:GRID.tile,time:G.time});if(visualDebug())renderRoadNetworkDebug(ctx,{plans:G.roadPlans,routes:G.routes,events:G.roadEvents,cathedral:{x:CATHEDRAL.gateX,y:CATHEDRAL.gateY},tileSize:GRID.tile});
   if(G.roadReveal){const q=Math.max(0,G.roadReveal.life/G.roadReveal.maxLife);ctx.save();for(const [index,cell] of G.roadReveal.cells.entries()){const x=(cell.x+.5)*GRID.tile,y=(cell.y+.5)*GRID.tile;ctx.globalAlpha=.18*q;ctx.fillStyle='#d1b078';ctx.beginPath();ctx.ellipse(x,y,34*(1-q)+12,12*(1-q)+5,0,0,Math.PI*2);ctx.fill();for(let stone=0;stone<4;stone++){const a=(index*1.7+stone)*1.9,distance=(1-q)*(18+stone*5);ctx.globalAlpha=.65*q;ctx.fillStyle=stone%2?'#57534d':'#302f2e';ctx.save();ctx.translate(x+Math.cos(a)*distance,y+Math.sin(a)*distance*.55);ctx.rotate(a);ctx.fillRect(-5,-3,10,6);ctx.restore()}}ctx.restore()}
   const placingStructure=['tower','support'].includes(G.pendingCard?.type);
   renderPlacementPads(ctx,placementSlots(G,GRID.cols,GRID.rows),{tileSize:GRID.tile,active:placingStructure,time:G.time});
@@ -2908,7 +2947,7 @@ function draw(){
    if(G.pendingCard&&G.hoverTile){const p=G.hoverTile;if(G.pendingCard.type==='roadpiece'){const cells=roadCells(G.pendingCard,p,G.placementRotation),ok=validRoadPiece(G.pendingCard,p,G.placementRotation);ctx.globalAlpha=.62;ctx.fillStyle=ok?'#4fe07a':'#e04b5f';for(const q of cells)ctx.fillRect(q.x*64+5,q.y*64+5,54,54);ctx.globalAlpha=1}else if(['tower','support','trap'].includes(G.pendingCard.type)){const ok=G.pendingCard.type==='trap'?validTrapTile(p.x,p.y):G.pendingCard.type==='support'?validSupportTile(p.x,p.y):validTowerTile(p.x,p.y),color=ok?'#56dd82':'#e05262',radius=G.pendingCard.type==='trap'?23:28;ctx.save();ctx.globalAlpha=.25;ctx.fillStyle=color;ctx.beginPath();ctx.arc((p.x+.5)*64,(p.y+.5)*64,radius,0,7);ctx.fill();ctx.globalAlpha=.95;ctx.strokeStyle=color;ctx.lineWidth=3;ctx.setLineDash(G.pendingCard.type==='support'?[5,4]:[]);ctx.stroke();ctx.restore()}}
    if(G.pendingCard?.type==='support'&&G.hoverTile){const p=G.hoverTile,targets=new Set(supportTargetsAt(p.x,p.y,G.pendingCard));ctx.save();ctx.lineWidth=2;ctx.setLineDash([5,4]);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const tower=G.towers.find(t=>!t.supportOnly&&t.x===p.x+dx&&t.y===p.y+dy);ctx.fillStyle=tower&&targets.has(tower)?'rgba(94,224,133,.24)':'rgba(202,176,102,.08)';ctx.strokeStyle=tower&&targets.has(tower)?'#5ee085':'#a78d5b88';ctx.fillRect((p.x+dx)*64+5,(p.y+dy)*64+5,54,54);ctx.strokeRect((p.x+dx)*64+5,(p.y+dy)*64+5,54,54)}ctx.setLineDash([]);ctx.fillStyle='#fff0b5';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText(`SUPPORTS UP TO ${supportCapacity(inv(G.pendingCard.id).rarity)}`,(p.x+.5)*64,p.y*64-8);ctx.restore()}
   // Invisible destination aligned to the cathedral already painted in the matte.
-  renderCathedralStateOverlay(ctx,{x:CATHEDRAL.gateX*64,y:CATHEDRAL.gateY*64-34,hpRatio:Math.max(0,G.hp/G.maxHp),time:G.time,debug:visualDebug()});
+  if(G.layout!=='keep')renderCathedralStateOverlay(ctx,{x:CATHEDRAL.gateX*64,y:CATHEDRAL.gateY*64-34,hpRatio:Math.max(0,G.hp/G.maxHp),time:G.time,debug:visualDebug()});
   if(G.selectedTower){const t=G.selectedTower,r=towerCombatRange(t)*64,x=(t.x+.5)*64,y=(t.y+.5)*64;ctx.save();ctx.fillStyle='rgba(126,210,255,.035)';ctx.strokeStyle='rgba(185,238,255,.52)';ctx.lineWidth=1.25;ctx.setLineDash([7,8]);ctx.beginPath();ctx.ellipse(x,y,r,r*.62,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.strokeStyle='rgba(217,190,115,.62)';ctx.beginPath();ctx.ellipse(x,y,15,8,0,0,Math.PI*2);ctx.stroke();ctx.restore();}
    for(const trap of G.traps){const x=(trap.x+.5)*64,y=(trap.y+.5)*64,pulse=.5+.5*Math.sin((G.time||0)*3+trap.x),id=String(trap.id||'');ctx.save();ctx.translate(x,y);ctx.fillStyle='rgba(4,5,7,.45)';ctx.beginPath();ctx.ellipse(0,8,25,10,0,0,Math.PI*2);ctx.fill();if(/spike|bear/i.test(id)){ctx.fillStyle='#25282a';ctx.strokeStyle='#090a0b';ctx.lineWidth=1.5;for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(i*8-5,8);ctx.lineTo(i*8,-18-(i%2)*4);ctx.lineTo(i*8+5,8);ctx.closePath();ctx.fill();ctx.stroke()}}else if(/oil|fog|fire/i.test(id)){ctx.globalAlpha=.45+.16*pulse;const stain=ctx.createRadialGradient(0,5,2,0,5,25);stain.addColorStop(0,trap.color||'#6f5835');stain.addColorStop(1,'rgba(18,14,12,0)');ctx.fillStyle=stain;ctx.fillRect(-28,-23,56,56);for(let i=0;i<5;i++){ctx.fillStyle='#d47835';ctx.fillRect(-12+i*6,-2-Math.sin(i+G.time*5)*5,3,7)}}else{ctx.globalAlpha=.5+.16*pulse;ctx.strokeStyle=trap.color||'#c6a35c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,3,20,0,Math.PI*2);ctx.stroke();ctx.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4,r=i%2?8:17;i?ctx.lineTo(Math.cos(a)*r,3+Math.sin(a)*r):ctx.moveTo(Math.cos(a)*r,3+Math.sin(a)*r)}ctx.closePath();ctx.stroke()}ctx.restore()}
   drawSynergyLinks();
@@ -2938,6 +2977,88 @@ function draw(){
  ctx.restore();drawGateVignette();drawRoseWindow();if(G?.flash){ctx.fillStyle=`rgba(220,210,255,${G.flash})`;ctx.fillRect(0,0,W,H)}
 }
 
+// ---- Battle 4.0: 3D battlefield ------------------------------------------
+// The simulation and every 2D draw helper stay untouched; this builds a plain
+// description of the current frame for src/Battle3D and paints the few things
+// that are better as screen-space overlays (health bars, damage numbers, the
+// hit flash) on the transparent 2D canvas above it.
+const towerRasterCache=new Map();
+function rasterTower(t){
+ const phase=(t.recoil||0)>.07?3:(t.flashT||0)>0?2:(t.t||0)<.22?4:(t.t||0)<.46?1:0;
+ const key=`${t.id}|${t.level||1}|${phase}|${t.supportOnly?1:0}|${t.elite?1:0}|${t.infusionTier||1}|${(t.supports||[]).map(s=>s.id).join('+')}`;
+ let hit=towerRasterCache.get(key);
+ if(hit)return hit;
+ const c=document.createElement('canvas');c.width=128;c.height=128;const offscreen=c.getContext('2d');
+ const previous=ctx;ctx=offscreen;
+ try{drawTowerVisual(t,64,92)}catch(error){console.warn('[Battle3D] tower raster failed',t.id,error)}finally{ctx=previous}
+ hit={canvas:c,key,baseline:(128-107)/64};
+ if(towerRasterCache.size>96)towerRasterCache.delete(towerRasterCache.keys().next().value);
+ towerRasterCache.set(key,hit);
+ return hit;
+}
+const emojiSpriteCache=new Map();
+function emojiSprite(icon){
+ let c=emojiSpriteCache.get(icon);
+ if(c)return c;
+ c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');
+ g.font='44px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(icon,32,34);
+ Object.assign(c,{complete:true,naturalWidth:64,naturalHeight:64,src:`emoji:${icon}`});
+ emojiSpriteCache.set(icon,c);
+ return c;
+}
+function battleView3D(){
+ const placing=['tower','support','trap'].includes(G.pendingCard?.type)?G.pendingCard.type:null;
+ const validAt=(x,y)=>placing==='trap'?validTrapTile(x,y):placing==='support'?validSupportTile(x,y):validTowerTile(x,y);
+ const pads=placing&&placing!=='trap'?placementSlots(G,GRID.cols,GRID.rows).map(slot=>({x:slot.x,y:slot.y,valid:validAt(slot.x,slot.y)})):[];
+ const hover=placing&&G.hoverTile&&inside(G.hoverTile.x,G.hoverTile.y)?{x:G.hoverTile.x,y:G.hoverTile.y,valid:validAt(G.hoverTile.x,G.hoverTile.y)}:null;
+ const sprites=[];
+ for(const c of G.corpses||[]){const cols=sheetCols(c.img,c.golem?128:64),dur=corpseLife(c),frame=Math.min(cols-1,Math.floor(c.t*ENEMY_ANIM.deathFps)),alpha=c.t<=dur?1:Math.max(0,1-(c.t-dur)/ENEMY_ANIM.corpseFade);sprites.push({img:c.img,cell:c.golem?128:64,frame,row:directionRow(c.face),x:c.x,y:c.y,size:c.size,alpha})}
+ for(const e of G.enemies){
+  if(e.dead)continue;
+  const points=routePoints(e.routeIndex||0),a=points[e.seg],b=points[Math.min(points.length-1,e.seg+1)]||a;let face='down';
+  if((e.cinematicPause||0)>0&&e.boss)face='down';else if(e.attacking){const gp=gatePoint(e.routeIndex||0),dx=KEEP_CENTER.x-gp.x,dy=KEEP_CENTER.y-gp.y;face=G.layout==='keep'?(Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down')):'up'}
+  else if(a&&b){const dx=b.x-a.x,dy=b.y-a.y;face=Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down')}
+  e.face=face;
+  const isGolem=isGolemBoss(e),action=enemyActionFor(e),img=spriteImage(enemySheet(e,action)),frame=enemyFrame(e,action,img),size=isGolem?320:e.boss?240:e.mini?98:e.elite?90:78;
+  sprites.push({img,cell:isGolem?128:64,frame,row:directionRow(face),x:e.x+(e.kickX??-1)*(e.hitKick||0),y:e.y+(e.kickY??0)*(e.hitKick||0),size,tint:(e.hitFlash||0)>0?'#ffb4b4':null});
+ }
+ const heroLevel=currentShadowLevel(),heroAction=(G.hero.attackAnim||0)>0?'attack':(G.hero.walking?'Walk':'Idle'),heroImg=spriteImage(shadowAsset(heroLevel,heroAction)),heroFrame=Math.floor((G.hero.anim||0)*(heroAction==='Idle'?.45:1));
+ sprites.push({img:heroImg,cell:64,frame:heroFrame,row:directionRow(G.hero.facing||'down'),x:G.hero.x,y:G.hero.y,size:84});
+ const fam=G.familiar;
+ if(fam){const visual=COMPANION_BEHAVIOR_REGISTRY[fam.id]?.visual||{},orbit=((visual.orbitRadius||38)+(fam.level||1)*.35)/64;sprites.push({img:emojiSprite(fam.icon),cell:64,frame:0,row:0,x:G.hero.x+Math.cos(fam.angle||0)*orbit,y:G.hero.y+Math.sin(fam.angle||0)*orbit*.4,size:34,lift:1.05,lean:0})}
+ const towers=G.towers.map(t=>{const r=rasterTower(t);return {canvas:r.canvas,key:r.key,x:t.x,y:t.y,baseline:r.baseline}});
+ const shots=G.shots.map(s=>({x:s.x,y:s.y,color:s.color,size:s.archer?.26:s.kind==='scripture'?.5:.4}));
+ const traps=G.traps.map(t=>({x:t.x,y:t.y,color:t.color}));
+ const particles=G.particles.map(p=>({x:p.x,y:p.y,color:p.color,alpha:Math.max(0,Math.min(1,p.maxLife?p.life/p.maxLife:p.life))}));
+ const rings=(G.holyRains||[]).map(r=>({x:r.x,y:r.y,radius:r.radius,color:'#8edcff',alpha:.15+.45*Math.max(0,1-r.elapsed/r.duration)}));
+ const selected=G.selectedTower?{x:G.selectedTower.x,y:G.selectedTower.y,range:towerCombatRange(G.selectedTower)}:null;
+ return {time:G.time,width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,towers,shots,traps,particles,rings};
+}
+function draw3D(){
+ battleTelemetryOverlay.update(G,nextChoiceMilestone(G));
+ ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';ctx.shadowBlur=0;ctx.setLineDash([]);ctx.clearRect(0,0,W,H);
+ if(!G)return;
+ if(!battle3d.active){ctx.fillStyle='#0c1020';ctx.fillRect(0,0,W,H);return}
+ battle3d.render(battleView3D());
+ const _sh=shakeOffset();
+ ctx.save();ctx.translate(_sh.x,_sh.y);
+ for(const e of G.enemies){
+  if(e.dead||(e.hp>=e.max&&!e.boss))continue;
+  const p=battle3d.project(e.x,e.y);if(!p.visible)continue;
+  const barW=e.boss?96:e.mini?46:e.elite?42:36,barH=e.boss?7:4,x=p.x,y=p.y+6;
+  ctx.fillStyle='#160b12';ctx.fillRect(x-barW/2,y,barW,barH);ctx.fillStyle=e.boss?'#c22d55':'#d94458';ctx.fillRect(x-barW/2,y,barW*Math.max(0,e.hp/e.max),barH);ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.strokeRect(x-barW/2,y,barW,barH);
+ }
+ for(const f of G.floaters){
+  const p=battle3d.project(f.x,f.y,groundHeight(f.x,f.y)+.9);if(!p.visible)continue;
+  const pop=1+.55*(1-Math.pow(1-(f.pop??1),3))-.55,sz=Math.round((f.size||12)*(.55+.45*(f.pop??1))*(1+.18*pop));
+  ctx.globalAlpha=Math.max(0,Math.min(1,f.life*1.4));ctx.font=`bold ${sz}px Georgia`;ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  if(f.crit){ctx.lineWidth=3;ctx.strokeStyle='#3a1420';ctx.strokeText(f.text,p.x,p.y)}
+  ctx.fillStyle=f.color||'#fff';ctx.fillText(f.text,p.x,p.y);
+ }
+ ctx.restore();ctx.globalAlpha=1;
+ if(G.flash){ctx.fillStyle=`rgba(220,210,255,${G.flash})`;ctx.fillRect(0,0,W,H)}
+}
+
 function renderInspector(){const el=$('#towerInspector');if(!G?.selectedTower){el.classList.add('hidden');return}const t=G.selectedTower,syn=synergyFor(t),state=cardUpgradeState(t.id),run=t.runEssenceUpgrades||{};el.classList.remove('hidden');const button=(stat,label,bonus)=>{const rank=state[stat]||0,max=towerUpgradeMax(stat),cost=towerUpgradeCost(t,stat);return `<button data-upgrade="${stat}" ${rank>=max?'disabled':''}>${label}<br><small>Lv ${rank}/${max} · ${bonus} · ${cost} pt</small></button>`},essenceButton=(stat,label)=>{const rank=run[stat]||0,max=stat==='range'?3:5,cost=essenceTowerUpgradeCost(t,stat);return `<button data-essence-upgrade="${stat}" ${rank>=max?'disabled':''}>${label}<br><small>Run Lv ${rank}/${max} · ✦ ${cost}</small></button>`};el.innerHTML=`<button id="closeInspect" class="inspect-close">×</button><h3>${t.icon} ${t.name}</h3><div>Damage <b>${Math.round(t.damage*G.globalDamage)}</b></div><div>Attack radius <b>${towerCombatRange(t).toFixed(2)} tiles</b></div><div>Attack <b>${(1/t.rate).toFixed(1)}/s</b></div><div>Spendable Essence <b>${Math.floor(G.essence)}</b></div><div class="tower-upgrade-grid essence-run-upgrades">${essenceButton('damage','✦ Damage')}${essenceButton('rate','✦ Speed')}${essenceButton('range','✦ Radius')}</div><div>Battle points <b>${G.battlePoints||0}</b></div><small class="card-wide-upgrade-note">Battle-point upgrades affect every ${t.name}; Essence reinforcements affect this tower for this hunt.</small><div class="tower-upgrade-grid">${button('damage','⚔ ATK','+24%')}${button('rate','⚡ Speed','+16%')}${button('range','◎ Radius','+0.30 tile')}</div><div>Card <b>${rarityDef(inv(t.id).rarity).name} · ${Math.round((t.permanentPower||1)*100)}%</b></div><div>Supports <b>${(t.supports||[]).map(s=>s.icon+' '+s.name).join(', ')||'None'}</b></div><div class="synergy-line">${(()=>{const ex=synergyExplain(t);if(!ex)return 'No active synergy — place this tower directly beside a partner tower (up, down, left or right) to form one.';return `✦ ${ex.names.join(' + ')}<br><small>${ex.summary}</small><br><small class="synergy-from">from ${ex.links.map(l=>l.n.name||l.n.id).join(', ')}</small>`})()}</div>`;$('#closeInspect').onclick=()=>{G.selectedTower=null;renderInspector()};el.querySelectorAll('[data-upgrade]').forEach(b=>b.onclick=()=>upgradeSelectedTower(b.dataset.upgrade));el.querySelectorAll('[data-essence-upgrade]').forEach(b=>b.onclick=()=>essenceUpgradeSelectedTower(b.dataset.essenceUpgrade))}
 
 const MAX_SIM_STEP=1/50;
@@ -2950,7 +3071,7 @@ const MAX_SIM_STEP=1/50;
 // frame budget. Repaint it only when the canvas geometry actually moves.
 let idleFrameKey='';
 function paint(){
- try{draw()}catch(error){battleEvent('render-error',{message:error.message,stack:error.stack,wave:G?.wave});console.error('[Battle render failure]',error)}
+ try{if(battle3d.mounted)draw3D();else draw()}catch(error){battleEvent('render-error',{message:error.message,stack:error.stack,wave:G?.wave});console.error('[Battle render failure]',error)}
 }
 function loop(now){trimParticles();const frameDt=Math.min(.05,(now-(G?.last||now))/1000);if(G)G.last=now;updateCameraTour(frameDt);const scaledDt=frameDt*(G?.speed||1),steps=Math.max(1,Math.ceil(scaledDt/MAX_SIM_STEP)),stepDt=scaledDt/steps;for(let i=0;i<steps;i++){const finalStep=i===steps-1;update(stepDt,finalStep,finalStep?scaledDt:0)}if(G&&Math.floor(now)%31===0)validateBattleState(G);
  if(G){idleFrameKey='';paint()}
@@ -2977,7 +3098,7 @@ function syncNextWaveButton(force=false){
  if(!force&&ready===nextWaveButtonState)return;
  nextWaveButtonState=ready;button.disabled=!ready;button.classList.toggle('is-ready',ready);
 }
-function setBattleMode(active){document.body.classList.toggle('battle-mode',!!active);if(!active)deactivateBattle3Runtime()}
+function setBattleMode(active){document.body.classList.toggle('battle-mode',!!active);if(!active){deactivateBattle3Runtime();battle3d.unmount()}}
 function updateBottomNav(screen){
  const map={menu:'home',campaignScreen:'campaign',deckScreen:'cards',heroesScreen:'heroes',kingdomScreen:'more',relicVaultScreen:'relics',moreScreen:'more',upgradesScreen:'more',forgeScreen:'more',codexScreen:'more',profileScreen:'more',achievementsScreen:'more'};
  
@@ -3508,9 +3629,10 @@ try{
 
 bindClick('#resetBtn',()=>confirmReset());
 const audioPanel=$('#audioPanel'),audioBtn=$('#audioBtn');
-function syncAudioControls(){if(!audioPanel)return;$('#audioMaster').checked=save.settings.audio!==false;$('#musicEnabled').checked=save.settings.music!==false;$('#sfxEnabled').checked=save.settings.sfx!==false;$('#musicVolume').value=save.settings.musicVolume??.46;$('#sfxVolume').value=save.settings.sfxVolume??.72;$('#ambienceVolume').value=save.settings.ambienceVolume??.34}
+function syncAudioControls(){if(!audioPanel)return;$('#audioMaster').checked=save.settings.audio!==false;$('#musicEnabled').checked=save.settings.music!==false;$('#sfxEnabled').checked=save.settings.sfx!==false;$('#musicVolume').value=save.settings.musicVolume??.46;$('#sfxVolume').value=save.settings.sfxVolume??.72;$('#ambienceVolume').value=save.settings.ambienceVolume??.34;const b3=$('#battle3dToggle');if(b3)b3.checked=battle3dEnabled()}
 audioBtn?.addEventListener('click',e=>{e.stopPropagation();AUDIO.unlock();audioPanel.classList.toggle('hidden');syncAudioControls()});$('#audioClose')?.addEventListener('click',()=>audioPanel.classList.add('hidden'));
-[['#audioMaster','audio','change'],['#musicEnabled','music','change'],['#sfxEnabled','sfx','change'],['#musicVolume','musicVolume','input'],['#sfxVolume','sfxVolume','input'],['#ambienceVolume','ambienceVolume','input']].forEach(([sel,key,ev])=>$(sel)?.addEventListener(ev,e=>{save.settings[key]=e.target.type==='checkbox'?e.target.checked:Number(e.target.value);AUDIO.apply();saveProgress()}));syncAudioControls();
+[['#audioMaster','audio','change'],['#musicEnabled','music','change'],['#sfxEnabled','sfx','change'],['#musicVolume','musicVolume','input'],['#sfxVolume','sfxVolume','input'],['#ambienceVolume','ambienceVolume','input']].forEach(([sel,key,ev])=>$(sel)?.addEventListener(ev,e=>{save.settings[key]=e.target.type==='checkbox'?e.target.checked:Number(e.target.value);AUDIO.apply();saveProgress()}));$('#battle3dToggle')?.addEventListener('change',e=>{setBattle3dEnabled(e.target.checked);showToast(e.target.checked?'3D battlefield on for your next hunt':'Classic battlefield restored for your next hunt')});
+syncAudioControls();
 renderDeckAnalysis();
 
 /* Milestone 7.3 stability patch: fixed viewport, contained scrolling, reliable tabs */

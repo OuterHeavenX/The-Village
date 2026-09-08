@@ -187,6 +187,14 @@ See [`DEPLOYMENT.md`](DEPLOYMENT.md).
 | `npm run validate:content` | Check the content registries |
 | `npm run test:production` | Browser smoke suite against a running preview (needs `CHROME_PATH`) |
 
+## 3D battlefield preview
+
+Append `?battle3d=1` (or turn on "3D Battlefield (preview)" in the ♫ panel)
+to play the next battle on the Battle 4.0 arena: the keep in the centre, four
+roads with breaches instead of a growing road, hills and grass rendered with
+Three.js from a Blender-built asset. `?battle3d=0` turns it off again. The
+classic 2D battle is still the default; see `docs/BATTLE_4_DESIGN.md`.
+
 ## Debug channels
 
 Append `?debug=1` to enable the development overlays on any build, or name

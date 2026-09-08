@@ -14,8 +14,14 @@ Outputs:
     assets/battlefield3d/keep_arena.preview.png  a Workbench render, for review only
 
 Coordinate contract (shared with src/Battle3D/layout.js):
-    sim tile (x, y)  ->  Blender (x + .5, y + .5, height)  ->  glTF (x + .5, height, -(y + .5))
-    1 tile = 1 world unit. Tile y grows toward the south gate, glTF -Z.
+    sim tile (x, y)  ->  Blender (x + .5, -(y + .5), height)  ->  glTF (x + .5, height, y + .5)
+    1 tile = 1 world unit. Tile y grows toward the south gate, glTF +Z.
+
+The scene is authored in "sim" space (Blender y = tile y) because every rule
+here is written in tile coordinates, then mirrored once in mirror_scene()
+before export. Without the mirror the arena reads back to front when viewed
+from the south: the sim grid (x right, y down) is left-handed seen from above,
+Blender and glTF are right-handed.
 """
 import json
 import math
@@ -299,6 +305,28 @@ def build_instancing_meshes():
     return grass, stone
 
 
+def mirror_scene():
+    """Negate Blender y on everything so glTF +Z is sim +y (toward the south gate)."""
+    for obj in list(bpy.data.objects):
+        if obj.type != 'MESH':
+            continue
+        if obj.name == 'terrain':
+            bm = bmesh.new()
+            bm.from_mesh(obj.data)
+            for v in bm.verts:
+                v.co.y = -v.co.y
+            bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
+            bm.to_mesh(obj.data)
+            bm.free()
+            obj.data.update()
+        else:
+            # Primitives are symmetric about their own centre; a location flip
+            # plus a mirrored spin keeps rubble and pillars where the roads expect them.
+            obj.location.y = -obj.location.y
+            obj.rotation_euler.z = -obj.rotation_euler.z
+            obj.rotation_euler.x = -obj.rotation_euler.x
+
+
 def export(layout):
     glb = os.path.join(OUT_DIR, 'keep_arena.glb')
     bpy.ops.export_scene.gltf(filepath=glb, export_format='GLB', export_apply=True, export_yup=True)
@@ -344,13 +372,14 @@ def main():
     layout = {
         'version': 1,
         'grid': {'cols': COLS, 'rows': ROWS},
-        'coordinates': 'sim tile (x,y) -> glTF (x+.5, height, -(y+.5)); 1 tile = 1 unit',
+        'coordinates': 'sim tile (x,y) -> glTF (x+.5, height, y+.5); 1 tile = 1 unit',
         'keep': {'tiles': KEEP_TILES, 'center': list(KEEP_CENTER), 'plateauHeight': .42},
         'roads': {name: {'opens': road['opens'], 'tiles': road['tiles'], 'gate': road['tiles'][0], 'door': road['tiles'][-1], 'sealed': name in SEALED} for name, road in ROADS.items()},
         'pads': [{'x': x, 'y': y, 'height': z} for (x, y, z) in sorted(pads)],
         'heights': heights,
     }
     tri_count = sum(len(p.vertices) - 2 for o in bpy.data.objects if o.type == 'MESH' for p in o.data.polygons)
+    mirror_scene()
     glb = export(layout)
     # Workbench rendering needs a GL context (libEGL). Without one Blender aborts
     # the whole process instead of raising, so the preview is opt-in and runs

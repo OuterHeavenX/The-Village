@@ -106,10 +106,55 @@ Chromium (SwiftShader), which is also the path the runtime will use.
 - `layout.js` — tile ↔ world mapping and the keep-layout road table shared with
   `roadRegistry.js`.
 
-Mounting: `?battle3d=1`, or Settings → "3D Battlefield (preview)", stored in
-`village.battle3d` (excluded from cloud sync). While enabled, the 3D canvas
-overlays the 2D battle canvas during battle and the 2D `draw()` is skipped.
-The 2D battle stays the default until Stage C.
+Mounting: `?battle3d=1`, or the ♫ panel → "3D Battlefield (preview)", stored
+in `village.battle3d` (excluded from cloud sync). The choice applies to the
+next battle. While a keep-layout battle runs, a `#battle3d` WebGL canvas sits
+*under* the 2D battle canvas, which turns transparent and keeps doing what it
+did: pointer capture, gestures, and a screen-space overlay (health bars, damage
+numbers, the hit flash) projected from the 3D camera. The 2D battle stays the
+default until Stage C.
+
+### Stage B as built (differs from the plan above where noted)
+
+- **Camera.** Drag pans and pinch/wheel zooms, driven by the *same*
+  `G.camera` the 2D board uses, so recentre, boss focus and the clamp all work
+  unchanged. There is no orbit yet; a fixed 50° pitch from the south reads
+  the hills and keeps sprites upright. Framing is "cover" like the 2D board:
+  the whole width on landscape, the whole depth on portrait, pan for the rest.
+- **The keep** is the Village's own `keep.glb` (584 triangles) scaled to the
+  2 × 2 tile footprint, not the Blender blockout — the blockout's doors stay,
+  its walls are hidden. The arena is dressed with the same set's dead trees,
+  rock clusters and lamp posts, placed only on tiles that are neither road nor
+  pad. The keep's walls glow red as gate HP falls.
+- **Sprites.** Enemies, corpses, Shadow and the familiar are upright quads
+  with per-frame UVs into the existing sheets (64 or 128 px cells), leaning
+  back a quarter of the camera pitch so they are not foreshortened. Towers
+  are the existing 2D tower art rasterised once per
+  (id, level, animation phase, supports) into a 128 px canvas and shown the
+  same way; `rasterTower()` in `game.js` swaps the module's `ctx` for one
+  call, which is why `ctx` became `let`.
+- **Not carried over yet** (still 2D-only): the synergy links between towers,
+  level stars and gem badges above towers, the MGS alert, lane projectile
+  art (lane shots are not drawn), the road-reveal dust, corpses' hit flash,
+  boss camera shake beyond what `shakeOffset()` applies to the overlay.
+  Projectiles are glow sprites in the shot's colour; particles are a single
+  `Points` cloud (cap 900).
+- **Grass** samples the terrain's vertex-colour G channel: 21.8k blades on
+  desktop, 4.6k on the phone tier (`(pointer:coarse)` and a short side under
+  700 px), with a vertex-shader sway. Draw calls sit around 60 before towers
+  and dressing, 125 with them.
+- **Bot hooks** on `window.VillageBattleAPI`: `pads()` (placement slots with
+  validity), `tapTile(x, y)` (taps a tile through whichever battlefield is
+  showing), `routes()` (layout, open routes, points, breach events), and
+  `state()` now reports `layout`, `battle3d`, `wave`, `hp`, `kills`,
+  `enemies` and `pendingCard`.
+
+Verified in headless Chromium (SwiftShader) at 1440 × 900 and 390 × 844: the
+scene loads, placement through the raycast lands on the intended tile, the
+west gate opens at the authored wave with its rubble removed, pan/zoom/centre
+work, the classic 2D battle is unchanged with the flag off, and the console
+stays clean. **Not verified:** frame rate on real GPUs and phones (software
+rendering says nothing useful), Safari, and long sessions for WebGL memory.
 
 Mobile: the Village already owns a WebGL context; the battlefield takes its own
 only while a battle is running and disposes it on exit, so the two never
@@ -120,7 +165,7 @@ coexist. If context creation fails the 2D battle runs as before.
 | Stage | Deliverable | Ships as |
 |---|---|---|
 | A | This document, the Blender generator, the GLB | Committed, unused by the game |
-| B | `src/Battle3D/` behind the flag; keep-layout roads with breaches | Merged, off by default |
+| B | `src/Battle3D/` behind the flag; keep-layout roads with breaches | Merged, off by default (this PR) |
 | Cards | Cards tab remake (see below) | Merged, replaces the screen |
 | C | Bot parity (decision gaps, results, frame time) on iPhone/iPad profiles; flip default; 2D as WebGL fallback | Merged |
 

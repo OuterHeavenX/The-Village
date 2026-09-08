@@ -4,7 +4,7 @@
   "cols": 16,
   "rows": 18
  },
- "coordinates": "sim tile (x,y) -> glTF (x+.5, height, -(y+.5)); 1 tile = 1 unit",
+ "coordinates": "sim tile (x,y) -> glTF (x+.5, height, y+.5); 1 tile = 1 unit",
  "keep": {
   "tiles": [
    [
