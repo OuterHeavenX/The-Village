@@ -1140,7 +1140,10 @@ body.battle-mode .battle-icon{z-index:40011!important;pointer-events:auto!import
 #gameOver .panel,#gameOver button{position:relative;z-index:50001!important;pointer-events:auto!important;touch-action:none!important;}
 #retryBtn,#menuBtn{min-height:58px;}
 .battle-command-marquee{display:none;position:fixed;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:1000000;width:min(94vw,520px);padding:8px;grid-template-columns:repeat(4,1fr);gap:8px;border:1px solid #a98955;border-radius:20px;background:linear-gradient(180deg,rgba(32,22,38,.98),rgba(8,7,12,.99));box-shadow:0 12px 38px #000d,inset 0 0 0 1px #f3d99b22;pointer-events:auto!important;touch-action:manipulation!important;-webkit-user-select:none;user-select:none;}
-body.battle-mode .battle-command-marquee{display:grid!important;}
+body.battle-mode .battle-command-marquee{display:grid!important;grid-template-columns:repeat(5,1fr);}
+.marquee-command:disabled{opacity:.38;filter:saturate(.4);cursor:default;}
+.marquee-command.is-ready{border-color:#9ff0b4;box-shadow:0 0 14px rgba(159,240,180,.35);}
+.marquee-command.is-ready .command-icon{color:#c9ffd6;}
 .marquee-command{min-width:0;min-height:58px;padding:5px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid #856b45;border-radius:13px;background:linear-gradient(180deg,#2b2032,#100c16);color:#f7dfaa;text-decoration:none;font-family:Georgia,serif;box-shadow:inset 0 0 12px #e8c57b12,0 3px 10px #0008;pointer-events:auto!important;touch-action:manipulation!important;-webkit-tap-highlight-color:rgba(255,220,140,.25);}
 .marquee-command .command-icon{font-size:23px;font-weight:700;line-height:1;}
 .marquee-command small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#cdbb94;}

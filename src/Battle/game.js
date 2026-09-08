@@ -1056,6 +1056,15 @@ window.VillageBattleAPI={
     showToast('Battle speed ×'+G.speed);
     return {ok:true,speed:G.speed};
   },
+  nextWave(){
+   const check=canCallNextWave();if(!check.ok)return check;
+   const alive=G.enemies.filter(e=>!e.dead).length,bonus=3+Math.min(10,alive);
+   G.essence+=bonus;G.essenceEarned=(G.essenceEarned||0)+bonus;G.lastMeaningfulDecisionAt=G.time;
+   floatText(GRID.cols/2,1.35,`+${bonus} ESSENCE · WAVE CALLED`,'#9ff0b4');playTone(720,.1,'triangle',.04);renderEssenceVial();
+   battleEvent('wave-called-early',{wave:G.wave,alive,bonus});
+   beginWaveTransition();syncNextWaveButton(true);
+   return {ok:true,bonus};
+  },
   pause(){
     if(!G)return {ok:false,reason:'no-battle'};
     G.paused=!G.paused;
@@ -1944,12 +1953,20 @@ function cancelTowerEdit(message='Tower reposition cancelled'){
 }
 function beginTowerEdit(mode){
  if(!G)return;closeBattleUpgradeMenu();G.towerEditWasPaused=!!G.paused;G.paused=true;G.towerEditMode=mode;G.towerEditFirst=null;G.selectedTower=null;renderInspector();
- showTowerEditBar(mode==='swap'?'SWAP TOWERS · Tap the first attack tower':'MOVE TOWER · Tap an attack tower');
- showToast(mode==='swap'?'Choose the first tower to swap':'Choose the tower you want to move');
+ showTowerEditBar(mode==='swap'?'SWAP TOWERS · Tap the first attack tower':mode==='sell'?'SELL TOWER · Tap the tower to sell':'MOVE TOWER · Tap an attack tower');
+ showToast(mode==='swap'?'Choose the first tower to swap':mode==='sell'?'Choose the tower to sell':'Choose the tower you want to move');
 }
 function handleTowerEditTap(tap){
  if(!G?.towerEditMode)return false;
  const tapped=towerAtTile(tap.x,tap.y);
+ if(G.towerEditMode==='sell'){
+  // With a ten-slot cap and random drafts a bad placement used to be permanent.
+  if(!tapped||tapped.supportOnly)return showToast('Choose a placed attack tower to sell');
+  const refund=Math.max(1,Math.round(essenceCost(card(tapped.id)||tapped)*.5));// placed towers carry stats, not the card's price
+  G.towers=G.towers.filter(t=>t!==tapped);G.essence+=refund;G.essenceEarned=(G.essenceEarned||0)+refund;
+  burst(tapped.x+.5,tapped.y+.5,'#d8c3a5',22);renderEssenceVial();battleEvent('tower-sold',{id:tapped.id,refund});
+  cancelTowerEdit(`${tapped.name} sold · +${refund} Essence`);return true;
+ }
  if(!G.towerEditFirst){
   if(!tapped||tapped.supportOnly)return showToast('Choose a placed attack tower');
   G.towerEditFirst=tapped;G.selectedTower=tapped;renderInspector();
@@ -2349,10 +2366,10 @@ function renderBattleUpgradeMenu(forceOpen=false){
  for(const t of G.towers.filter(t=>!t.supportOnly&&!t.destroyed)){if(!seen.has(t.id)){seen.add(t.id);representatives.push(t)}}
  if(forceOpen&&!G.upgradeModalOpen){G.upgradeModalWasPaused=!!G.paused;G.upgradeModalOpen=true;G.paused=true;}
  if(!G.upgradeModalOpen)return;el.classList.remove('hidden');const points=G.battlePoints||0;
- el.innerHTML=`<div class="battle-upgrade-card"><button class="battle-upgrade-close" type="button" aria-label="Close">×</button><div class="battle-upgrade-kicker">BATTLE LEVEL ${G.level}</div><h2>Upgrade an Entire Card Type</h2><p class="battle-upgrade-summary">Available: <b>${points}</b> · Upgrades affect every placed and future copy of that tower for this hunt.</p><div class="battle-upgrade-list">${representatives.length?representatives.map((t,i)=>{const state=cardUpgradeState(t.id),count=G.towers.filter(x=>!x.supportOnly&&!x.destroyed&&x.id===t.id).length;const button=(stat,label)=>{const rank=state[stat]||0,max=towerUpgradeMax(stat),cost=towerUpgradeCost(t,stat),disabled=rank>=max||points<cost;return `<button data-modal-tower="${i}" data-modal-stat="${stat}" ${disabled?'disabled':''}>${label}<small>Lv ${rank}/${max} · ${cost} pt</small></button>`};return `<article class="battle-upgrade-row"><div class="battle-upgrade-name"><span>${t.icon}</span><div><b>All ${t.name}s</b><small>${count} deployed</small></div></div><div class="battle-upgrade-actions">${button('damage','⚔ ATK')}${button('rate','⚡ Speed')}${button('range','◎ Radius')}</div></article>`}).join(''):'<div class="battle-upgrade-empty">Place an attack tower first. Your points remain available.</div>'}</div><div class="battle-tactical-actions"><button class="battle-swap-towers" type="button">⇄ Swap Two Towers</button><button class="battle-move-tower" type="button">✥ Move One Tower</button></div><button class="battle-upgrade-later" type="button">Save Points for Later</button></div>`;
+ el.innerHTML=`<div class="battle-upgrade-card"><button class="battle-upgrade-close" type="button" aria-label="Close">×</button><div class="battle-upgrade-kicker">BATTLE LEVEL ${G.level}</div><h2>Upgrade an Entire Card Type</h2><p class="battle-upgrade-summary">Available: <b>${points}</b> · Upgrades affect every placed and future copy of that tower for this hunt.</p><div class="battle-upgrade-list">${representatives.length?representatives.map((t,i)=>{const state=cardUpgradeState(t.id),count=G.towers.filter(x=>!x.supportOnly&&!x.destroyed&&x.id===t.id).length;const button=(stat,label)=>{const rank=state[stat]||0,max=towerUpgradeMax(stat),cost=towerUpgradeCost(t,stat),disabled=rank>=max||points<cost;return `<button data-modal-tower="${i}" data-modal-stat="${stat}" ${disabled?'disabled':''}>${label}<small>Lv ${rank}/${max} · ${cost} pt</small></button>`};return `<article class="battle-upgrade-row"><div class="battle-upgrade-name"><span>${t.icon}</span><div><b>All ${t.name}s</b><small>${count} deployed</small></div></div><div class="battle-upgrade-actions">${button('damage','⚔ ATK')}${button('rate','⚡ Speed')}${button('range','◎ Radius')}</div></article>`}).join(''):'<div class="battle-upgrade-empty">Place an attack tower first. Your points remain available.</div>'}</div><div class="battle-tactical-actions"><button class="battle-swap-towers" type="button">⇄ Swap Two Towers</button><button class="battle-move-tower" type="button">✥ Move One Tower</button><button class="battle-sell-tower" type="button">⌫ Sell One Tower · refund half its Essence</button></div><button class="battle-upgrade-later" type="button">Save Points for Later</button></div>`;
  el.querySelector('.battle-upgrade-card')?.append(el.querySelector('.battle-upgrade-close'));// keep the upgrade buttons first in tab and tap order; close is absolutely positioned so nothing moves
  el.querySelector('.battle-upgrade-close').onclick=closeBattleUpgradeMenu;el.querySelector('.battle-upgrade-later').onclick=closeBattleUpgradeMenu;
- el.querySelector('.battle-swap-towers').onclick=()=>beginTowerEdit('swap');el.querySelector('.battle-move-tower').onclick=()=>beginTowerEdit('move');
+ el.querySelector('.battle-swap-towers').onclick=()=>beginTowerEdit('swap');el.querySelector('.battle-move-tower').onclick=()=>beginTowerEdit('move');el.querySelector('.battle-sell-tower').onclick=()=>beginTowerEdit('sell');
  el.querySelectorAll('[data-modal-tower]').forEach(btn=>btn.onclick=()=>{const t=representatives[Number(btn.dataset.modalTower)];if(!t)return;const manuallySelected=G.selectedTower;G.selectedTower=t;upgradeSelectedTower(btn.dataset.modalStat,false);G.selectedTower=manuallySelected;renderInspector();if((G.battlePoints||0)>0)renderBattleUpgradeMenu();else closeBattleUpgradeMenu();});
 }
 
@@ -2616,9 +2633,9 @@ function update(dt,syncHud=true,visualDt=dt){
  if(canTriggerChoice(G)){triggerEssenceDraft(false);return;}
  updateHolyWaterRains(dt);
  if(G.weather.id==='rain'){G.rainSplashTimer=(G.rainSplashTimer||0)-dt;if(G.rainSplashTimer<=0){G.rainSplashTimer=.055+Math.random()*.09;const rx=Math.random()*GRID.cols,ry=Math.random()*GRID.rows;G.particles.push({x:rx,y:ry,vx:0,vy:0,life:.22,color:'#b9dcff',kind:'splash',size:3+Math.random()*4});}}
- G.spawnTimer-=dt;if(G.spawnLeft>0&&G.spawnTimer<=0){spawnEnemy();G.spawnLeft--;G.spawnTimer=Math.max(.24,(1.15-G.wave*.025)*.88)}
+ syncNextWaveButton();G.spawnTimer-=dt;if(G.spawnLeft>0&&G.spawnTimer<=0){spawnEnemy();G.spawnLeft--;G.spawnTimer=Math.max(.24,(1.15-G.wave*.025)*.88)}
  if(G.spawnLeft===0&&G.enemies.length===0&&!G.pendingWave&&!G.waveTransition){G.waveDelay-=dt;if(G.waveDelay<=0){if(G.mode!=='endless'&&G.wave>=G.chapterWaves){chapterClear();return;}beginWaveTransition();return;}}
- for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);updateGolemBoss(e,dt);if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt;hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);floatText(CATHEDRAL.gateX,CATHEDRAL.gateY-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);for(let i=0;i<summonCount;i++)G.enemies.push({x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62,reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;e.x=CATHEDRAL.gateX;e.y=CATHEDRAL.gateY;continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;e.x=CATHEDRAL.gateX;e.y=CATHEDRAL.gateY;break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
+ for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);updateGolemBoss(e,dt);if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt;hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);floatText(CATHEDRAL.gateX,CATHEDRAL.gateY-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);const liveSummons=G.enemies.filter(x=>!x.dead&&x.summonedBy===e).length,summonCap=e.boss?6:4;/* a boss raised 3 every 5 s with no ceiling: 25-27 enemies piled up at the boss wave and the finale became a slow grind */for(let i=0;i<summonCount&&liveSummons+i<summonCap;i++)G.enemies.push({summonedBy:e,x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62,reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;e.x=CATHEDRAL.gateX;e.y=CATHEDRAL.gateY;continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;e.x=CATHEDRAL.gateX;e.y=CATHEDRAL.gateY;break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
  for(const trap of G.traps){
   trap.t-=dt;
   const radius=trap.effect==='blast'?1.25:.68;
@@ -2939,6 +2956,27 @@ function loop(now){trimParticles();const frameDt=Math.min(.05,(now-(G?.last||now
  if(G){idleFrameKey='';paint()}
  else{const key=`${W}|${H}|${DPR}|${ox}|${oy}|${scale}`;if(key!==idleFrameKey){idleFrameKey=key;paint()}}
  requestAnimationFrame(loop)}requestAnimationFrame(loop);
+// "Call the next wave" — the genre's pacing lever. Available once the current
+// wave has fully spawned and something is still alive to fight, never on the
+// boss wave, and never on a wave whose end grows the road: appendRouteTile
+// extends the spawn end, which in routePoints() order prepends cells and would
+// shift every living enemy's segment index.
+function canCallNextWave(){
+ if(!G||G.state!=='play')return {ok:false,reason:'no-battle'};
+ if(G.paused||G.draftOpen||G.pendingCard||G.towerEditMode||G.upgradeModalOpen)return {ok:false,reason:'busy'};
+ if(G.waveTransition||G.pendingWave||G.spawnLeft>0)return {ok:false,reason:'spawning'};
+ if(G.mode!=='endless'&&G.wave>=G.chapterWaves-1)return {ok:false,reason:'boss-next'};
+ if(!G.enemies.some(e=>!e.dead))return {ok:false,reason:'wave-clear'};
+ if(G.wave%3===0||(G.roadEvents||[]).some(event=>event.wave===G.wave&&!event.applied))return {ok:false,reason:'road-grows'};
+ return {ok:true};
+}
+let nextWaveButtonState=null;
+function syncNextWaveButton(force=false){
+ const button=document.getElementById('nextWaveBtn');if(!button)return;
+ const ready=canCallNextWave().ok;
+ if(!force&&ready===nextWaveButtonState)return;
+ nextWaveButtonState=ready;button.disabled=!ready;button.classList.toggle('is-ready',ready);
+}
 function setBattleMode(active){document.body.classList.toggle('battle-mode',!!active);if(!active)deactivateBattle3Runtime()}
 function updateBottomNav(screen){
  const map={menu:'home',campaignScreen:'campaign',deckScreen:'cards',heroesScreen:'heroes',kingdomScreen:'more',relicVaultScreen:'relics',moreScreen:'more',upgradesScreen:'more',forgeScreen:'more',codexScreen:'more',profileScreen:'more',achievementsScreen:'more'};

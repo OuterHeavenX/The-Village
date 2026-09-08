@@ -41,6 +41,17 @@ removed; existing saves are untouched.
   the feedback button was unreachable at both iPad portrait and landscape.
 - **Save exports no longer nest earlier backups.** Each export embedded the
   previous recovery snapshot, so bundles compounded on every save.
+- **Call the next wave early.** A new Next Wave command in the battle bar,
+  enabled once the current wave has fully spawned and something is still
+  alive, grants 3 + up to 10 bonus Essence and starts the next wave. Never on
+  the boss wave, and never on a wave whose end grows the road (that would
+  shift every living enemy's position).
+- **Sell a tower.** The upgrade prompt's Move/Swap now has Sell: tap a placed
+  attack tower to remove it for half its Essence cost. A bad placement is no
+  longer permanent.
+- **Boss summons are capped.** Bosses raised three minions every five seconds
+  with no ceiling; 25–27 enemies piled up at the chapter-1 boss. A boss now
+  keeps at most six of its summons alive (four for a mini-boss).
 - **A draft pick can no longer softlock the battle.** Drafts open on cumulative
   Essence *earned*, but placing the pick is paid from Essence *left*, with the
   battle paused until it is placed. When the pick cost more than was left the
