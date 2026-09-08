@@ -2125,10 +2125,18 @@ function trimParticles(){
 function floatText(x,y,text,color='#fff'){if(!G)return;if(G.floaters.length>90)G.floaters.shift();G.floaters.push({x,y,text,color,life:1,vy:-.7})}
 const AUDIO=(()=>{
  const MUSIC_FADE_SECONDS=.75;
+ // iOS Safari cannot decode Ogg Vorbis at all — decodeAudioData rejects it —
+ // so on an iPhone every track failed silently and the game had no music. Ship
+ // both encodings and let the browser choose: Ogg stays the primary for the
+ // browsers that decode it (smaller, transparent quality); MP3 is decodable
+ // everywhere, Safari included. Both `new URL(..., import.meta.url)` forms are
+ // kept literal so Vite bundles and hashes both files.
+ const OGG_PLAYABLE=(()=>{try{return document.createElement('audio').canPlayType('audio/ogg; codecs="vorbis"')!==''}catch(_){return false}})();
+ const musicUrl=(ogg,mp3)=>OGG_PLAYABLE?ogg:mp3;
  const fileTracks={
-  battle:{url:new URL('../../assets/audio/music/battle/battle_01.ogg',import.meta.url).href,level:.32,label:'Battle'},
-  boss:{url:new URL('../../assets/audio/music/boss/boss_battle_01.ogg',import.meta.url).href,level:.38,label:'Boss battle'},
-  menu:{url:new URL('../../assets/audio/music/village/untitled.ogg',import.meta.url).href,level:.55,label:'Village'}
+  battle:{url:musicUrl(new URL('../../assets/audio/music/battle/battle_01.ogg',import.meta.url).href,new URL('../../assets/audio/music/battle/battle_01.mp3',import.meta.url).href),level:.32,label:'Battle'},
+  boss:{url:musicUrl(new URL('../../assets/audio/music/boss/boss_battle_01.ogg',import.meta.url).href,new URL('../../assets/audio/music/boss/boss_battle_01.mp3',import.meta.url).href),level:.38,label:'Boss battle'},
+  menu:{url:musicUrl(new URL('../../assets/audio/music/village/untitled.ogg',import.meta.url).href,new URL('../../assets/audio/music/village/untitled.mp3',import.meta.url).href),level:.55,label:'Village'}
  };
  let ctx=null,master=null,limiter=null,musicBus=null,sfxBus=null,ambBus=null,unlocked=false,state='menu',timer=0,nextNote=0,step=0,noise=null,wind=null;
  for(const track of Object.values(fileTracks))track.data=fetch(track.url).then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.arrayBuffer()}).catch(error=>{console.warn(`${track.label} music preload failed`,error);return null});

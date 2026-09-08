@@ -90,5 +90,9 @@ export const viteManagedAssets = [
   'assets/towers/gothic_dagger/gothic_dagger_atlas.png',
   'assets/audio/music/battle/battle_01.ogg',
   'assets/audio/music/boss/boss_battle_01.ogg',
-  'assets/audio/music/village/untitled.ogg'
+  'assets/audio/music/village/untitled.ogg',
+  // MP3 twins of the three tracks: iOS Safari cannot decode Ogg Vorbis.
+  'assets/audio/music/battle/battle_01.mp3',
+  'assets/audio/music/boss/boss_battle_01.mp3',
+  'assets/audio/music/village/untitled.mp3'
 ];
