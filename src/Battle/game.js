@@ -947,7 +947,37 @@ const STORAGE={
   remove(key){try{window.localStorage?.removeItem(key)}catch(err){console.warn('Could not clear progress.',err)}}
 };
 let loadedSave=null;
-try{loadedSave=JSON.parse(STORAGE.get('relicsEclipseSave')||STORAGE.get('gateRunnerSave')||'null')}catch(err){console.warn('Invalid save ignored.',err)}
+// Quarantine rather than discard. A save that fails to parse, or that parses to
+// something that is not a plain object, used to be dropped on the floor: the
+// player silently started a new game and the very next saveProgress() wrote
+// over the damaged original, making recovery impossible. Copy the raw text
+// aside first so a support export can still reach it.
+function quarantineDamagedSave(reason,raw){
+ if(typeof raw!=='string'||!raw)return;
+ const key=`village.saveRecovery.damaged.${Date.now()}`;
+ try{
+  STORAGE.set(key,JSON.stringify({format:'the-village-damaged-save',reason,capturedAt:new Date().toISOString(),gameVersion:ASCENSION_VERSION,raw}));
+  // Keep only the three most recent so a repeatedly failing boot cannot fill the
+  // storage quota and start breaking the writes that still work.
+  const quarantined=Object.keys(localStorage).filter(k=>k.startsWith('village.saveRecovery.damaged.')).sort();
+  for(const stale of quarantined.slice(0,Math.max(0,quarantined.length-3)))STORAGE.remove(stale);
+  console.error(`[Village save] Unreadable save quarantined as ${key} (${reason}). A new profile was started; the original text is preserved.`);
+ }catch(storageError){
+  console.error('[Village save] Unreadable save could not be quarantined.',storageError?.message||storageError);
+ }
+}
+{
+ const rawSave=STORAGE.get('relicsEclipseSave')||STORAGE.get('gateRunnerSave')||'null';
+ let parsed=null;
+ try{parsed=JSON.parse(rawSave)}
+ catch(err){console.warn('Invalid save ignored.',err);quarantineDamagedSave('parse-error',rawSave)}
+ // `null` is the ordinary "no save yet" case and must not be quarantined.
+ if(parsed!==null&&(typeof parsed!=='object'||Array.isArray(parsed))){
+  quarantineDamagedSave('unexpected-shape',rawSave);
+  parsed=null;
+ }
+ loadedSave=parsed;
+}
 function defaultInventory(){return Object.fromEntries(CARD_POOL.map((c,i)=>[c.id,{copies:DEFAULT_DECK.includes(c.id)?2:0,rarity:String(c.rarity||'common').toLowerCase(),level:1,xp:0,recent:DEFAULT_DECK.includes(c.id)&&i<3,lastFound:0,gemSlots:[null,null]}]));}
 // V33.0.1 — save safety: never erase an existing Village save on startup.
 // Older builds used a one-time fresh-start token that removed campaign, card,
