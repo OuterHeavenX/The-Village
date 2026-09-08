@@ -41,6 +41,13 @@ removed; existing saves are untouched.
   the feedback button was unreachable at both iPad portrait and landscape.
 - **Save exports no longer nest earlier backups.** Each export embedded the
   previous recovery snapshot, so bundles compounded on every save.
+- **iPhones have music.** All three tracks were Ogg Vorbis only, which iOS
+  Safari cannot decode; each track now ships an MP3 twin and the browser picks
+  whichever it can play.
+- **Phone layout.** The open construction catalog no longer starts behind the
+  Village HUD; the joystick and roadmap chip no longer paint over it; the
+  roadmap chip stays on the Village home instead of overlapping Cards,
+  Hunters and the battle draft; the duplicated Speed/Pause glyphs are gone.
 - **A paused or down account service is no longer reported as "the network is
   unavailable".** The auth gate now distinguishes the device being offline from
   the service being unreachable, and names a paused Supabase project as the
