@@ -3245,7 +3245,9 @@ bindClick('#cancelPlaceBtn',()=>{if(!G)return;if(G.towerEditMode){cancelTowerEdi
 const RESET_KEYS=['relicsEclipseSave','relicsEclipseSave_backup_v12','gateRunnerSave',
  'theVillageFreshTownV1Plots','rotkVillagePlots','rotkVillagePlotsV224B',
  'village.vk.mode','village.tactical.mode','villageFreshStartToken'];
-const RESET_PREFIXES=/^(relicsEclipse|gateRunner|rotkVillage|theVillage|village\.)/;
+// 'rotk.village.' was missing, so a confirmed "erase everything" left the
+// Living Village state — claimed secrets, constructions, trophies — behind.
+const RESET_PREFIXES=/^(relicsEclipse|gateRunner|rotkVillage|rotk\.village\.|theVillage|village\.)/;
 function wipeAllProgress(){
  let removed=0;
  for(const k of RESET_KEYS){try{if(localStorage.getItem(k)!==null){localStorage.removeItem(k);removed++}}catch(_){}}
@@ -3285,12 +3287,20 @@ function confirmReset(){
 }
 // V33.0.1 — portable save backups without replacing the working navigation system.
 const SAVE_BUNDLE_VERSION=1;
-const SAVE_KEY_PATTERN=/^(relicsEclipse|gateRunner|rotkVillage|theVillage|village\.)/;
+// Kept in step with src/online/cloudSave.js: this decides which keys reach a
+// save export, a recovery backup and a restore.
+const SAVE_KEY_PATTERN=/^(relicsEclipse|gateRunner|rotkVillage|rotk\.village\.|theVillage|village\.)/;
+// An export or backup must not carry earlier backups: without this, every
+// snapshot nested the one before it and the bundle compounded on each save. The
+// debug channel is a per-device preference, not progress. Mirrors
+// EXCLUDED_KEY_PATTERN in src/online/cloudSave.js.
+const SAVE_KEY_EXCLUDED=/^village\.(cloud\.|saveRecovery\.|feedback\.|debug$)/;
+const isSaveKey=key=>(SAVE_KEY_PATTERN.test(key)||key==='villageFreshStartToken')&&!SAVE_KEY_EXCLUDED.test(key);
 function collectVillageStorage(){
  const entries={};
  try{
   for(const key of Object.keys(localStorage)){
-   if(SAVE_KEY_PATTERN.test(key)||key==='villageFreshStartToken')entries[key]=localStorage.getItem(key);
+   if(isSaveKey(key))entries[key]=localStorage.getItem(key);
   }
  }catch(err){console.warn('Could not collect Village save data.',err)}
  return entries;
@@ -3329,7 +3339,7 @@ async function importVillageSaveFile(file){
   backupCurrentStorage('before-import');
   let restored=0;
   for(const [key,value] of Object.entries(entries)){
-   if((SAVE_KEY_PATTERN.test(key)||key==='villageFreshStartToken')&&typeof value==='string'){
+   if(isSaveKey(key)&&typeof value==='string'){
     localStorage.setItem(key,value);restored++;
    }
   }
@@ -3402,7 +3412,7 @@ function restoreLatestBackup(){
   localStorage.setItem('village.saveRecovery.preRestoreBackup',JSON.stringify(current));
   let restored=0;
   for(const [key,value] of Object.entries(snapshot.entries)){
-   if((SAVE_KEY_PATTERN.test(key)||key==='villageFreshStartToken')&&typeof value==='string'){localStorage.setItem(key,value);restored++}
+   if(isSaveKey(key)&&typeof value==='string'){localStorage.setItem(key,value);restored++}
   }
   if(!restored)throw new Error('Backup contained no save records');
   showToast(`Restored ${restored} save records`);setTimeout(()=>location.reload(),500);

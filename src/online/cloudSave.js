@@ -5,8 +5,12 @@ export const GAME_VERSION = RELEASE_VERSION;
 export const CLOUD_SAVE_SCHEMA_VERSION = 1;
 const CLOUD_FORMAT = 'the-village-cloud-save';
 const CLOUD_DEBOUNCE_MS = 5000;
-const SAVE_KEY_PATTERN = /^(relicsEclipse|gateRunner|rotkVillage|theVillage|village\.)/;
-const EXCLUDED_KEY_PATTERN = /^village\.(cloud\.|saveRecovery\.|feedback\.)/;
+// 'rotk.village.' covers the Living Village and construction-juice stores.
+// They were writing themselves and calling queueCloudSave(), but their keys
+// never matched this pattern, so nothing they saved was ever collected.
+const SAVE_KEY_PATTERN = /^(relicsEclipse|gateRunner|rotkVillage|rotk\.village\.|theVillage|village\.)/;
+// village.debug is a per-device development preference, not progress.
+const EXCLUDED_KEY_PATTERN = /^village\.(cloud\.|saveRecovery\.|feedback\.|debug$)/;
 
 let activeUser = null;
 let activeProfile = null;
