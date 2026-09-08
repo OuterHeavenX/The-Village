@@ -258,8 +258,6 @@ h1,h2,h3,p{margin-top:0;}
   #hud>.hudbar.spread>.hudbar:last-child{display:grid;grid-template-columns:repeat(2,34px);gap:4px;}
   #hud .icon-btn,#hud .btn{min-width:34px;width:34px;height:34px;padding:0;border-radius:50%;font-size:0;display:grid;place-items:center;}
   #recenterBtn,#helpBtn{font-size:16px!important;}
-  #speedBtn:after{content:'×';font-size:16px;}
-  #pauseBtn:after{content:'Ⅱ';font-size:15px;}
   #bossWrap{margin-top:42px!important;}
   .progress{height:5px;}
   #tutorial{left:10px;right:10px;top:auto;bottom:calc(12px + env(safe-area-inset-bottom));width:auto;max-height:55vh;overflow:auto;}
@@ -3423,3 +3421,17 @@ html.auth-ready .auth-gate{display:none}
 @media(max-width:600px){body:not(.battle-mode) .cloud-save-indicator{top:max(92px,calc(env(safe-area-inset-top) + 82px));right:max(70px,calc(env(safe-area-inset-right) + 62px));max-width:210px}}
 @media(min-width:601px) and (max-width:1100px){body:not(.battle-mode) .cloud-save-indicator{top:max(224px,calc(env(safe-area-inset-top) + 214px));right:max(18px,env(safe-area-inset-right))}}
 @media(max-width:600px){body:not(.battle-mode) .cloud-save-indicator{top:max(292px,calc(env(safe-area-inset-top) + 282px));right:max(18px,env(safe-area-inset-right))}}
+
+/* Phone overlap fixes.
+   .kael-controls (z-index 10050) and .roadmap-fab (400) are body-level fixed
+   elements, while the build tray lives inside #menu whose stacking context caps
+   at z-index 10 — so nothing inside the tray can ever stack above them. The
+   joystick and the chip therefore painted on top of the open construction
+   catalog and intercepted its taps. Hide both while the tray is open, and keep
+   the chip to the Village home screen: it was also overlapping the Cards
+   loadout, the Hunters list and the battle draft. */
+body.village-build-menu-open .kael-controls,
+body.village-build-menu-open .roadmap-fab,
+body.battle-mode .roadmap-fab,
+body.cards-native-scroll .roadmap-fab,
+body:not(.village-home-active) .roadmap-fab{display:none!important;}

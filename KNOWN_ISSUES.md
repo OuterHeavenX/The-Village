@@ -48,6 +48,28 @@ on a plan that does not pause. Expect this every quiet week until then.
 `list_projects` in the Supabase dashboard or CLI shows the status directly;
 `INACTIVE` means paused.
 
+### Phone-width leftovers from the emulated sweep
+
+Found by the iPhone-emulated sweep but deliberately not changed yet, because
+each needs a design decision or a real device to judge:
+
+- **Invisible plot hit-targets over the 3D Village.** The legacy DOM plots in
+  `#villagePlots` are rendered at opacity 0 but keep `pointer-events:auto`, so
+  220×170px rectangles sit over the 3D world and take taps. Whether they line up
+  with the 3D plots on a phone, and whether they should exist at all now that
+  the renderer has its own plot picking, needs checking on hardware.
+- **Ghost text behind the Village HUD.** The day/weather readout
+  ("NIGHT · CLEAR NIGHT") and the clock render faintly behind the title bar and
+  the population figure on narrow screens.
+- **The draft carousel has no swipe hint.** On phones the three draft cards are
+  a horizontal snap-scroll; the next card peeks in from the edge, which is the
+  only affordance. Whether that reads on a real phone is untested.
+- **The catalog's hint footer overlaps the last visible row.** The list scrolls
+  beneath it, so nothing is blocked, but the last card cannot scroll fully clear
+  of it.
+- **The Cards loadout row scrolls horizontally** with three of six equipped
+  cards off-screen at 390px and no indicator.
+
 ### Offline play only when accounts are unconfigured
 
 If the build has Supabase credentials but the network is unreachable, the player
