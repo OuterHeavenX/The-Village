@@ -15,14 +15,14 @@ export const VILLAGE_STARTER_BUILDINGS = Object.freeze(['house','farm','sawmill'
 // is a boss relic that must also be held.
 export const VILLAGE_RESEARCH = Object.freeze([
  {id:'waterworks',name:'Village Waterworks',icon:'⛲',requiresStage:2,cost:{gold:180,wood:80,stone:60},unlocks:['well'],battle:'Improves settlement happiness.'},
- {id:'orchardry',name:'Moon Orchardry',icon:'🍎',requiresStage:3,cost:{gold:240,wood:120,food:100},unlocks:['orchard'],battle:'Improves food reserves between hunts.'},
+ {id:'orchardry',name:'Moon Orchardry',icon:'🍎',requiresStage:3,cost:{gold:240,wood:120,food:100},unlocks:['orchard','herbGarden'],battle:'Improves food reserves between hunts.'},
  {id:'buildersGuild',name:"Builder's Guild",icon:'🪚',requiresStage:4,cost:{gold:320,wood:160,stone:120},unlocks:['workshop','almshouse'],battle:'Strengthens village recovery and construction.'},
  {id:'nightCommerce',name:'Night Commerce',icon:'🏪',requiresStage:6,cost:{gold:450,wood:180,stone:120,food:150},unlocks:['market','tavern','stable'],battle:'+5 starting battle souls from an active Market.'},
  {id:'sacredRoads',name:'Sacred Roads',icon:'🕯️',requiresStage:8,cost:{gold:550,wood:140,stone:240,essence:20},unlocks:['chapel','shrine','graveyard'],battle:'Cathedral blessings add starting gate health.'},
  {id:'golemIndustry',name:'Golem-Forged Industry',icon:'⚒️',requiresStage:10,artifact:'heart-of-the-golem',cost:{gold:900,wood:300,stone:420,iron:40,essence:35},unlocks:['blacksmith','stonemason','watchtower','barracks'],battle:'Blacksmiths improve tower damage; guards strengthen the gate.'},
  {id:'merchantCharter',name:'Merchant Charter',icon:'📜',requiresStage:12,cost:{gold:1200,wood:350,stone:260,iron:60},unlocks:['manor','tannery','armory','palisade'],battle:'Unlocks advanced trade and military supply.'},
  {id:'arcaneFoundation',name:'Arcane Foundation',icon:'📚',requiresStage:14,cost:{gold:1600,wood:400,stone:500,iron:80,essence:90},unlocks:['library','alchemist','enchanter'],battle:'Unlocks elemental research and crafted battle supplies.'},
- {id:'arcaneMastery',name:'Arcane Mastery',icon:'🔮',requiresStage:17,cost:{gold:2200,wood:500,stone:650,iron:120,essence:160},unlocks:['observatory','runestone','reliquary'],battle:'Reveals boss modifiers and empowers card fusion.'},
+ {id:'arcaneMastery',name:'Arcane Mastery',icon:'🔮',requiresStage:17,cost:{gold:2200,wood:500,stone:650,iron:120,essence:160},unlocks:['observatory','runestone','reliquary','gemForge'],battle:'Reveals boss modifiers and empowers card fusion.'},
  {id:'divineKingdom',name:'Divine Kingdom',icon:'♛',requiresStage:20,cost:{gold:3200,wood:700,stone:900,iron:180,essence:250},unlocks:['townhall','bathhouse'],battle:'Completes the kingdom progression era.'}
 ]);
 
