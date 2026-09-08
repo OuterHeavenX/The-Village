@@ -28,8 +28,11 @@ different and more dangerous thing.
   only under SwiftShader in headless Chromium, which proves the scene, the
   raycast placement, the breach logic and (via the bot) that whole chapters
   play out the same as on the 2D board, but says nothing about frame rate.
-  The phone tier caps grass at ~5k blades and pixel ratio at 1.5; whether a
-  2020 iPhone holds 60 fps with 20 enemies on screen is untested. If WebGL
+  The phone tier caps grass at ~5k blades and pixel ratio at 1.5 and skips
+  shadows and bloom; tablets get 1024 px shadows and bloom, desktops 2048 px
+  shadows, bloom and sprite shadows. Whether a 2020 iPhone holds 60 fps with
+  20 enemies on screen is untested, and the tablet tier is the one most
+  likely to need a step down. If WebGL
   fails or the context is lost, the battle falls back to the 2D board with
   the keep layout, which is playable but has no keep art. `?battle3d=0`
   restores the classic board if a device struggles.

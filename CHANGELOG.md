@@ -127,6 +127,11 @@ footer next to the version.
   arena with breaches instead of road growth), the headless Blender generator
   `tools/blender/build_battlefield.py`, and its output
   `assets/battlefield3d/keep_arena.glb` plus `keep_arena.layout.json`.
+- **3D battlefield look pass.** Shadow-casting moonlight, torch lights at
+  the keep doors and lamp posts, procedural cobbles, grass and masonry
+  instead of flat colours, a sky with moon and stars, bloom and a gothic
+  grade with vignette, a lower camera, and contact shadows under every
+  sprite and tower. Tiered: phones skip shadows and bloom.
 - **3D battlefield: the remaining 2D touches.** Synergy links between
   towers, level stars, support icons and gem badges, lane shots, the "!"
   alert, the boss camera swing and the breach reveal (rubble sinks away as
