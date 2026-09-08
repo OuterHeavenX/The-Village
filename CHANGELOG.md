@@ -41,6 +41,20 @@ removed; existing saves are untouched.
   the feedback button was unreachable at both iPad portrait and landscape.
 - **Save exports no longer nest earlier backups.** Each export embedded the
   previous recovery snapshot, so bundles compounded on every save.
+- **Battle drafts keep offering towers until the composition is built.** Draft
+  weighting was keyed to drafts spent, so an eight-draft chapter dropped tower
+  odds to 10% by the sixth draft; a bot reached the boss with two towers of a
+  ten-slot cap. It is now keyed to attack towers built. Measured: 5 towers by the
+  chapter-1 boss instead of 2, from the same 8 drafts.
+- **The upgrade prompt's first control is an upgrade, not Close.** The close
+  button led the card, so the first tap dismissed the whole prompt. Measured: a
+  first-button bot took 0 upgrades before, 7 after.
+- **Legal placements are visible while a card is held.** Pads bloom at full
+  strength and a held ground defense lights every legal road tile. Measured:
+  worst-case taps to find a legal spot fell from 31 to 9 (chapter 2) and 17 to
+  8 (chapter 1).
+- **No duplicate cards in one draft.** The weighted pool repeats ids by weight,
+  so the same card could be offered twice.
 - **iPhones have music.** All three tracks were Ogg Vorbis only, which iOS
   Safari cannot decode; each track now ships an MP3 twin and the browser picks
   whichever it can play.

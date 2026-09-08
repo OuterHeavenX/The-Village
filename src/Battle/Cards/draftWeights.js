@@ -1,6 +1,11 @@
 export function draftWeightProfile(state, limits = { attack: 5, total: 8 }) {
   if (typeof limits === 'number') limits = { attack: limits, total: limits + 3 };
-  const attack = state.towers.filter(t => !t.supportOnly).length, total = state.towers.length + (state.traps?.length || 0), progress = (state.draftsCompleted || 0) / Math.max(1, state.chapterWaves || 1);
+  const attack = state.towers.filter(t => !t.supportOnly).length, total = state.towers.length + (state.traps?.length || 0);
+  // Progress is how much of the attack composition is actually built, not how
+  // many drafts have been spent. Keyed to drafts, an eight-draft chapter cut tower
+  // odds to 10% by the sixth draft regardless of what the player held, and a bot
+  // reached the chapter boss with three towers of a ten-slot cap.
+  const progress = attack / Math.max(1, limits.attack);
   if (attack >= limits.attack || total >= limits.total) return { tower: 0, other: 1 };
   if (progress < .3) return { tower: .7, other: .3 };
   if (progress < .7) return { tower: .5, other: .5 };

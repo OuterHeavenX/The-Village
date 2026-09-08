@@ -28,8 +28,10 @@ export function renderPlacementPads(ctx, slots, { tileSize = 64, active = false,
     // Inactive foundations are terrain scars, not UI. Eligible pads only bloom
     // while a placeable structure is held.
     if(!active)continue;
-    ctx.globalAlpha = .18 + pulse * .09;
-    ctx.fillStyle = '#18201d'; ctx.strokeStyle = '#d7c58c'; ctx.lineWidth = 1.4;
+    // While a structure is held the pads are the whole interface: at .18-.27
+    // alpha they read as terrain and players (and a bot) tapped around blind.
+    ctx.globalAlpha = .55 + pulse * .2;
+    ctx.fillStyle = '#243128'; ctx.strokeStyle = '#f0d88f'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(x, y + 9, 23, 11, -.08, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.globalAlpha *= .72; ctx.setLineDash([3, 7]);
     ctx.beginPath(); ctx.ellipse(x, y + 7, 17, 8, -.08, 0, Math.PI * 2); ctx.stroke();
