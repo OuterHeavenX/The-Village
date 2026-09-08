@@ -18,6 +18,52 @@ ready(() => {
   const world = document.getElementById('villageWorld');
   if (!viewport || !world) return;
 
+  // One requestAnimationFrame for the whole Village.
+  //
+  // The Village ran four independent frame loops — Shadow, the citizens, the
+  // day/night atmosphere and the construction juice. Each rescheduled itself
+  // every frame, and three of them opened with their own `viewport.offsetParent`
+  // read, which forces a style and layout flush; animateKael then wrote back to
+  // an inline style in the same frame. That is three forced layouts and four rAF
+  // dispatches per frame, sustained even during a battle where every one of them
+  // had already decided it had nothing to do.
+  //
+  // One driver now runs them in order and resolves the visibility questions once
+  // per frame. The callbacks read the same answers they computed for themselves
+  // before, so behaviour is unchanged. A callback that throws is disabled and
+  // reported rather than silently taking its own loop down, which is what
+  // happened when each owned its own rAF chain.
+  const villageFrameCallbacks = [];
+  const villageFrame = { onScreen: false, documentVisible: true, battle: false };
+  let villageFrameHandle = 0;
+
+  function runVillageFrame(now) {
+    villageFrameHandle = 0;
+    villageFrame.battle = document.body.classList.contains('battle-mode');
+    villageFrame.onScreen = viewport.offsetParent !== null;
+    villageFrame.documentVisible = !document.hidden;
+    for (const entry of villageFrameCallbacks) {
+      if (entry.failed) continue;
+      try {
+        entry.callback(now);
+      } catch (error) {
+        entry.failed = true;
+        console.error(`Village frame callback "${entry.name}" disabled after an error.`, error);
+      }
+    }
+    scheduleVillageFrame();
+  }
+
+  function scheduleVillageFrame() {
+    if (villageFrameHandle) return;
+    villageFrameHandle = requestAnimationFrame(runVillageFrame);
+  }
+
+  function registerVillageFrame(name, callback) {
+    villageFrameCallbacks.push({ name, callback, failed: false });
+    scheduleVillageFrame();
+  }
+
   // Clear any stale recovery marker from an earlier failed Village boot.
   viewport.classList.remove('village-boot-failed');
 
@@ -705,9 +751,10 @@ ready(() => {
   let kaelLast=performance.now();
   function animateKael(now){
     const dt=Math.min(.04,(now-kaelLast)/1000); kaelLast=now;
-    const battleVisible=document.body.classList.contains('battle-mode');
-    const villageVisible=viewport.offsetParent!==null && !battleVisible;
-    controls.style.display=(villageVisible||battleVisible)?'flex':'none';
+    const battleVisible=villageFrame.battle;
+    const villageVisible=villageFrame.onScreen && !battleVisible;
+    const controlsDisplay=(villageVisible||battleVisible)?'flex':'none';
+    if(controls.style.display!==controlsDisplay)controls.style.display=controlsDisplay;
     kaelState.moving = Boolean(villageVisible && input.active);
     if(villageVisible && input.active){
       const len=Math.hypot(input.x,input.y)||1;
@@ -763,9 +810,8 @@ ready(() => {
     }
 
     kael.style.left=`${kaelState.x}px`;kael.style.top=`${kaelState.y}px`;kael.style.zIndex=String(80+Math.floor(kaelState.y/20));
-    requestAnimationFrame(animateKael);
   }
-  requestAnimationFrame(animateKael);
+  registerVillageFrame('shadow', animateKael);
 
   // V24.0 — THE LIVING VILLAGE
   // Lightweight road-following citizens using the supplied 4x8 (32px frame) sheets.
@@ -855,7 +901,7 @@ ready(() => {
   function animateCitizens(now) {
     const dt = Math.min(.05, Math.max(0, (now - citizenLast) / 1000));
     citizenLast = now;
-    const villageVisible = !document.hidden && viewport.offsetParent !== null;
+    const villageVisible = villageFrame.documentVisible && villageFrame.onScreen;
     if (villageVisible) {
       for (const citizen of citizens) {
         if (citizen.wait > 0) {
@@ -902,9 +948,8 @@ ready(() => {
         citizen.el.style.zIndex = String(18 + Math.floor(citizen.y / 45));
       }
     }
-    requestAnimationFrame(animateCitizens);
   }
-  requestAnimationFrame(animateCitizens);
+  registerVillageFrame('citizens', animateCitizens);
 
   // V32.6.8 — Three.js renderer can surface harmless hidden-world discoveries
   // through the existing Village toast UI.
@@ -1190,7 +1235,7 @@ ready(() => {
   function animateLivingVillage(now) {
     const dt = Math.min(.1, Math.max(0, (now - atmosphereLast) / 1000));
     atmosphereLast = now;
-    const visible = !document.hidden && viewport.offsetParent !== null;
+    const visible = villageFrame.documentVisible && villageFrame.onScreen;
     if (visible) {
       const time = updateVillageTime(Date.now());
       if (Date.now() >= nextWeatherAt) chooseWeather();
@@ -1204,10 +1249,9 @@ ready(() => {
       citizenLayer.style.setProperty('--village-pace', String(pace));
       statusHud.classList.toggle('near-secret', Boolean(nearestVillagePoint()?.reward));
     }
-    requestAnimationFrame(animateLivingVillage);
   }
   updateVillageTime();
-  requestAnimationFrame(animateLivingVillage);
+  registerVillageFrame('atmosphere', animateLivingVillage);
 
 
   // ---- V31.5 — Living Economy, Construction and Village Life ------------
@@ -1317,10 +1361,9 @@ ready(() => {
       const data=window.ROTKGameBridge?.getVillageEconomy?.();
       setText('economyHappiness',`${getVillageHappiness(data||{})}%`);
     }
-    requestAnimationFrame(animateVillageJuice);
   }
   showVillageEvent(juiceState.event);
-  requestAnimationFrame(animateVillageJuice);
+  registerVillageFrame('construction', animateVillageJuice);
 
   // The game bridge is created by game.js after this module. Render immediately,
   // then refresh economy and grant readiness once the rest of the game is loaded.
