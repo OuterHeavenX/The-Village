@@ -14,6 +14,10 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { KEEP_CENTER, KEEP_LAYOUT, KEEP_ROAD_ORDER, groundHeight } from './layout.js';
 
 export const BATTLE_VIEW_SHAPE = `
@@ -50,8 +54,8 @@ const DRESSING = [
 ];
 const KEEP_FOOTPRINT = 2.6;   // tiles across; the model is 14.5 units wide
 const COLS = KEEP_LAYOUT.grid.cols, ROWS = KEEP_LAYOUT.grid.rows;
-const PITCH = THREE.MathUtils.degToRad(50);
-const FOV = 42;
+const PITCH = THREE.MathUtils.degToRad(42);
+const FOV = 40;
 const SPRITE_LEAN = PITCH * .5;
 
 const colorCache = new Map();
@@ -77,16 +81,57 @@ function glowTexture() {
   return texture;
 }
 
+// Procedural surface detail shared by the terrain and the stone shader: hash
+// noise, fbm, and a cell pattern that reads as cobbles or masonry. No image
+// textures, so nothing to load and nothing to tile badly.
+const PROCEDURAL_GLSL = `
+  float c3hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float c3noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+    float a = c3hash(i), b = c3hash(i + vec2(1., 0.)), c = c3hash(i + vec2(0., 1.)), d = c3hash(i + vec2(1., 1.));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }
+  float c3fbm(vec2 p) { float v = 0., a = .5; for (int i = 0; i < 4; i++) { v += a * c3noise(p); p = p * 2.03 + 17.1; a *= .5; } return v; }
+  // returns (cell shade 0..1, distance to nearest cell edge)
+  vec2 c3cells(vec2 p) { vec2 i = floor(p), f = fract(p); float md = 8., md2 = 8., shade = 0.;
+    for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(float(x), float(y));
+      vec2 o = vec2(c3hash(i + g), c3hash(i + g + 7.3)); vec2 r = g + o - f; float d = dot(r, r);
+      if (d < md) { md2 = md; md = d; shade = c3hash(i + g + 3.1); } else if (d < md2) { md2 = d; } }
+    return vec2(shade, sqrt(md2) - sqrt(md)); }
+`;
+
+const GRADE_SHADER = {
+  uniforms: { tDiffuse: { value: null }, uVignette: { value: .55 }, uExposure: { value: .95 } },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uVignette; uniform float uExposure; varying vec2 vUv;
+    vec3 aces(vec3 x) { return clamp((x * (2.51 * x + .03)) / (x * (2.43 * x + .59) + .14), 0., 1.); }
+    void main() {
+      vec3 c = texture2D(tDiffuse, vUv).rgb * uExposure;
+      c = aces(c);
+      // gothic grade: cool shadows, faintly warm highlights, a touch of contrast
+      float l = dot(c, vec3(.299, .587, .114));
+      c *= mix(vec3(.86, .9, 1.14), vec3(1.06, 1., .94), smoothstep(.08, .75, l));
+      c = (c - .5) * 1.07 + .5;
+      vec2 d = vUv - .5; c *= 1. - smoothstep(.3, 1.05, dot(d, d) * 2.4) * uVignette;
+      c = pow(clamp(c, 0., 1.), vec3(1. / 2.2));
+      gl_FragColor = vec4(c, 1.);
+    }`
+};
+
 export function detectQuality() {
   const ua = navigator.userAgent || '';
   const coarse = matchMedia?.('(pointer:coarse)')?.matches || /iPad|iPhone|iPod|Android/i.test(ua);
   const shortSide = Math.min(innerWidth || 1024, innerHeight || 768);
-  if (coarse && shortSide < 700) return { tier: 'phone', grass: 5000, pixelRatioCap: 1.5, antialias: false };
-  if (coarse) return { tier: 'tablet', grass: 10000, pixelRatioCap: 1.6, antialias: false };
-  return { tier: 'desktop', grass: 24000, pixelRatioCap: 2, antialias: true };
+  if (coarse && shortSide < 700) return { tier: 'phone', grass: 5000, pixelRatioCap: 1.5, antialias: false, shadowMap: 0, bloom: false, torches: 2, spriteShadows: false };
+  if (coarse) return { tier: 'tablet', grass: 10000, pixelRatioCap: 1.6, antialias: false, shadowMap: 1024, bloom: true, torches: 4, spriteShadows: false };
+  return { tier: 'desktop', grass: 24000, pixelRatioCap: 2, antialias: true, shadowMap: 2048, bloom: true, torches: 8, spriteShadows: true };
 }
 
+// Debug-only look switches: ?look=noshadow,nostone,nopost,nokeep
+const LOOK_OFF = new Set(String(new URLSearchParams(globalThis.location?.search || '').get('look') || '').split(',').filter(Boolean));
+
 export function createBattlefieldScene({ host, quality = detectQuality(), onContextLost } = {}) {
+  if (LOOK_OFF.has('noshadow')) quality = { ...quality, shadowMap: 0, spriteShadows: false };
+  if (LOOK_OFF.has('nopost')) quality = { ...quality, bloom: false };
   const canvas = document.createElement('canvas');
   canvas.id = 'battle3d';
   canvas.setAttribute('aria-hidden', 'true');
@@ -100,28 +145,76 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     throw error;
   }
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality.pixelRatioCap));
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.setClearColor(0x0c1020, 1);
+  // Linear pipeline: the scene renders linear into the composer; the grade pass
+  // does exposure, ACES, the gothic grade and the sRGB encode.
+  renderer.outputEncoding = THREE.LinearEncoding;
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.setClearColor(0x070810, 1);
+  renderer.shadowMap.enabled = quality.shadowMap > 0;
+  renderer.shadowMap.type = quality.tier === 'desktop' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x0c1020, 34, 62);
-  const camera = new THREE.PerspectiveCamera(FOV, 1, .5, 120);
-  scene.add(new THREE.HemisphereLight(0x4b608c, 0x1a2416, .78));
-  const moon = new THREE.DirectionalLight(0xcfd8ff, .9);
-  moon.position.set(-7, 16, 9);
-  scene.add(moon);
-  const ambient = new THREE.AmbientLight(0x2c3350, .35);
-  scene.add(ambient);
+  scene.fog = new THREE.Fog(0x0b0d18, 30, 58);
+  const camera = new THREE.PerspectiveCamera(FOV, 1, .5, 160);
+  const hemi = new THREE.HemisphereLight(0x33427a, 0x10150f, .5);
+  scene.add(hemi);
+  const moon = new THREE.DirectionalLight(0xc2d0ff, .95);
+  moon.position.set(COLS / 2 - 9, 22, ROWS / 2 + 11);
+  moon.target.position.set(COLS / 2, 0, ROWS / 2);
+  scene.add(moon, moon.target);
+  if (quality.shadowMap) {
+    moon.castShadow = true;
+    moon.shadow.mapSize.set(quality.shadowMap, quality.shadowMap);
+    Object.assign(moon.shadow.camera, { left: -12, right: 12, top: 13, bottom: -13, near: 4, far: 60 });
+    moon.shadow.bias = -.0006;
+    moon.shadow.normalBias = .03;
+  }
+  scene.add(new THREE.AmbientLight(0x1b2038, .35));
+
+  // Torches: warm point lights at the keep doors and the lamp posts, with a
+  // small glow sprite for the flame. Tiered by count; flicker in render().
+  const torches = [];
+  function addTorch(x, y, h, strength = 1) {
+    if (torches.length >= quality.torches) return;
+    const light = new THREE.PointLight(0xff9a3c, 2.2 * strength, 6.5, 2);
+    light.position.set(x, h, y);
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xff8f2e, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    flame.scale.setScalar(.22 * strength);
+    flame.position.set(x, h + .05, y);
+    scene.add(light, flame);
+    torches.push({ light, flame, base: 2.2 * strength, seed: torches.length * 1.7 });
+  }
+
+  // Sky: a gradient dome, a moon and a scatter of stars, all beyond the fog.
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(110, 24, 12), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, fog: false,
+    uniforms: { horizon: { value: new THREE.Color(0x1a1d34) }, zenith: { value: new THREE.Color(0x04050c) } },
+    vertexShader: 'varying float vH; void main() { vH = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    fragmentShader: 'uniform vec3 horizon; uniform vec3 zenith; varying float vH; void main() { gl_FragColor = vec4(mix(horizon, zenith, smoothstep(-.05, .6, vH)), 1.); }'
+  }));
+  sky.position.set(COLS / 2, 0, ROWS / 2);
+  scene.add(sky);
+  const starGeometry = new THREE.BufferGeometry();
+  const starPositions = new Float32Array(420 * 3);
+  for (let i = 0; i < 420; i++) { const a = Math.random() * Math.PI * 2, e = .12 + Math.random() * 1.3, r = 100; starPositions.set([COLS / 2 + Math.cos(a) * Math.cos(e) * r, Math.sin(e) * r, ROWS / 2 + Math.sin(a) * Math.cos(e) * r], i * 3); }
+  starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+  const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xdfe6ff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: .75, fog: false, toneMapped: false }));
+  scene.add(stars);
+  const glow = glowTexture();
+  const moonDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, color: 0xf4f1e0, transparent: true, fog: false, toneMapped: false, depthWrite: false }));
+  moonDisc.scale.setScalar(9);
+  moonDisc.position.set(COLS / 2 - 30, 62, ROWS / 2 - 60);
+  scene.add(moonDisc);
 
   // Ground beyond the walls so the arena is not floating in sky.
-  const apron = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), new THREE.MeshLambertMaterial({ color: 0x0f1611 }));
+  const apron = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshStandardMaterial({ color: 0x0c110d, roughness: 1 }));
   apron.rotation.x = -Math.PI / 2;
   apron.position.set(COLS / 2, -.02, ROWS / 2);
+  apron.receiveShadow = true;
   scene.add(apron);
 
   const wind = { value: 0 };
-  const glow = glowTexture();
-  const disposables = [apron.geometry, apron.material, glow];
+  const disposables = [apron.geometry, apron.material, glow, sky.geometry, sky.material, starGeometry, stars.material, moonDisc.material];
 
   // ---- arena ---------------------------------------------------------------
   const arena = new THREE.Group();
@@ -138,28 +231,66 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   disposables.push(...Object.values(padMaterials));
 
   function terrainMaterial() {
-    const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .95, metalness: 0 });
     material.onBeforeCompile = shader => {
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vArenaPos;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvArenaPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vArenaPos;')
+        .replace('#include <common>', '#include <common>\nvarying vec3 vArenaPos;' + PROCEDURAL_GLSL)
         .replace('#include <color_fragment>', `
-          float n = fract(sin(dot(floor(vArenaPos.xz * 3.0), vec2(12.9898, 78.233))) * 43758.5453);
-          float n2 = fract(sin(dot(floor(vArenaPos.xz * 9.0), vec2(39.3468, 11.135))) * 24634.6345);
-          vec3 grass = mix(vec3(.12, .26, .12), vec3(.19, .34, .15), n * .7 + n2 * .3);
-          vec3 road = mix(vec3(.31, .27, .22), vec3(.38, .34, .29), n2);
-          vec3 rock = vec3(.26, .27, .30);
+          vec2 uvw = vArenaPos.xz;
+          float n = c3fbm(uvw * 1.6), n2 = c3noise(uvw * 9.), n3 = c3noise(uvw * 27.);
+          vec3 grass = mix(vec3(.06, .15, .07), vec3(.15, .27, .10), n);
+          grass = mix(grass, vec3(.11, .2, .05), smoothstep(.55, .85, n2) * .55) * (.88 + .24 * n3);
+          vec2 cb = c3cells(uvw * 6.5);
+          float c3grout = smoothstep(.0, .12, cb.y);
+          vec3 road = mix(vec3(.21, .19, .17), vec3(.33, .30, .27), cb.x) * (.5 + .5 * c3grout) * (.88 + .24 * n3);
+          vec3 dirt = vec3(.2, .15, .1) * (.75 + .5 * n2);
+          vec3 rock = mix(vec3(.16, .17, .2), vec3(.28, .29, .33), c3cells(uvw * 5.).x) * (.85 + .3 * n3);
+          float c3road = smoothstep(.2, .85, vColor.r);
           vec3 c = mix(grass, rock, vColor.b);
-          c = mix(c, road, smoothstep(.15, .85, vColor.r));
-          diffuseColor.rgb = c;`);
+          c = mix(c, dirt, smoothstep(.02, .3, vColor.r) * (1. - c3road));
+          c = mix(c, road, c3road);
+          diffuseColor.rgb = c;`)
+        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(roughness, .72, c3road * c3grout);');
     };
     return material;
   }
 
+  // Masonry on the models: a triplanar cell pattern modulating the model's own
+  // colour, so the keep, walls, rubble and rocks stop reading as flat plastic.
+  const stoned = new WeakSet();
+  function stoneify(material, scale = 3.2) {
+    if (!material || stoned.has(material) || !material.isMeshStandardMaterial || LOOK_OFF.has('nostone')) return;
+    stoned.add(material);
+    material.metalness = 0; material.roughness = Math.max(.8, material.roughness || 0);
+    material.onBeforeCompile = shader => {
+      shader.uniforms.uStoneScale = { value: scale };
+      // The Village models ship without vertex normals, so the loader flat-shades
+      // them and the normal only exists per fragment; the triplanar weights are
+      // taken there, after <normal_fragment_begin>, never from a vertex varying.
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vArenaPos;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvArenaPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vArenaPos; uniform float uStoneScale;' + PROCEDURAL_GLSL)
+        .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+          vec3 c3wn = inverseTransformDirection(normal, viewMatrix);
+          vec3 w = abs(c3wn); w /= (w.x + w.y + w.z + 1e-4);
+          vec2 cx = c3cells(vArenaPos.zy * uStoneScale * vec2(1., 2.)), cy = c3cells(vArenaPos.xz * uStoneScale), cz = c3cells(vArenaPos.xy * uStoneScale * vec2(1., 2.));
+          float shade = cx.x * w.x + cy.x * w.y + cz.x * w.z;
+          float edge = cx.y * w.x + cy.y * w.y + cz.y * w.z;
+          float grout = smoothstep(.0, .08, edge);
+          float grain = c3noise(vArenaPos.xz * 23. + vArenaPos.y * 17.);
+          diffuseColor.rgb *= (.78 + .44 * shade) * (.62 + .38 * grout) * (.92 + .16 * grain);`);
+    };
+    material.customProgramCacheKey = () => 'c3stone';
+    material.needsUpdate = true;
+  }
+
   function grassMaterial() {
-    const material = new THREE.MeshLambertMaterial({ color: 0x4d7a33, side: THREE.DoubleSide });
+    const material = new THREE.MeshLambertMaterial({ color: 0x2e5a2a, side: THREE.DoubleSide });
     material.onBeforeCompile = shader => {
       shader.uniforms.uTime = wind;
       shader.vertexShader = shader.vertexShader
@@ -271,6 +402,8 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
           node.visible = false;   // replaced by the Village keep model below
         }
         if (node.material?.isMeshStandardMaterial) { node.material.roughness = Math.min(1, node.material.roughness); }
+        if (node.name === 'terrain') { node.receiveShadow = true; }
+        else if (/^(wall_|rubble_|keep_door)/.test(node.name)) { node.castShadow = true; node.receiveShadow = true; stoneify(node.material, node.name.startsWith('rubble_') ? 5 : 3.2); }
       });
       arena.add(root);
       if (grassGeometry) {
@@ -279,11 +412,13 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
         matrices.forEach((mat, i) => grass.setMatrixAt(i, mat));
         grass.instanceMatrix.needsUpdate = true;
         grass.frustumCulled = false;
+        grass.receiveShadow = quality.shadowMap > 0;
         arena.add(grass);
         disposables.push(grass.material);
       }
       if (stoneGeometry) {
         stones = placeRoadStones(stoneGeometry, stoneMaterial);
+        stones.castShadow = true;
         arena.add(stones);
       }
       resolve();
@@ -301,9 +436,20 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     const scale = KEEP_FOOTPRINT / Math.max(size.x, size.z);
     model.scale.setScalar(scale);
     model.position.set(KEEP_CENTER.x, keepPlateau - box.min.y * scale, KEEP_CENTER.y);
-    model.traverse(node => { if (node.isMesh) { node.frustumCulled = false; node.material = node.material.clone(); keepMaterials.push(node.material); } });
+    model.traverse(node => {
+      if (!node.isMesh) return;
+      node.frustumCulled = false; node.castShadow = true; node.receiveShadow = true;
+      node.material = node.material.clone();
+      node.material.metalness = 0;
+      if (/window/i.test(node.material.name)) { node.material.emissive.set(0xffa040); node.material.emissiveIntensity = 2.2; node.material.toneMapped = false; }
+      else { if (!LOOK_OFF.has('nokeepstone')) stoneify(node.material, /roof/i.test(node.material.name) ? 9 : 2.6); keepMaterials.push(node.material); }
+    });
     keepWalls = model;
     arena.add(model);
+    // Torches at the keep doors (one per distinct door tile) first, lamps after.
+    const doors = new Map();
+    for (const name of KEEP_ROAD_ORDER) { const [dx, dy] = KEEP_LAYOUT.roads[name].door; doors.set(`${dx},${dy}`, [dx, dy]); }
+    for (const [dx, dy] of doors.values()) { const tx = dx + .5 + Math.sign(KEEP_CENTER.x - dx - .5) * .35, ty = dy + .5 + Math.sign(KEEP_CENTER.y - dy - .5) * .35; addTorch(tx, ty, keepPlateau + 1.15, 1.1); }
   }).then(() => Promise.all(DRESSING.map(entry => loadModel(VILLAGE_MODELS + entry.model).then(model => {
     let seed = 7;
     const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -314,6 +460,8 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       clone.scale.setScalar(entry.scale * (.85 + rnd() * .3));
       clone.rotation.y = rnd() * Math.PI * 2;
       clone.position.set(x, groundHeight(x, y) - .02, y);
+      clone.traverse(node => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; if (node.material?.isMeshStandardMaterial) node.material.metalness = 0; if (/window/i.test(node.material?.name)) { node.material = node.material.clone(); node.material.emissive.set(0xffa040); node.material.emissiveIntensity = 2.4; node.material.toneMapped = false; } else if (/stone/i.test(node.material?.name)) stoneify(node.material, 4); } });
+      if (entry.model === 'lamp_post.glb') addTorch(x, y, groundHeight(x, y) + 3.6 * entry.scale, .8);
       arena.add(clone);
     }
   })))).catch(error => console.warn('[Battle3D] dressing skipped', error));
@@ -346,9 +494,11 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
         if (!mesh) {
           const geometry = new THREE.PlaneGeometry(1, 1);
           geometry.translate(0, .5, 0);
-          const material = new THREE.MeshBasicMaterial({ map: placeholder, transparent: true, alphaTest: .3, depthWrite: true, side: THREE.DoubleSide, fog: false });
+          const material = new THREE.MeshBasicMaterial({ map: placeholder, transparent: true, alphaTest: .3, depthWrite: true, side: THREE.DoubleSide, fog: false, toneMapped: false });
           mesh = new THREE.Mesh(geometry, material);
           mesh.matrixAutoUpdate = true;
+          mesh.castShadow = quality.spriteShadows;
+          mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: placeholder, alphaTest: .3, side: THREE.DoubleSide });
           group.add(mesh);
           pool[i] = mesh;
         }
@@ -362,6 +512,27 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   const spriteGroup = new THREE.Group(), towerGroup = new THREE.Group();
   scene.add(spriteGroup, towerGroup);
   const spritePool = makeBillboardPool(spriteGroup), towerPool = makeBillboardPool(towerGroup);
+
+  // Soft contact shadow under every sprite and tower, so they sit on the
+  // ground instead of floating on it.
+  const blobTexture = (() => { const size = 64, c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'), rg = g.createRadialGradient(32, 32, 2, 32, 32, 32); rg.addColorStop(0, 'rgba(0,0,0,.9)'); rg.addColorStop(.6, 'rgba(0,0,0,.35)'); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(0, 0, size, size); const t = new THREE.CanvasTexture(c); return t; })();
+  const blobGeometry = new THREE.PlaneGeometry(1, 1);
+  blobGeometry.rotateX(-Math.PI / 2);
+  disposables.push(blobTexture, blobGeometry);
+  const blobPool = [];
+  function contactShadow(i, x, y, size) {
+    let blob = blobPool[i];
+    if (!blob) {
+      blob = new THREE.Mesh(blobGeometry, new THREE.MeshBasicMaterial({ map: blobTexture, transparent: true, opacity: .6, depthWrite: false, fog: false, toneMapped: false }));
+      blob.renderOrder = -1;
+      markerGroup.add(blob);
+      blobPool[i] = blob;
+    }
+    blob.visible = true;
+    blob.position.set(x, groundHeight(x, y) + .025, y);
+    blob.scale.set(size, 1, size * .7);
+    return blob;
+  }
 
   function setFrameUV(geometry, img, cell, frame, row) {
     const cols = Math.max(1, Math.floor(img.naturalWidth / cell)), rows = Math.max(1, Math.floor(img.naturalHeight / cell));
@@ -480,12 +651,24 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   let lastOpenRoutes = 0;
 
   // ---- camera --------------------------------------------------------------
+  // Post: linear render -> bloom (tiered) -> grade (exposure, ACES, vignette, sRGB).
+  const composer = new EffectComposer(renderer);
+  composer.setPixelRatio(renderer.getPixelRatio());
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = quality.bloom ? new UnrealBloomPass(new THREE.Vector2(512, 512), .55, .35, .82) : null;
+  if (bloom) composer.addPass(bloom);
+  const grade = new ShaderPass(GRADE_SHADER);
+  grade.uniforms.uVignette.value = quality.tier === 'phone' ? .45 : .55;
+  composer.addPass(grade);
+
   let width = 1, height = 1, baseDistance = 24;
   const target = new THREE.Vector3(KEEP_CENTER.x, .5, KEEP_CENTER.y);
   function resize() {
     const rect = host.getBoundingClientRect();
     width = Math.max(1, rect.width || innerWidth); height = Math.max(1, rect.height || innerHeight);
     renderer.setSize(width, height, false);
+    composer.setSize(width, height);
+    if (bloom) bloom.setSize(Math.round(width / 2), Math.round(height / 2));
     canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
@@ -544,7 +727,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   function render(view) {
     wind.value = view.time || 0;
     applyCamera(view);
-    if (keepMaterials.length) {
+    if (keepMaterials.length && !LOOK_OFF.has('nokeepemissive')) {
       const damage = 1 - Math.max(0, Math.min(1, view.keepHp ?? 1));
       keepEmissive.setRGB(damage * .32, damage * .04, 0);
       for (const material of keepMaterials) if (material.emissive) material.emissive.copy(keepEmissive);
@@ -587,12 +770,14 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       rangeFill.position.set(cx, h, cy); rangeFill.scale.setScalar(range);
     }
 
-    let n = 0;
+    let n = 0, blobs = 0;
     for (const sprite of view.sprites || []) {
       const img = sprite.img;
       if (!img || !img.complete || img.naturalWidth < sprite.cell) continue;
       const mesh = spritePool.acquire(n++);
       mesh.material.map = textureFor(img, img.src);
+      if (mesh.customDepthMaterial) mesh.customDepthMaterial.map = mesh.material.map;
+      if (!sprite.lift) contactShadow(blobs++, sprite.x, sprite.y, sprite.size / 64 * .55);
       mesh.material.opacity = sprite.alpha ?? 1;
       mesh.material.color.copy(sprite.tint ? cssColor(sprite.tint) : cssColor('#ffffff'));
       setFrameUV(mesh.geometry, img, sprite.cell, sprite.frame || 0, sprite.row || 0);
@@ -615,9 +800,12 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       mesh.scale.set(size, size * tower.canvas.height / tower.canvas.width, 1);
       const cx = tower.x + .5, cy = tower.y + .5;
       mesh.position.set(cx, groundHeight(cx, cy) - (tower.baseline ?? .33), cy);
+      if (mesh.customDepthMaterial) mesh.customDepthMaterial.map = mesh.material.map;
+      contactShadow(blobs++, cx, cy, 1.1);
       orient(mesh, cx, cy, SPRITE_LEAN * .8);
     }
     towerPool.release(n);
+    for (let i = blobs; i < blobPool.length; i++) blobPool[i].visible = false;
 
     n = 0;
     for (const shot of view.shots || []) {
@@ -677,7 +865,13 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     particleGeometry.attributes.position.needsUpdate = true;
     particleGeometry.attributes.color.needsUpdate = true;
 
-    renderer.render(scene, camera);
+    for (const torch of torches) {
+      const t = (view.time || 0) * 11 + torch.seed;
+      const flicker = .82 + .13 * Math.sin(t) + .05 * Math.sin(t * 2.7 + 1.3);
+      torch.light.intensity = torch.base * flicker;
+      torch.flame.material.opacity = .55 + .35 * flicker;
+    }
+    if (LOOK_OFF.has('nopost')) renderer.render(scene, camera); else composer.render();
   }
 
   let lost = false;
@@ -692,6 +886,10 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     textures.clear();
     arena.traverse(node => { if (node.isMesh) { node.geometry?.dispose(); if (Array.isArray(node.material)) node.material.forEach(m => m.dispose()); else node.material?.dispose(); } });
     for (const d of disposables) d.dispose?.();
+    for (const torch of torches) torch.flame.material.dispose();
+    for (const blob of blobPool) blob.material.dispose();
+    composer.dispose?.();
+    bloom?.dispose?.();
     renderer.dispose();
     try { renderer.forceContextLoss(); } catch { /* already gone */ }
     canvas.remove();
@@ -702,6 +900,6 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     canvas, ready, dressed, render, resize, dispose, worldAt, project,
     get lost() { return lost; },
     get quality() { return quality; },
-    stats() { return { grass: grass?.count || 0, stones: stones?.count || 0, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, textures: textures.size, rubble: Object.fromEntries(KEEP_ROAD_ORDER.map(road => [road, (rubble.get(road) || []).slice(0, 1).map(p => ({ visible: p.visible, y: +p.position.y.toFixed(2), s: +p.scale.x.toFixed(2) }))[0] || null])) }; }
+    stats() { return { keep: keepMaterials.map(m => ({ name: m.name, type: m.type, color: m.color?.getHexString(), emissive: m.emissive?.getHexString(), vc: m.vertexColors, metal: m.metalness, rough: m.roughness, side: m.side, transparent: m.transparent, opacity: m.opacity })), grass: grass?.count || 0, stones: stones?.count || 0, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, textures: textures.size, rubble: Object.fromEntries(KEEP_ROAD_ORDER.map(road => [road, (rubble.get(road) || []).slice(0, 1).map(p => ({ visible: p.visible, y: +p.position.y.toFixed(2), s: +p.scale.x.toFixed(2) }))[0] || null])) }; }
   };
 }

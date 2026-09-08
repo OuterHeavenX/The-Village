@@ -181,6 +181,35 @@ coexist. If context creation fails the 2D battle runs as before.
 
 Each stage is a PR that leaves `main` playable.
 
+### Look pass (after Stage C)
+
+The first 3D board was a blockout: flat colours, one light, cardboard
+sprites. The look pass keeps the pipeline and changes what it draws:
+
+- **Linear pipeline with a grade.** The scene renders linear into an
+  `EffectComposer`; a final pass does exposure, ACES, a gothic grade (cool
+  shadows, faintly warm highlights), a vignette and the sRGB encode. Bloom
+  (`UnrealBloomPass` at half resolution) on desktop and tablet only.
+- **Lighting.** A shadow-casting moon (2048 px map on desktop, 1024 on
+  tablet, none on phones) over a low hemisphere; warm flickering point lights
+  with a flame sprite at each keep door and lamp post (8 / 4 / 2 by tier);
+  the keep's window material glows and blooms.
+- **Surfaces, no image textures.** The terrain is a `MeshStandardMaterial`
+  whose fragment shader builds grass, dirt shoulders, cobbles (a cell
+  pattern with grout) and rock from the vertex-colour mask and noise. Every
+  model material gets a triplanar masonry pattern from the same GLSL, taken
+  from the per-fragment normal because the Village models ship without
+  vertex normals (a vertex-stage normal made them render black).
+- **Sky.** A gradient dome, a moon disc and a scatter of stars beyond the fog.
+- **Camera** at 42° instead of 50°, closer to the ground.
+- **Grounded sprites.** A soft contact shadow under every enemy and tower;
+  on desktop the billboards also cast real silhouette shadows through a
+  depth material that honours their alpha.
+
+`?look=noshadow,nostone,nopost,nokeepstone,nokeepemissive` switch pieces off
+for comparison. Everything above is unverified on real GPUs; the phone tier
+is the cheapest configuration and `?battle3d=0` remains the escape hatch.
+
 ## Cards tab remake
 
 Replace the internals of `#deckScreen` with `src/Cards/cardsScreen.js` and one
