@@ -23,6 +23,7 @@ import { createBattleTelemetryOverlay } from './developmentTelemetry.js';
 import { debugEnabled, debugSummary } from '../config/debug.js';
 import { activateBattle3Runtime, deactivateBattle3Runtime } from './battle3Runtime.js';
 import { cardArtHTML } from '../Cards/cardArtRegistry.js';
+import { installCardsScreen } from '../Cards/cardsScreen.js';
 import {
   ASCENSION_SAVE_VERSION,
   ASCENSION_VERSION,
@@ -1679,16 +1680,6 @@ function miniCardHTML(c){
  return `<span class="deck-card-level">LV ${item.level}</span><div class="deck-card-art">${cardArtHTML(c,{eager:true})}<span>${cardIconHTML(c,item.level)}</span></div><strong class="deck-card-name">${c.name}</strong>${cardGemSlotsHTML(c)}<div class="deck-card-stats ${defenseCard?'defense-stats':''}"><span>⚔ ${atk}</span>${defenseCard?'':`<span>♥ ${hp}</span>`}</div>`;
 }
 function groundCardById(id){return HERO_GROUND_DEFENSES.find(c=>c.id===id)}
-function renderGroundDefenseSlots(){
- const box=$('#groundDefenseSlots');if(!box)return;box.innerHTML='';
- for(let i=0;i<2;i++){
-  const id=save.groundDefenseSlots[i],c=groundCardById(id),slot=document.createElement('button');
-  slot.type='button';slot.className=`ground-defense-slot ${c?'filled rarity-'+inv(c.id).rarity:'empty'}`;
-  if(c){slot.innerHTML=`<span class="ground-slot-label">SLOT ${i+1}</span>${cardHTML(c,true)}`;slot.title=`${c.name} · Hero bonus ground defense`;slot.onclick=()=>showToast(`${c.name} is equipped in Ground Slot ${i+1}`)}
-  else{slot.innerHTML=`<span class="ground-slot-label">SLOT ${i+1}</span><span class="empty-plus">+</span><small>GROUND DEFENSE</small>`}
-  box.append(slot);
- }
-}
 
 function shadowPortraitHTML(level){
  const n=Math.max(1,Math.min(9,Number(level)||1));
@@ -1725,47 +1716,15 @@ function renderAscensionInventory(box,filter){
  }
  box.innerHTML='<p class="ascension-empty">Consumables are reserved for a future Ascension content drop.</p>';
 }
-function renderDeck(){save.favorites=Array.isArray(save.favorites)?save.favorites:[];save.ui=save.ui||{cardFilter:'all',cardSort:'type'};ensureVisibleCardCollection();const repairedUnlocks=reconcileCardUnlocks();if(repairedUnlocks.length)setTimeout(()=>showToast(`Recovered unlocks: ${repairedUnlocks.map(c=>c.name).join(' + ')}`),100);
- const equipped=$('#equippedDeck'),box=$('#collectionCards');equipped.innerHTML='';box.innerHTML='';box.className='cards portrait-grid';renderGroundDefenseSlots();
- const selectedHero=HEROES.find(h=>h.id===save.selectedHero)||HEROES[0];
- const heroLevel=Math.max(1,save.heroLevels?.[selectedHero.id]||1);
- const heroPortrait=$('#deckHeroPortrait'),heroName=$('#deckHeroName'),heroLevelEl=$('#deckHeroLevel'),heroCard=$('#deckHeroCard');
- if(heroPortrait){const shadowLv=currentShadowLevel();heroPortrait.innerHTML=shadowPortraitHTML(shadowLv);heroPortrait.title=`Shadow · Level ${shadowLv}`;}if(heroName)heroName.textContent=selectedHero.name;if(heroLevelEl){const stats=ascensionEquipmentStats();heroLevelEl.textContent=`Lv ${heroLevel} · ${save.heroJP[selectedHero.id]||0} JP · Faith ${Math.round(stats.faith||0)} · Bravery ${Math.round(stats.bravery||0)}`}
- const xp=$('#deckHeroXP');if(xp){const pct=Math.min(100,((heroLevel*37)%100));xp.title=`Mastery ${pct}%`;xp.querySelector('i').style.width=pct+'%'}
- const gear=$('#deckHeroGear');if(gear)gear.innerHTML=EQUIPMENT_SLOTS.map(slot=>{const item=equipmentById(save.ascension.equipped[slot]);return `<span title="${slot}: ${item?.name||'Empty'}"><i>${item?.icon||'◇'}</i><small>${slot.replace(/\d/,'')}</small></span>`}).join('');
- const heroSupports=$('#deckHeroSupports');if(heroSupports){
-  const supportIds=save.deck.filter(id=>card(id)?.type==='support').slice(0,2);
-  heroSupports.innerHTML=[0,1].map(i=>{const id=supportIds[i],c=id?card(id):null;return c?`<span class="hero-support-card rarity-${inv(id).rarity}" title="${c.name}"><i>${c.icon}</i><b>${c.name}</b><small>Lv ${inv(id).level}</small></span>`:`<span class="hero-support-card empty"><i>+</i><b>Support</b><small>Empty</small></span>`}).join('');
- }
- if(heroCard)heroCard.onclick=()=>{openScreen($('#heroesScreen'));renderHeroes()};
- for(let i=0;i<6;i++){
-  const id=save.deck[i],slot=document.createElement('button');slot.className='deck-slot poker-mini-card'+(id?' filled rarity-'+inv(id).rarity:' empty');slot.type='button';slot.dataset.deckSlot=String(i);
-  if(id){const c=card(id);slot.dataset.cardId=id;slot.dataset.cardsAction='inspect';slot.innerHTML=miniCardHTML(c)+`<span class="deck-card-view">View details</span>`;slot.setAttribute('aria-label',`View ${c.name} details`)}
-  else{slot.dataset.cardsAction='empty-slot';slot.innerHTML='<span class="empty-plus">+</span><small>EMPTY</small>'}
-  equipped.append(slot)
- }
- const filter=$('#deckTypeFilter')?.value||save.ui.cardFilter||'all',sort=$('#deckSort')?.value||save.ui.cardSort||'type',mergeOnly=$('#mergeOnly')?.checked||false;
- save.ui.cardFilter=filter;save.ui.cardSort=sort;
- if(['equipment','gems','fragments','fusion','consumables'].includes(filter)){renderAscensionInventory(box,filter);$('#deckCounter').textContent=`${save.deck.length} / 6`;document.querySelectorAll('.card-file-tab').forEach(t=>{const on=t.dataset.cardFilter===filter;t.classList.toggle('active',on);t.setAttribute('aria-selected',String(on))});saveProgress();return;}
- if(filter==='heroProfile'){renderHeroJPPanel(box,selectedHero);$('#deckCounter').textContent=`${save.deck.length} / 6`;document.querySelectorAll('.card-file-tab').forEach(t=>{const on=t.dataset.cardFilter===filter;t.classList.toggle('active',on);t.setAttribute('aria-selected',String(on))});saveProgress();return;}
- let cards=filter==='ground'?HERO_GROUND_DEFENSES:CARD_POOL.filter(c=>(filter==='all'||c.type===filter)&&(!mergeOnly||canPayRarityUpgrade(inv(c.id),c.id)));
- if(filter!=='ground')cards=sortCards(cards,sort);
- cards.forEach(c=>{
-  if(filter==='ground'){
-   const equipped=save.groundDefenseSlots.includes(c.id),owned=inv(c.id).copies>0,el=document.createElement('article');
-   el.dataset.groundCardId=c.id;el.dataset.cardsAction='ground-inspect';el.tabIndex=0;el.setAttribute('role','button');
-   el.className=`card portrait-card compact-card ground-collection-card rarity-${inv(c.id).rarity} ${equipped?'selected':''}`;
-   el.innerHTML=cardHTML(c,true)+`<span class="collection-card-status">${equipped?'EQUIPPED · TAP FOR DETAILS':owned?'TAP FOR DETAILS':'LOCKED · VIEW REQUIREMENTS'}</span>`;
-   box.append(el);return;
-  }
-  const item=inv(c.id),unlocked=save.unlocked.includes(c.id)&&item.copies>0,fav=save.favorites.includes(c.id),unlockAt=unlockChapterForCard(c.id),el=document.createElement('article');el.dataset.cardId=c.id;el.dataset.cardsAction=unlocked?'inspect':'locked';el.tabIndex=0;el.setAttribute('role','button');el.className=`card portrait-card compact-card rarity-${item.rarity} ${save.deck.includes(c.id)?'selected':''} ${unlocked?'':'locked-card'}`;el.innerHTML=cardHTML(c,true)+`<span class="card-type-corner" title="${shortType(c.type)}">${{tower:'🛡️',support:'✚',skill:'⚔️',hero:'⬆️'}[c.type]||'◆'}</span><span class="favorite-corner ${fav?'is-favorite':''}" aria-label="${fav?'Favorite':'Not favorite'}">★</span>${unlocked?'':`<div class="card-lock-overlay"><b>🔒 LOCKED</b><small>${unlockAt?`Defeat Chapter ${unlockAt.number}: ${unlockAt.name}`:'Campaign reward'}</small></div>`}`;
-  if(unlocked){const status=document.createElement('span');status.className='collection-card-status';status.textContent=save.deck.includes(c.id)?'IN BATTLE DECK':'TAP FOR DETAILS';el.append(status)}
-  box.append(el)
- });
- $('#deckCounter').textContent=`${save.deck.length} / 6`;$('#deckSort').value=sort;$('#deckTypeFilter').value=filter;const mergeAllBtn=$('#mergeAllBtn');if(mergeAllBtn){const ready=CARD_POOL.filter(c=>canPayRarityUpgrade(inv(c.id),c.id));mergeAllBtn.disabled=ready.length===0;mergeAllBtn.classList.toggle('ready',ready.length>0);mergeAllBtn.textContent=ready.length?`Complete Rarity Upgrades (${ready.length})`:'Complete Rarity Upgrades';}
- document.querySelectorAll('.card-file-tab').forEach(t=>{const on=t.dataset.cardFilter===filter;t.classList.toggle('active',on);t.setAttribute('aria-selected',String(on))});
- renderDeckAnalysis();saveProgress();
+// Cards 3.0 — the Battle Deck screen lives in src/Cards/cardsScreen.js and is
+// handed every rule it needs from here; game.js keeps owning the rules.
+let cardsScreen=null;
+function cardsUI(){
+ if(cardsScreen)return cardsScreen;
+ cardsScreen=installCardsScreen({root:UI.deck,get save(){return save},card,inv,rarityDef,cardPower,cardHTML,miniCardHTML,cardIconHTML,CARD_POOL,HERO_GROUND_DEFENSES,groundCardById,toggleFavorite,mergeCard,canPayRarityUpgrade,requestMergeAllDuplicates,sortCards,shortType,unlockChapterForCard,cardMetrics,attackPattern,ascensionGemDef,renderAscensionInventory,renderHeroJPPanel,HEROES,currentShadowLevel,shadowPortraitHTML,ascensionEquipmentStats,EQUIPMENT_SLOTS,equipmentById,saveProgress,showToast,openScreen,screens:{menu:UI.menu,heroes:$('#heroesScreen')},renderHeroes,ensureVisibleCardCollection,reconcileCardUnlocks});
+ return cardsScreen;
 }
+function renderDeck(){cardsUI().render()}
 function vanguardRank(heroId=save.selectedHero){return Math.max(0,Math.min(10,Number(save.heroJobs?.[heroId]?.vanguardRank)||0))}
 const VANGUARD_SKILLS=[
  {name:'Vanguard Initiate',icon:'⚔',bonus:'+5% Shadow damage'},
@@ -1826,7 +1785,6 @@ function renderHeroJPPanel(box,hero){
  box.querySelectorAll('[data-vanguard-rank]').forEach(btn=>btn.onclick=()=>{const requested=Number(btn.dataset.vanguardRank);if(requested===vanguardRank(hero.id)+1)purchaseVanguardRank(hero.id)});
 }
 
-function renderDeckAnalysis(){const el=$('#deckAnalysis');if(!el)return;const d=save.deck.map(card).filter(Boolean),support=d.filter(c=>c.type==='support').length,towers=d.filter(c=>c.type==='tower').length,skills=d.filter(c=>c.type==='skill').length,hero=d.filter(c=>c.type==='hero').length;const notes=[];if(!towers)notes.push('<span class="warning">⚠ No defense card equipped</span>');if(!support)notes.push('<span class="warning">⚠ No support card equipped</span>');notes.push('<span class="good-note">✓ Road System always included</span>');el.innerHTML=`<b>Deck profile</b> · Defense ${towers} · Supports ${support} · Skills ${skills} · Run upgrades ${hero}<br>${notes.join(' · ')}`}
 function cardGemSlotsHTML(c){
  if(c.type!=='tower')return '';
  return `<div class="ascension-gem-slots" aria-label="${c.name} Gem sockets">${inv(c.id).gemSlots.map((id,index)=>{const gem=ascensionGemDef(id);return `<span class="${gem?'filled':'empty'}" title="${gem?gem.name:`Empty Gem Slot ${index+1}`}" aria-label="${gem?gem.name:`Empty Gem Slot ${index+1}`}">${gem?gem.icon:''}</span>`}).join('')}</div>`;
@@ -3102,75 +3060,6 @@ function setBattleMode(active){document.body.classList.toggle('battle-mode',!!ac
 function updateBottomNav(screen){
  const map={menu:'home',campaignScreen:'campaign',deckScreen:'cards',heroesScreen:'heroes',kingdomScreen:'more',relicVaultScreen:'relics',moreScreen:'more',upgradesScreen:'more',forgeScreen:'more',codexScreen:'more',profileScreen:'more',achievementsScreen:'more'};
  
-// V27.2.2: one capture-phase controller for every Cards interaction.
-// This intentionally avoids relying on fragile per-card click handlers on iPad/Chrome.
-(function installCardsInteractionController(){
- const deckScreen=$('#deckScreen'),inspectScreen=$('#cardInspectScreen');
- if(!deckScreen||deckScreen.dataset.cardsController==='2722')return;
- deckScreen.dataset.cardsController='2722';
- let lastPointerAction=0,pointerGesture=null,suppressCardClickUntil=0;
- const activate=(event)=>{
-  const keyboard=event.type==='keydown';
-  if(keyboard&&event.key!=='Enter'&&event.key!==' ')return;
-   if(event.type==='click'&&(performance.now()-lastPointerAction<500||performance.now()<suppressCardClickUntil))return;
-  const target=event.target instanceof Element?event.target:null;if(!target)return;
-  const tab=target.closest('.card-file-tab[data-card-filter]');
-  if(tab&&deckScreen.contains(tab)){
-   event.preventDefault();event.stopPropagation();
-   const value=tab.dataset.cardFilter||'all';save.ui.cardFilter=value;
-   const select=$('#deckTypeFilter');if(select)select.value=value;renderDeck();return;
-  }
-  const merge=target.closest('#mergeAllBtn');
-  if(merge&&deckScreen.contains(merge)){event.preventDefault();event.stopPropagation();requestMergeAllDuplicates();return}
-  const action=target.closest('[data-cards-action]');
-  if(action&&deckScreen.contains(action)){
-   event.preventDefault();event.stopPropagation();
-   if(action.dataset.cardsAction==='empty-slot'){showToast('Choose a card from the collection');return}
-    if(action.dataset.cardsAction==='ground-inspect'){
-     const ground=groundCardById(action.dataset.groundCardId);
-     if(ground)showCardDetail(ground);return;
-   }
-   const id=action.dataset.cardId,c=id?card(id):null;
-   if(action.dataset.cardsAction==='locked'){const unlockAt=unlockChapterForCard(id);showToast(unlockAt?`Defeat Chapter ${unlockAt.number} to unlock ${c?.name||'this card'}`:`${c?.name||'This card'} is still locked`);return}
-   if(c)showCardDetail(c);return;
-  }
- };
- deckScreen.addEventListener('pointerdown',event=>{
-  if(event.pointerType==='mouse'&&event.button!==0)return;
-  const target=event.target instanceof Element?event.target.closest('[data-cards-action],.card-file-tab[data-card-filter],#mergeAllBtn'):null;
-  pointerGesture=target?{id:event.pointerId,x:event.clientX,y:event.clientY,moved:false}:null;
- },{capture:true,passive:true});
- deckScreen.addEventListener('pointermove',event=>{
-  if(!pointerGesture||pointerGesture.id!==event.pointerId)return;
-  if(Math.hypot(event.clientX-pointerGesture.x,event.clientY-pointerGesture.y)>10)pointerGesture.moved=true;
- },{capture:true,passive:true});
- deckScreen.addEventListener('pointerup',event=>{
-  if(event.pointerType==='mouse'&&event.button!==0)return;
-  const gesture=pointerGesture;pointerGesture=null;
-  if(!gesture||gesture.id!==event.pointerId||gesture.moved){suppressCardClickUntil=performance.now()+700;return}
-  lastPointerAction=performance.now();activate(event);
- },{capture:true,passive:false});
- deckScreen.addEventListener('pointercancel',()=>{pointerGesture=null;suppressCardClickUntil=performance.now()+700},{capture:true,passive:true});
- deckScreen.addEventListener('scroll',()=>{if(pointerGesture)pointerGesture.moved=true;suppressCardClickUntil=performance.now()+250},{capture:true,passive:true});
- deckScreen.addEventListener('click',activate,true);
- deckScreen.addEventListener('keydown',activate,true);
- let lastDetailPointer=0;
- const activateDetail=(event)=>{
-  if(event.type==='click'&&performance.now()-lastDetailPointer<500)return;
-  const btn=event.target instanceof Element?event.target.closest('[data-detail-action]'):null;if(!btn)return;
-  event.preventDefault();event.stopPropagation();
-   const id=btn.dataset.cardId,c=card(id)||groundCardById(id);if(!c)return;
-   if(btn.dataset.detailAction==='deck'){
-    const equipped=save.deck.includes(id);
-    if(setDeckCard(id,!equipped)){openScreen(UI.deck);renderDeck();showToast(equipped?`${c.name} removed from battle deck`:`${c.name} added to battle deck`)}
-   }else if(btn.dataset.detailAction==='ground'){
-    const equipped=save.groundDefenseSlots.includes(id);
-    if(setGroundDefenseCard(id,!equipped)){openScreen(UI.deck);renderDeck();showToast(equipped?`${c.name} removed from Hero`:`${c.name} added to Hero`)}
-   }else if(btn.dataset.detailAction==='merge'){mergeCard(id);showCardDetail(c)}
- };
- inspectScreen?.addEventListener('pointerup',event=>{if(event.pointerType==='mouse'&&event.button!==0)return;lastDetailPointer=performance.now();activateDetail(event)},{capture:true,passive:false});
- inspectScreen?.addEventListener('click',activateDetail,true);
-})();
 
 document.querySelectorAll('#bottomNav [data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===map[screen?.id]));
 // The roadmap chip is a body-level fixed element; CSS keeps it to the Village home.
@@ -3196,21 +3085,7 @@ function cardMetrics(c){
  if(c.type==='trap')return [['Category','Passive'],['Effect',c.effect||'Defense'],['Damage',c.damage||'—'],['Trigger speed',c.rate?`${(1/c.rate).toFixed(2)}/s`:'—']];
  return [['Role','Run-only Hero Upgrade'],['Duration','Current run'],['Cost','Free']];
 }
-function showCardDetail(c){
- const item=inv(c.id),r=rarityDef(item.rarity),ground=c.type==='trap',pattern=attackPattern(c);
- const compat=ground?'Equips to one of Shadow’s two Passive Card slots.':c.type==='support'?'Whip, Dagger, Axe, Cross, Clock, Bone, Familiar, Cannon, Rosary, Garlic, Living Word':c.type==='tower'?'Holy Water Infusion · Chrono Sigil · Guardian Ward':'—';
- const fav=save.favorites.includes(c.id),equipped=ground?save.groundDefenseSlots.includes(c.id):save.deck.includes(c.id);
- const unlockAt=unlockChapterForCard(c.id),owned=item.copies>0;
- const unlockText=owned?'Unlocked':unlockAt?`Defeat Chapter ${unlockAt.number}: ${unlockAt.name}`:'Campaign reward';
- const statusLabel=ground?'Hero Status':'Deck Status',statusValue=equipped?'Equipped':owned?'Reserve':'Locked';
- const action=ground?'ground':'deck',actionText=ground?(equipped?'Remove from Hero':'Add to Hero'):(equipped?'Remove From Deck':'Add To Deck');
- const favoriteControl=ground?'':`<button id="detailFavorite" class="favorite-button ${fav?'active':''}" type="button">★ ${fav?'Favorited':'Favorite'}</button>`;
- openScreen($('#cardInspectScreen'));
- const el=$('#cardDetail');
- el.innerHTML=`<div class="detail-card-wrap"><article class="card portrait-card detail-card rarity-${item.rarity}">${cardHTML(c,true)}</article></div><div class="detail-copy"><div class="detail-heading"><div class="detail-title-row"><span>${r.name} · Level ${item.level}</span>${favoriteControl}</div><h2>${cardIconHTML(c,item.level)} ${c.name}</h2><p>${c.desc}</p><small class="card-flavor">${ground?'A persistent Passive Card carried by Shadow into every hunt.':'A relic-bound technique preserved by the last defenders of the kingdom.'}</small></div><div class="metric-grid">${cardMetrics(c).map(([a,b])=>`<div><small>${a}</small><b>${b}</b></div>`).join('')}<div><small>Current Level</small><b>${item.level}</b></div><div><small>Rarity</small><b>${r.name}</b></div><div><small>Copies</small><b>${item.copies}</b></div><div><small>${statusLabel}</small><b>${statusValue}</b></div><div><small>Unlock Requirement</small><b>${unlockText}</b></div></div><section class="attack-panel"><h3>${ground?'Passive Effects':pattern.title}</h3>${ground?'':pattern.html}<p>${c.desc}</p></section><section><h3>${ground?'Upgrade Information':'Support compatibility'}</h3><p>${ground?`Level ${item.level} · ${Math.round(cardPower(c.id)*100)}% card power. Fuse matching copies when available to improve this passive.`:compat}</p></section></div><div class="detail-actions"><button id="detailEquip" data-detail-action="${action}" data-card-id="${c.id}" class="btn primary" ${owned?'':'disabled'}>${owned?actionText:'Locked'}</button>${!ground&&item.copies>=3?`<button id="detailMerge" data-detail-action="merge" data-card-id="${c.id}" class="btn gold">Fuse 3 Copies</button>`:''}</div>`;
- if(c.type==='tower'){const section=document.createElement('section');section.className='detail-gem-panel';section.innerHTML=`<h3>Permanent Gem Slots</h3><p>Each equipped gem permanently specializes every ${c.name}.</p><div>${item.gemSlots.map((id,index)=>{const gem=ascensionGemDef(id);return `<article><span>${gem?gem.icon:'○'}</span><div><b>${gem?gem.name:`Gem Slot ${index+1}`}</b><small>${gem?Object.entries(gem.passiveEffects||gem.effects||{}).map(([key,value])=>`${key} +${Math.round(value*100)}%`).join(' · '):'Empty — equip a gem from the Gems tab.'}</small></div>${gem?`<button type="button" data-remove-gem="${index}">Remove</button>`:''}</article>`}).join('')}</div>`;el.querySelector('.detail-copy')?.append(section);section.querySelectorAll('[data-remove-gem]').forEach(button=>button.onclick=()=>{const index=Number(button.dataset.removeGem),gemId=item.gemSlots[index];if(!gemId)return;save.ascension.gems[gemId]=(save.ascension.gems[gemId]||0)+1;item.gemSlots[index]=null;saveProgress('gem-remove');showCardDetail(c);showToast('Gem returned to inventory')})}
- const favoriteButton=$('#detailFavorite');if(favoriteButton)favoriteButton.onclick=()=>{toggleFavorite(c.id);showCardDetail(c)};
-}
+function showCardDetail(c){cardsUI().openDetail(c)}
 
 function renderCampaign(){
  const box=$('#chapterMap');
@@ -3287,17 +3162,6 @@ renderRoyalHome();updateBottomNav(UI.menu);
 
 $('#kingdomBack').onclick=()=>openScreen(UI.menu);initKonami();initMetalGear();$('#achievementsBtn')?.addEventListener('click',()=>{openScreen($('#achievementsScreen'));renderAchievements()});$('#achievementsBack').onclick=()=>openScreen(UI.menu);
 
-// V27.2.5: direct inspector return, exposed to the HTML button so it cannot be
-// lost behind delegated/canvas input handling on iPad Chromium.
-window.__returnToCardsDeck=function(event){
- event?.preventDefault?.();event?.stopPropagation?.();
- const now=performance.now();
- if(window.__cardsReturnAt&&now-window.__cardsReturnAt<250)return false;
- window.__cardsReturnAt=now;
- openScreen(UI.deck);renderDeck();
- requestAnimationFrame(()=>{window.scrollTo(0,0);UI.deck?.scrollTo?.(0,0);});
- return false;
-};
 
 const bindClick=(selector,handler)=>{const el=$(selector);if(el)el.addEventListener('click',handler);};
 // iPad/Safari can lose synthetic click events while the battle canvas owns touch input.
@@ -3315,33 +3179,6 @@ const bindBattlePress=(selector,handler)=>{
   event.preventDefault();event.stopPropagation();handler(event);
  });
 };
-bindClick('#backBtn',()=>openScreen(UI.menu));
-bindClick('#saveDeckBtn',()=>{if(save.deck.length!==6)return showToast('Choose exactly six cards');saveProgress();showToast('Deck saved')});
-// V27.2.4: hardened inspector return for iPad/Chrome.
-(function bindInspectorReturn(){
- const button=$('#inspectBack'),screen=$('#cardInspectScreen');
- if(!button||button.dataset.returnBound==='2724')return;
- button.dataset.returnBound='2724';
- let lastPointer=0;
- const goBack=(event)=>{
-  event?.preventDefault?.();event?.stopPropagation?.();
-  openScreen(UI.deck);renderDeck();
-  requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'auto'}));
- };
- button.addEventListener('pointerup',event=>{
-  if(event.pointerType==='mouse'&&event.button!==0)return;
-  lastPointer=performance.now();goBack(event);
- },{capture:true,passive:false});
- button.addEventListener('click',event=>{
-  if(performance.now()-lastPointer<500)return;
-  goBack(event);
- },true);
- screen?.addEventListener('keydown',event=>{
-  if(event.key==='Escape')goBack(event);
- });
-})();
-$('#mergeOnly')?.addEventListener('change',renderDeck);
-bindClick('#mergeAllBtn',requestMergeAllDuplicates);
 bindClick('#forgeBtn',()=>{openScreen($('#forgeScreen'));renderForge()});bindClick('#forgeBack',()=>openScreen(UI.menu));
 bindClick('#codexBack',()=>openScreen(UI.menu));
 bindClick('#profileBtn',()=>{openScreen($('#profileScreen'));renderProfile()});bindClick('#profileBack',()=>openScreen(UI.menu));
@@ -3349,7 +3186,6 @@ bindClick('#campaignBack',()=>openScreen(UI.menu));bindClick('#relicVaultBack',(
 bindClick('#heroesBtn',()=>{openScreen($('#heroesScreen'));renderHeroes()});bindClick('#heroesBack',()=>openScreen(UI.menu));
 bindClick('#upgradesBtn',()=>{openScreen($('#upgradesScreen'));renderUpgrades()});bindClick('#upgradesBack',()=>openScreen(UI.menu));
 bindClick('#profileQuickBtn',()=>{openScreen($('#profileScreen'));renderProfile()});
-if($('#deckTypeFilter'))$('#deckTypeFilter').value=save.ui.cardFilter;if($('#deckSort'))$('#deckSort').value=save.ui.cardSort;$('#deckTypeFilter')?.addEventListener('change',()=>{save.ui.cardFilter=$('#deckTypeFilter').value;renderDeck()});$('#deckSort')?.addEventListener('change',()=>{save.ui.cardSort=$('#deckSort').value;renderDeck()});
 function returnToMainMenu(){
   // Fully tear down every battle-only layer before reopening the Royal Home.
   resetBattleVisualState('return to Village');
@@ -3633,7 +3469,6 @@ function syncAudioControls(){if(!audioPanel)return;$('#audioMaster').checked=sav
 audioBtn?.addEventListener('click',e=>{e.stopPropagation();AUDIO.unlock();audioPanel.classList.toggle('hidden');syncAudioControls()});$('#audioClose')?.addEventListener('click',()=>audioPanel.classList.add('hidden'));
 [['#audioMaster','audio','change'],['#musicEnabled','music','change'],['#sfxEnabled','sfx','change'],['#musicVolume','musicVolume','input'],['#sfxVolume','sfxVolume','input'],['#ambienceVolume','ambienceVolume','input']].forEach(([sel,key,ev])=>$(sel)?.addEventListener(ev,e=>{save.settings[key]=e.target.type==='checkbox'?e.target.checked:Number(e.target.value);AUDIO.apply();saveProgress()}));$('#battle3dToggle')?.addEventListener('change',e=>{setBattle3dEnabled(e.target.checked);showToast(e.target.checked?'3D battlefield on for your next hunt':'Classic battlefield restored for your next hunt')});
 syncAudioControls();
-renderDeckAnalysis();
 
 /* Milestone 7.3 stability patch: fixed viewport, contained scrolling, reliable tabs */
 (function installStabilityPatch(){
@@ -3658,24 +3493,6 @@ renderDeckAnalysis();
   // already owns input on the canvas, while menus must retain untouched native
   // iOS scrolling. A global listener can cancel a Cards swipe after it begins.
 
-  const tabs=document.querySelector('.card-file-tabs');
-  if(tabs){
-    tabs.addEventListener('click',event=>{
-      const tab=event.target.closest('.card-file-tab');
-      if(!tab)return;
-      event.preventDefault();
-      const filter=tab.dataset.cardFilter||'all';
-      tabs.querySelectorAll('.card-file-tab').forEach(item=>{
-        const selected=item===tab;
-        item.classList.toggle('active',selected);
-        item.setAttribute('aria-selected',String(selected));
-      });
-      const select=$('#deckTypeFilter');if(select)select.value=filter;save.ui.cardFilter=filter;saveProgress();
-      renderDeck();
-      const collection=$('#collectionCards');if(collection)collection.scrollTop=0;
-    });
-    tabs.querySelectorAll('.card-file-tab').forEach((tab,index)=>tab.setAttribute('aria-selected',String(index===0)));
-  }
 
 })();
 

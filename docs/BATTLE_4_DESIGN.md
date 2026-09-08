@@ -166,7 +166,7 @@ coexist. If context creation fails the 2D battle runs as before.
 |---|---|---|
 | A | This document, the Blender generator, the GLB | Committed, unused by the game |
 | B | `src/Battle3D/` behind the flag; keep-layout roads with breaches | Merged, off by default (this PR) |
-| Cards | Cards tab remake (see below) | Merged, replaces the screen |
+| Cards | Cards tab remake (see below) | This PR, replaces the screen |
 | C | Bot parity (decision gaps, results, frame time) on iPhone/iPad profiles; flip default; 2D as WebGL fallback | Merged |
 
 Each stage is a PR that leaves `main` playable.
@@ -189,6 +189,32 @@ stylesheet, `src/UI/cards3.css`, with no `!important` cascade.
   `ui.cardSort`, `groundDefenseSlots`) and every existing action.
 - Verified at 390, 834, 1024 and 1440 px with the same sweep used for the
   phone fixes.
+
+### As built
+
+`src/Cards/cardsScreen.js` builds the whole of `#deckScreen` and receives the
+rules from `game.js` through a `deps` object (card lookups, equip/merge/gem
+functions, the ascension and hero-file renderers, toasts, screen switching);
+`renderDeck()` and `showCardDetail()` in `game.js` are one-line wrappers. The
+old inspect screen, its inline return handler, the capture-phase controller
+and `cards2.css` are gone.
+
+- The collection is not virtualised: it is 32 cards, so
+  `content-visibility:auto` on each card is enough and far simpler.
+- Card faces still come from `cardHTML()` / `miniCardHTML()`; their class
+  names are rewritten on the way in (`card-art` → `c3x-art` and so on) so the
+  legacy `#deckScreen` rules in `styles.css`, many of them `!important`, can
+  no longer reach them. Those legacy rules are left in place because the
+  Hero file and the ascension inventory panels still use them.
+- Equip paths: tap a card for the sheet and its primary button; the `+`/`−`
+  corner button equips into the first free slot or removes; with a full deck
+  `+` enters swap mode and the next slot tap swaps; long-press (touch) or
+  drag (mouse) a card onto a slot, or a slot card back onto the collection
+  to remove it.
+- Verified in headless Chromium at 390, 834, 1024 and 1440: layout, chips,
+  the equipment and passives panels, the detail sheet/panel, `−`/`+`, mouse
+  drag to a slot, touch long-press drag to a slot (834 profile), no console
+  errors. **Not verified:** real hardware and Safari.
 
 ## Open decisions
 

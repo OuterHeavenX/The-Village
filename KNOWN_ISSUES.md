@@ -19,6 +19,11 @@ different and more dangerous thing.
   - real touch, as opposed to synthesised pointer events
   - sustained frame rate on actual mobile silicon
 - **Android.** Same position, with less prior evidence.
+- **Touch drag on the Cards screen on real hardware.** Long-press-and-drag a
+  card onto a deck slot was verified only with headless Chromium's synthetic
+  touch stream (iPad profile). iOS Safari's long-press behaviour (text
+  selection, the callout) is untested. Tapping `+`, the detail sheet and swap
+  mode cover the same actions without a drag.
 - **The 3D battlefield preview on real GPUs.** `?battle3d=1` was exercised
   only under SwiftShader in headless Chromium, which proves the scene, the
   raycast placement and the breach logic but says nothing about frame rate.

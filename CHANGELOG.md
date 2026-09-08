@@ -133,6 +133,15 @@ removed; existing saves are untouched.
   and damage numbers are projected onto the 2D canvas above. The simulation
   is untouched and the classic 2D battle stays the default. See
   `docs/BATTLE_4_DESIGN.md` for what is and is not carried over.
+- **Cards 3.0.** The Battle Deck screen is rebuilt in `src/Cards/cardsScreen.js`
+  with one adaptive layout: a sticky header with filter chips and tools, a
+  scrolling collection grid (2 columns on phones, up to 8 on desktop), a
+  six-slot deck strip that stays on screen (bottom on touch, docked right on
+  desktop), and card detail as a bottom sheet on touch or a side panel on
+  desktop. Equip by tapping the card's `+`, from the sheet, by swapping into a
+  slot, or by dragging. Every previous action (favourites, fusing copies,
+  rarity upgrades, gem slots, passives, equipment, gems, fragments, fusion,
+  the hero file) is kept; the save fields are unchanged.
 
 ### Repository
 

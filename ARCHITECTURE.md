@@ -57,6 +57,9 @@ src/
     economy.js, placementSystem.js, projectileSystem.js, waveDirector.js
     battlefieldConfig.js, battle3Runtime.js
     Cards/, Towers/, Environment/
+  Cards/
+    cardsScreen.js         the Battle Deck screen (Cards 3.0); rules injected from game.js
+    cardArtRegistry.js     card art lookup
   Battle3D/                Battle 4.0 preview (docs/BATTLE_4_DESIGN.md)
     flag.js                ?battle3d / village.battle3d switch
     layout.js              keep arena roads, breaches, heights (from the layout JSON)
