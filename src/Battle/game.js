@@ -2998,6 +2998,8 @@ function updateBottomNav(screen){
 })();
 
 document.querySelectorAll('#bottomNav [data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===map[screen?.id]));
+// The roadmap chip is a body-level fixed element; CSS keeps it to the Village home.
+document.body.classList.toggle('village-home-active',screen===UI.menu);
 }
 function openScreen(screen){
  if(document.body.classList.contains('battle-mode'))resetBattleVisualState('battle screen exit');
