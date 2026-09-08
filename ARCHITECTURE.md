@@ -57,6 +57,11 @@ src/
     economy.js, placementSystem.js, projectileSystem.js, waveDirector.js
     battlefieldConfig.js, battle3Runtime.js
     Cards/, Towers/, Environment/
+  Battle3D/                Battle 4.0 preview (docs/BATTLE_4_DESIGN.md)
+    flag.js                ?battle3d / village.battle3d switch
+    layout.js              keep arena roads, breaches, heights (from the layout JSON)
+    battlefieldScene.js    Three.js scene: terrain, grass, keep, billboards
+    battleBridge.js        WebGL context lifetime; the only seam to game.js
   Village/
     economyModel.js        production rates, offline projection, storage caps
     worldRegistry.js       world bounds, districts, roads, plots, building→model

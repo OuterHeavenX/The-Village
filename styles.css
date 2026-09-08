@@ -1160,6 +1160,12 @@ body.battle-mode .audio-fab{bottom:calc(91px + env(safe-area-inset-bottom))!impo
 body.battle-mode,#app{background:#19030d!important;}
 body.battle-mode #game{filter:none;background:#12030a!important;box-shadow:inset 0 0 90px #000;position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;display:block!important;image-rendering:pixelated;image-rendering:crisp-edges;}
 body.battle-mode #threeBg{display:none!important;}
+/* Battle 4.0 preview: the WebGL battlefield sits under the (now transparent) 2D
+   canvas, which keeps pointer handling and screen-space overlays. */
+#battle3d{display:none;position:fixed;inset:0;width:100vw;height:100dvh;z-index:0;pointer-events:none;}
+body.battle-mode.battle-3d #battle3d{display:block;}
+body.battle-mode.battle-3d #game{background:transparent!important;box-shadow:none;image-rendering:auto;}
+.audio-panel-divider{margin-top:10px;padding-top:10px;border-top:1px solid #3a2a3a;}
 body.battle-mode .battle-command-marquee{z-index:2147483000!important;pointer-events:auto!important;}
 body.battle-mode .marquee-command{pointer-events:auto!important;touch-action:none!important;-webkit-tap-highlight-color:transparent;}
 .marquee-command.pressed{transform:translateY(1px) scale(.97)!important;filter:brightness(1.3)!important;}
