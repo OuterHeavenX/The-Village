@@ -43,10 +43,16 @@ KEEP_CENTER = (8.0, 9.0)        # world x, world "y" (tile space, +.5 applied)
 
 # Winding authored roads: gate tile first, keep door tile last. Orthogonal steps only.
 ROADS = {
-    'south': {'opens': 'wave 1', 'tiles': [(8, 17), (8, 16), (9, 16), (9, 15), (10, 15), (10, 14), (9, 14), (9, 13), (8, 13), (8, 12), (7, 12), (7, 11), (8, 11), (8, 10)]},
-    'west':  {'opens': 'first breach', 'tiles': [(0, 9), (1, 9), (1, 10), (2, 10), (2, 11), (3, 11), (3, 10), (4, 10), (4, 9), (5, 9), (5, 8), (6, 8), (6, 9)]},
-    'north': {'opens': 'second breach', 'tiles': [(7, 0), (7, 1), (6, 1), (6, 2), (6, 3), (7, 3), (7, 4), (8, 4), (8, 5), (7, 5), (7, 6), (7, 7)]},
-    'east':  {'opens': 'third breach', 'tiles': [(15, 8), (14, 8), (14, 7), (13, 7), (13, 6), (12, 6), (12, 7), (11, 7), (11, 8), (10, 8), (10, 9), (9, 9), (9, 8)]},
+    # Lengthened after the Stage C bot runs: 12-14 tile roads gave towers ~30%
+    # less firing time than the cathedral board's growing road (14 -> 23).
+    # The breach roads then merge into the first road's final approach (west
+    # into south, east into north), the way a cathedral branch shares its
+    # trunk: towers already guarding a door cover the new front's last stretch
+    # instead of a second full-length road arriving undefended.
+    'south': {'opens': 'wave 1', 'tiles': [(8, 17), (8, 16), (9, 16), (10, 16), (11, 16), (11, 15), (11, 14), (10, 14), (9, 14), (9, 13), (8, 13), (7, 13), (6, 13), (6, 12), (6, 11), (7, 11), (8, 11), (8, 10)]},
+    'west':  {'opens': 'first breach', 'tiles': [(0, 9), (1, 9), (1, 10), (1, 11), (2, 11), (3, 11), (3, 12), (3, 13), (4, 13), (5, 13), (6, 13), (6, 12), (6, 11), (7, 11), (8, 11), (8, 10)]},
+    'north': {'opens': 'second breach', 'tiles': [(7, 0), (7, 1), (6, 1), (5, 1), (5, 2), (5, 3), (6, 3), (6, 4), (7, 4), (8, 4), (9, 4), (9, 5), (9, 6), (8, 6), (7, 6), (7, 7)]},
+    'east':  {'opens': 'third breach', 'tiles': [(15, 8), (14, 8), (14, 7), (14, 6), (13, 6), (13, 5), (13, 4), (12, 4), (11, 4), (11, 5), (10, 5), (9, 5), (9, 6), (8, 6), (7, 6), (7, 7)]},
 }
 SEALED = ['west', 'north', 'east']
 
@@ -70,7 +76,13 @@ def validate_roads():
             if not (0 <= t[0] < COLS and 0 <= t[1] < ROWS):
                 raise SystemExit(f'road {name} leaves the grid at {t}')
             if t in all_tiles and all_tiles[t] != name:
-                raise SystemExit(f'roads {all_tiles[t]} and {name} share tile {t}')
+                # Sharing is allowed only as a common final approach: the shared
+                # tiles must be a suffix of both roads (they merge, never cross).
+                other = ROADS[all_tiles[t]]['tiles']
+                shared = [x for x in tiles if x in other]
+                if tiles[-len(shared):] != shared or other[-len(shared):] != shared:
+                    raise SystemExit(f'roads {all_tiles[t]} and {name} cross at {t}')
+                continue
             all_tiles[t] = name
         door = tiles[-1]
         if not any(abs(door[0] - k[0]) + abs(door[1] - k[1]) == 1 for k in KEEP_TILES):

@@ -187,13 +187,15 @@ See [`DEPLOYMENT.md`](DEPLOYMENT.md).
 | `npm run validate:content` | Check the content registries |
 | `npm run test:production` | Browser smoke suite against a running preview (needs `CHROME_PATH`) |
 
-## 3D battlefield preview
+## The battlefield
 
-Append `?battle3d=1` (or turn on "3D Battlefield (preview)" in the ♫ panel)
-to play the next battle on the Battle 4.0 arena: the keep in the centre, four
-roads with breaches instead of a growing road, hills and grass rendered with
-Three.js from a Blender-built asset. `?battle3d=0` turns it off again. The
-classic 2D battle is still the default; see `docs/BATTLE_4_DESIGN.md`.
+Battles play on the Battle 4.0 arena by default: the keep in the centre, four
+roads whose sealed gates breach at authored waves instead of a road that
+grows, hills and grass rendered with Three.js from a Blender-built asset
+(`tools/blender/build_battlefield.py`). The classic 2D board is the fallback
+when WebGL is unavailable, and can be chosen with `?battle3d=0` or by turning
+off "3D Battlefield" in the ♫ panel (`?battle3d=1` turns it back on). See
+`docs/BATTLE_4_DESIGN.md`.
 
 ## Debug channels
 

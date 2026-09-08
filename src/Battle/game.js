@@ -14,7 +14,7 @@ import { preloadCoreTowerAtlases, renderCoreGothicTower } from './Towers/towerAn
 import { drawLaneProjectileAsset, drawProjectileAsset, impactPalette } from './projectileSystem.js';
 import { authoredRoadPlans, CATHEDRAL_ENTRANCE } from './Environment/roadRegistry.js';
 import { battle3dEnabled, setBattle3dEnabled } from '../Battle3D/flag.js';
-import { KEEP_CENTER, groundHeight, keepRoadPlans, routeSpawnPoint, routeTargetPoint } from '../Battle3D/layout.js';
+import { KEEP_CENTER, KEEP_LAYOUT_TUNING, groundHeight, keepRoadPlans, routeSpawnPoint, routeTargetPoint } from '../Battle3D/layout.js';
 import { battle3d } from '../Battle3D/battleBridge.js';
 import { battleEvent, diagnosticSnapshot, installCanvasDiagnostics, validateBattleState } from './battleDiagnostics.js';
 import { weightedDraftPool } from './Cards/draftWeights.js';
@@ -1123,7 +1123,7 @@ window.VillageBattleAPI={
     freshGame('chapter',chapter.id);await new Promise(resolve=>setTimeout(resolve,2200));UI.choices.classList.add('hidden');G.draftsCompleted=99;G.draftChoices=null;G.draftOpen=false;G.pendingCard=null;G.paused=false;
     if(!G.towers.length){const samples=[['dagger',6,8],['axe',8,8],['crossbow',10,9],['ballista',5,11],['holy',9,11],['arcane',11,12]];G.towers=samples.map(([id,x,y],index)=>{const c=card(id)||NEW_CORE_TOWERS.find(entry=>entry.id===id);return c?{...c,x,y,level:3,t:index*.04,damage:(c.damage||12)*3,upgradeDamage:0,upgradeRange:0,upgradeRate:0,permanentPower:1,supports:[]}:null}).filter(Boolean)}
     const maxima={enemies:0,shots:0,particles:0,floaters:0,routes:0},steps=Math.max(1,Math.round(Math.min(1800,Number(simulatedSeconds)||600)*60));battleEvent('soak-start',{stage,seconds:simulatedSeconds});
-    for(let i=0;i<steps&&G?.state==='play';i++){if(G.paused){if(G.waveTransition)beginNextWaveAfterExpansion();else{G.paused=false;G.draftOpen=false;UI.choices.classList.add('hidden')}}update(1/60,false,1/60);if(i%6===0){try{draw()}catch(error){battleEvent('render-error',{message:error.message,stack:error.stack});return {ok:false,stage,reason:'render-error',error:String(error?.stack||error),snapshot:diagnosticSnapshot(G),maxima}}}maxima.enemies=Math.max(maxima.enemies,G.enemies.length);maxima.shots=Math.max(maxima.shots,G.shots.length);maxima.particles=Math.max(maxima.particles,G.particles.length);maxima.floaters=Math.max(maxima.floaters,G.floaters.length);maxima.routes=Math.max(maxima.routes,G.routes.length);const invalid=validateBattleState(G);if(invalid.length)return {ok:false,stage,reason:'non-finite',invalid,snapshot:diagnosticSnapshot(G),maxima};if(i%300===0){const frame=canvasFrameSignature();if(frame.suspiciousYellow){battleEvent('yellow-frame-detected',{stage,wave:G.wave,frame});return {ok:false,stage,reason:'yellow-frame',frame,snapshot:diagnosticSnapshot(G),maxima}}}if(i%1200===0)await new Promise(resolve=>setTimeout(resolve,0))}
+    for(let i=0;i<steps&&G?.state==='play';i++){if(G.paused){if(G.waveTransition)beginNextWaveAfterExpansion();else{G.paused=false;G.draftOpen=false;UI.choices.classList.add('hidden')}}update(1/60,false,1/60);if(i%6===0){try{paint()}catch(error){battleEvent('render-error',{message:error.message,stack:error.stack});return {ok:false,stage,reason:'render-error',error:String(error?.stack||error),snapshot:diagnosticSnapshot(G),maxima}}}maxima.enemies=Math.max(maxima.enemies,G.enemies.length);maxima.shots=Math.max(maxima.shots,G.shots.length);maxima.particles=Math.max(maxima.particles,G.particles.length);maxima.floaters=Math.max(maxima.floaters,G.floaters.length);maxima.routes=Math.max(maxima.routes,G.routes.length);const invalid=validateBattleState(G);if(invalid.length)return {ok:false,stage,reason:'non-finite',invalid,snapshot:diagnosticSnapshot(G),maxima};if(i%300===0){const frame=canvasFrameSignature();if(frame.suspiciousYellow){battleEvent('yellow-frame-detected',{stage,wave:G.wave,frame});return {ok:false,stage,reason:'yellow-frame',frame,snapshot:diagnosticSnapshot(G),maxima}}}if(i%1200===0)await new Promise(resolve=>setTimeout(resolve,0))}
     const result={ok:true,stage,state:G.state,wave:G.wave,hp:G.hp,maxima,final:{enemies:G.enemies.length,shots:G.shots.length,particles:G.particles.length,floaters:G.floaters.length,routes:G.routes.map(route=>route.length)},snapshot:diagnosticSnapshot(G)};battleEvent('soak-complete',result);return result;
   },
   async runDefeatRestartSoak(cycles=20){
@@ -1146,7 +1146,34 @@ window.VillageBattleAPI={
   },
   // Bot and audit hooks: tiles in, taps out, so a script can play the board
   // the same way on the 2D and 3D battlefields.
-  pads(){if(!G)return [];return placementSlots(G,GRID.cols,GRID.rows).map(slot=>({x:slot.x,y:slot.y,valid:validTowerTile(slot.x,slot.y)}))},
+  pads(range){if(!G)return [];const r=Number(range)||G.pendingCard?.range||2.5,rr=r*r,gate=gatePoint(0);return placementSlots(G,GRID.cols,GRID.rows).map(slot=>({x:slot.x,y:slot.y,valid:validTowerTile(slot.x,slot.y),cover:G.path.filter(t=>{const dx=t.x-slot.x,dy=t.y-slot.y;return dx*dx+dy*dy<=rr}).length,toGate:Math.hypot(slot.x+.5-gate.x,slot.y+.5-gate.y)}))},
+  // Where the held card may legally go, by its type, with the same rules the
+  // tap handler applies. Scripts pick from this instead of guessing.
+  placementOptions(){
+    if(!G?.pendingCard)return {type:null,tiles:[]};
+    const c=G.pendingCard,gate=gatePoint(0),r=c.range||2.5,rr=r*r;
+    // `cover` counts tiles of the routes enemies actually walk right now; on
+    // the keep layout the sealed roads are in G.path but carry nobody yet.
+    const live=(G.routes||[]).flat();
+    const decorate=t=>({x:t.x,y:t.y,cover:live.filter(p=>{const dx=p.x-t.x,dy=p.y-t.y;return dx*dx+dy*dy<=rr}).length,toGate:Math.hypot(t.x+.5-gate.x,t.y+.5-gate.y)});
+    let tiles=[];
+    if(c.type==='tower')tiles=placementSlots(G,GRID.cols,GRID.rows).filter(t=>validTowerTile(t.x,t.y)&&placementFeedback(G,c,t.x,t.y,true).valid);
+    else if(c.type==='support'){const seen=new Set();for(const t of G.towers){if(t.supportOnly)continue;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const x=t.x+dx,y=t.y+dy,k=key(x,y);if((dx||dy)&&!seen.has(k)&&validSupportTile(x,y)&&placementFeedback(G,c,x,y,true).valid){seen.add(k);tiles.push({x,y})}}}}
+    else if(c.type==='trap')tiles=G.path.filter(t=>validTrapTile(t.x,t.y)&&placementFeedback(G,c,t.x,t.y,true).valid);
+    else if(c.type==='skill'){const live=G.enemies.filter(e=>!e.dead).sort((a,b)=>(b.seg+b.prog)-(a.seg+a.prog));const target=live[0];tiles=[target?{x:Math.floor(target.x),y:Math.floor(target.y)}:{x:Math.floor(gate.x),y:Math.floor(gate.y)}]}
+    return {type:c.type,id:c.id,name:c.name,tiles:tiles.map(decorate)};
+  },
+  // Advance the simulation by fixed 1/60 s steps regardless of the display's
+  // frame rate, then paint once. Lets a script play a whole chapter the same
+  // way on the 2D and 3D battlefields (and under software rendering).
+  step(seconds=1){
+    if(!['localhost','127.0.0.1'].includes(location.hostname))return {ok:false,reason:'local-only'};
+    if(!G||G.state!=='play')return {ok:false,reason:'no-battle',state:G?.state||null};
+    const steps=Math.max(1,Math.round(Math.min(120,Number(seconds)||1)*60));let advanced=0;
+    for(let i=0;i<steps&&G?.state==='play';i++){if(G.paused)break;update(1/60,i===steps-1,1/60);advanced++}
+    const t0=performance.now();paint();const paintMs=performance.now()-t0;
+    return {ok:true,advanced:advanced/60,paintMs,state:G?.state||null,paused:!!G?.paused,wave:G?.wave,hp:G?.hp,time:G?.time,draftOpen:!!G?.draftOpen,pending:G?.pendingCard?.id||null,waveTransition:!!G?.waveTransition,pendingWave:!!G?.pendingWave,spawnLeft:G?.spawnLeft,alive:G?.enemies.filter(e=>!e.dead).length,towers:G?.towers.length,upgradeModal:!!G?.upgradeModalOpen,essence:Math.floor(G?.essence||0),kills:G?.kills};
+  },
   tapTile(x,y){const p=screenPointForTile(Number(x),Number(y));if(!p)return {ok:false,reason:'off-screen'};handleBattleTap({clientX:p.clientX,clientY:p.clientY,pointerId:-1});return {ok:true,...p}},
   routes(){return G?{layout:G.layout||'cathedral',open:G.routes.length,plans:G.roadPlans.length,points:G.routes.map((_,i)=>routePoints(i)),events:(G.roadEvents||[]).map(e=>({wave:e.wave,type:e.type,route:e.routeIndex,applied:!!e.applied}))}:null},
   state(){const limits=G?battlefieldLimits(G):null;return G?{active:true,layout:G.layout||'cathedral',battle3d:battle3d.stats(),wave:G.wave,hp:G.hp,kills:G.kills,enemies:G.enemies.filter(e=>!e.dead).length,pendingCard:G.pendingCard?.id||null,speed:G.speed,paused:G.paused,state:G.state,chapter:G.chapter?.number||null,structures:G.towers.length+G.traps.length,limits,shadowLevel:currentShadowLevel(),draculaTooth:!!save.uniqueBossDrops.draculaTooth}:{active:false};}
@@ -1342,6 +1369,7 @@ function gatePoint(routeIndex=0){
  if(G?.layout==='keep'){const route=G.routes?.[routeIndex]||G.routes?.[0];if(route?.length)return routeTargetPoint(route)}
  return {x:CATHEDRAL.gateX,y:CATHEDRAL.gateY};
 }
+function layoutSpeedFactor(){return G?.layout==='keep'?KEEP_LAYOUT_TUNING.enemySpeed:1}
 function defenceCenter(){return G?.layout==='keep'?{x:KEEP_CENTER.x,y:KEEP_CENTER.y}:{x:CATHEDRAL.gateX,y:CATHEDRAL.gateY}}
 function routePoints(routeIndex=0){
  if(routePointsCache.v!==roadVersion){routePointsCache.points=[];routePointsCache.v=roadVersion}
@@ -2416,7 +2444,7 @@ function spawnEnemy(){
  // Enemies also hit a little harder as the roads darken.
  const damageCurve=1+(chapterNum-1)*DIFFICULTY.perChapterDamage;
  const elite=!boss&&!mini&&G.wave>=3&&Math.random()<Math.min(.25,.06+G.wave*.014);if(elite){hp*=1.65;speed*=1.10;reward=Math.round(reward*1.70);name='Elite '+name;}
- const routeIndex=chooseSpawnRoute(),points=routePoints(routeIndex),outer=points[0];G.enemies.push({x:outer.x,y:outer.y,routeIndex,seg:0,prog:0,hp,max:hp,speed:speed*(1+Math.min(.25,G.wave*.006)),reward:Math.round(reward*(G.weather.id==='fog'?1.2:G.weather.id==='blood'?1.3:1)*(1+(save.kingdom.buildings.market||0)*.03)*villageBattleBonuses().reward),boss,mini,elite,type,name,slow:1,freeze:0,burn:0,dead:false,summonTimer:mini?4:boss?5:0,armor:type==='armor'?.45:type==='revenant'?.28:type==='gravelord'?.46:0,holyOnly:type==='ghost'||type==='gazer',air:type==='bat'||type==='watcher'||type==='gazer'||type==='dreadeye',attacking:false,attackTimer:0,attackRate:boss?0.78:(elite?0.92:1.18),attackDamage:Math.max(1,Math.round((boss?2:1)*damageCurve)),golemForm:boss&&type==='golem'?(G.chapter.number>=5&&G.chapter.number<=9?2:1):0,golemTransforming:false,towerDestroyTimer:6,bossPauseMarkers:boss?[.20,.58]:[],bossPauseDone:[],cinematicPause:0});
+ const routeIndex=chooseSpawnRoute(),points=routePoints(routeIndex),outer=points[0];G.enemies.push({x:outer.x,y:outer.y,routeIndex,seg:0,prog:0,hp,max:hp,speed:speed*(1+Math.min(.25,G.wave*.006))*layoutSpeedFactor(),reward:Math.round(reward*(G.weather.id==='fog'?1.2:G.weather.id==='blood'?1.3:1)*(1+(save.kingdom.buildings.market||0)*.03)*villageBattleBonuses().reward),boss,mini,elite,type,name,slow:1,freeze:0,burn:0,dead:false,summonTimer:mini?4:boss?5:0,armor:type==='armor'?.45:type==='revenant'?.28:type==='gravelord'?.46:0,holyOnly:type==='ghost'||type==='gazer',air:type==='bat'||type==='watcher'||type==='gazer'||type==='dreadeye',attacking:false,attackTimer:0,attackRate:boss?0.78:(elite?0.92:1.18),attackDamage:Math.max(1,Math.round((boss?2:1)*damageCurve)),golemForm:boss&&type==='golem'?(G.chapter.number>=5&&G.chapter.number<=9?2:1):0,golemTransforming:false,towerDestroyTimer:6,bossPauseMarkers:boss?[.20,.58]:[],bossPauseDone:[],cinematicPause:0});
  const spawned=G.enemies[G.enemies.length-1];telemetryEnemySpawn(spawned,G.time);
  if(boss){G.boss=true;beginBossCinematic(spawned)}else if(mini){showToast('MINIBOSS: Grave Necromancer')}
  if(G.queuedSkills?.length){const armed=G.queuedSkills.shift(),target=G.enemies.find(e=>!e.dead);battleDelay(()=>{if(G&&target&&!target.dead)castSkill(armed,target.x,target.y);},120,'queued skill')}
@@ -2632,7 +2660,7 @@ function update(dt,syncHud=true,visualDt=dt){
  if(G.weather.id==='rain'){G.rainSplashTimer=(G.rainSplashTimer||0)-dt;if(G.rainSplashTimer<=0){G.rainSplashTimer=.055+Math.random()*.09;const rx=Math.random()*GRID.cols,ry=Math.random()*GRID.rows;G.particles.push({x:rx,y:ry,vx:0,vy:0,life:.22,color:'#b9dcff',kind:'splash',size:3+Math.random()*4});}}
  syncNextWaveButton();G.spawnTimer-=dt;if(G.spawnLeft>0&&G.spawnTimer<=0){spawnEnemy();G.spawnLeft--;G.spawnTimer=Math.max(.24,(1.15-G.wave*.025)*.88)}
  if(G.spawnLeft===0&&G.enemies.length===0&&!G.pendingWave&&!G.waveTransition){G.waveDelay-=dt;if(G.waveDelay<=0){if(G.mode!=='endless'&&G.wave>=G.chapterWaves){chapterClear();return;}beginWaveTransition();return;}}
- for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);updateGolemBoss(e,dt);if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt;hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);{const gp=gatePoint(e.routeIndex||0);floatText(gp.x,gp.y-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');}playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);const liveSummons=G.enemies.filter(x=>!x.dead&&x.summonedBy===e).length,summonCap=e.boss?6:4;/* a boss raised 3 every 5 s with no ceiling: 25-27 enemies piled up at the boss wave and the finale became a slow grind */for(let i=0;i<summonCount&&liveSummons+i<summonCap;i++)G.enemies.push({summonedBy:e,x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62,reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
+ for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);updateGolemBoss(e,dt);if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt;hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);{const gp=gatePoint(e.routeIndex||0);floatText(gp.x,gp.y-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');}playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);const liveSummons=G.enemies.filter(x=>!x.dead&&x.summonedBy===e).length,summonCap=e.boss?6:4;/* a boss raised 3 every 5 s with no ceiling: 25-27 enemies piled up at the boss wave and the finale became a slow grind */for(let i=0;i<summonCount&&liveSummons+i<summonCap;i++)G.enemies.push({summonedBy:e,x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62*layoutSpeedFactor(),reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
  for(const trap of G.traps){
   trap.t-=dt;
   const radius=trap.effect==='blast'?1.25:.68;
@@ -2781,7 +2809,10 @@ function finalizeChapterClear(uniqueShadowRewardOverride=false){
    const wasAvailable=save.unlocked.includes(id)&&inv(id).copies>0;
    if(!save.unlocked.includes(id))save.unlocked.push(id);
    const item=inv(id);if(item.copies<1)item.copies=1;item.recent=true;item.lastFound=Date.now();
-   if(!wasAvailable)newlyUnlocked.push(card(id));
+   // Chapter rewards include Passive Cards, which live in HERO_GROUND_DEFENSES,
+   // not CARD_POOL; card(id) alone returned undefined and the results screen
+   // fell into its recovery path ("Battle completion recovery" in the console).
+   const unlockedCard=card(id)||groundCardById(id);if(!wasAvailable&&unlockedCard)newlyUnlocked.push(unlockedCard);
   }
   save.campaign.unlocked=Math.min(CHAPTERS.length,Math.max(save.campaign.unlocked,G.chapter.number+1));
   const relicId=G.chapter.relic;if(!save.unlockedRelics.includes(relicId))save.unlockedRelics.push(relicId);
@@ -3047,6 +3078,10 @@ function canCallNextWave(){
  if(G.mode!=='endless'&&G.wave>=G.chapterWaves-1)return {ok:false,reason:'boss-next'};
  if(!G.enemies.some(e=>!e.dead))return {ok:false,reason:'wave-clear'};
  if(G.wave%3===0||(G.roadEvents||[]).some(event=>event.wave===G.wave&&!event.applied))return {ok:false,reason:'road-grows'};
+ // The cathedral road's growth events lock the early call on most waves; the
+ // keep layout has no growth, so without this it offered the call on twice as
+ // many waves and the Stage C bot compressed chapters by ~45%.
+ if(G.layout==='keep'&&G.wave%2===0)return {ok:false,reason:'gate-watch'};
  return {ok:true};
 }
 let nextWaveButtonState=null;

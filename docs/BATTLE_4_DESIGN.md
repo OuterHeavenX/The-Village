@@ -34,19 +34,25 @@ reachability code is untouched. The keep occupies a 2 × 2 block at the centre
 (tiles 7–8 × 8–9). Four authored roads run from the perimeter to a door on each
 side of the keep:
 
-| Road | Gate tile | Door tile | Opens |
-|---|---|---|---|
-| south | (8, 17) | (8, 10) | wave 1 |
-| west | (0, 9) | (6, 9) | first breach |
-| north | (7, 0) | (7, 7) | second breach |
-| east | (15, 8) | (9, 8) | third breach |
+| Road | Gate tile | Door tile | Opens | Length |
+|---|---|---|---|---|
+| south | (8, 17) | (8, 10) | wave 1 | 18 tiles |
+| west | (0, 9) | (8, 10), via the south road's last 6 tiles | first breach | 16 tiles |
+| north | (7, 0) | (7, 7) | second breach | 16 tiles |
+| east | (15, 8) | (7, 7), via the north road's last 5 tiles | third breach | 16 tiles |
 
-Roads are deliberately winding (a road tile count of 14–18 each) so towers have
-long firing windows, and each road passes a different terrain feature: the south
-road climbs a rise, the west fords a stream, the north cuts through a graveyard,
-the east crosses a ruined orchard. Breach schedule per chapter reuses the
+Roads are deliberately winding (16–18 tiles each) so towers have long firing
+windows. The breach roads merge into the first road of their pair for the
+final approach, the way a cathedral branch shares its trunk: towers already
+guarding a door cover the new front's last stretch instead of a second
+full-length road arriving undefended (the Stage C bot lost every chapter 2–3
+run before this change). The generator only allows sharing as a common
+suffix, so roads merge and never cross. Breach schedule per chapter reuses the
 existing `OPEN_ROUTE` wave events in `roadRegistry.js`; `EXTEND_ROUTE` events
-are not generated for the keep layout.
+are not generated for the keep layout. The schedule mirrors the cathedral
+board's front count: chapters 1–4 open one gate in their last three waves,
+chapters 5–10 open two (after waves 4 and 8), chapter 11 on opens all three
+(after waves 2, 5 and 8).
 
 Enemies attack the door their road ends at. `routePoints()` appends the road's
 own door tile as its terminal point in the keep layout instead of the single
@@ -77,8 +83,9 @@ re-export, never hand modelling:
 - a grass blade mesh and a road-edge stone mesh exported as named objects for
   instancing.
 
-Budget: GLB under 3 MB, terrain under 40k triangles. First export: 623 kB,
-14,853 triangles in total, 58 pads, roads of 14/13/12/13 tiles.
+Budget: GLB under 3 MB, terrain under 40k triangles. Current export: 705 kB,
+16,221 triangles in total, 76 pads, roads of 18/16/16/16 tiles (the first
+export had 14/13/12/13-tile roads and 58 pads; see Stage C for why they grew).
 
 The Workbench preview render needs a GL context, which the headless `bpy`
 wheel does not have on a server without `libEGL`; Blender aborts the whole
@@ -167,7 +174,7 @@ coexist. If context creation fails the 2D battle runs as before.
 | A | This document, the Blender generator, the GLB | Committed, unused by the game |
 | B | `src/Battle3D/` behind the flag; keep-layout roads with breaches | Merged, off by default (this PR) |
 | Cards | Cards tab remake (see below) | This PR, replaces the screen |
-| C | Bot parity (decision gaps, results, frame time) on iPhone/iPad profiles; flip default; 2D as WebGL fallback | Merged |
+| C | Bot parity on both boards; keep-layout tuning; flip default; 2D as WebGL fallback | This PR |
 
 Each stage is a PR that leaves `main` playable.
 
@@ -215,6 +222,61 @@ and `cards2.css` are gone.
   the equipment and passives panels, the detail sheet/panel, `−`/`+`, mouse
   drag to a slot, touch long-press drag to a slot (834 profile), no console
   errors. **Not verified:** real hardware and Safari.
+
+## Stage C — parity and the default flip
+
+A bot played whole chapters on both boards through `VillageBattleAPI`:
+`step(seconds)` advances the simulation in fixed 1/60 s steps regardless of
+frame rate (so software rendering does not slow the game down), drafts are
+picked from the DOM (defense first, then support, then skills), placement
+uses `placementOptions()` (valid tiles for the held card, ranked by how many
+open-route tiles are in range, then by distance to the gate), upgrades take
+the first enabled stat, and the next wave is called only with two or fewer
+enemies alive and the gate at 18+.
+
+What the runs found, and what changed because of them:
+
+- **Roads were too short.** 12–14 tile roads gave towers ~30% less firing
+  time than the cathedral road that grows from 14 to 23 tiles. The generator's
+  road table now yields 16–18 tiles per road (76 pads instead of 58), and the
+  keep layout applies `KEEP_LAYOUT_TUNING.enemySpeed` (0.82) at spawn so
+  travel time matches the cathedral board's.
+- **The second front came far too early.** Opening the west gate after wave 4
+  of chapters 2–4 lost every run; the cathedral board has one road until
+  chapter 5. Chapters 1–4 now breach once, in their last three waves; 5–10
+  after waves 4 and 8; 11+ after 2, 5 and 8.
+- **A breach road arrived undefended.** Even with the late breach, a
+  full-length second road ending at its own door lost every chapter 2–3 run:
+  the cathedral board's second branch shares a trunk with the first, so the
+  towers at the base already cover it. The west road now merges into the
+  south road's last six tiles and the east road into the north road's last
+  five.
+- **The early-call lever was open twice as often.** The cathedral board locks
+  "Next Wave" on road-growth waves and every third wave; the keep layout has
+  no growth, so the bot (and a player) could compress a chapter by ~45%. The
+  keep layout now also locks even waves, which matches the cathedral cadence.
+- **Chapter clears crashed on Passive Card rewards** (`bearTrap` in chapter
+  1's reward list is not in `CARD_POOL`); the results screen fell into its
+  recovery path. Fixed in `finalizeChapterClear`.
+
+Results (same bot, same policy; "3D" is the keep layout as shipped, "2D" the
+cathedral board; wins / runs, with the gate's lowest HP in winning runs):
+
+| Chapter | 2D board | 3D keep, as shipped | 3D keep before the fixes above |
+|---|---|---|---|
+| 1 (8 waves, 1 breach) | 4 / 4, gate ≥ 30 | 2 / 2, gate ≥ 30 | 5 / 6 |
+| 2 (10 waves) | 6 / 7, gate ≥ 3 | 2 / 2, gate ≥ 10 | 0 / 11 |
+| 3 (12 waves) | 4 / 7, gate ≥ 18 | 2 / 2, gate ≥ 11 | 0 / 11 |
+
+Sim seconds per chapter on the shipped layout (223–271 s, 318–363 s,
+569–584 s) now sit within the 2D board's range. The full logs are not
+committed; the bot is `bot-parity` in the session notes and is reproducible
+from the `VillageBattleAPI` hooks above.
+
+Paint cost under SwiftShader (software GL) was 15–70 ms per frame on the 3D
+board against ~2 ms on the 2D board; that number is the CPU emulating a GPU
+and says nothing about real devices, which remain **not verified** (see
+`KNOWN_ISSUES.md`). `?battle3d=0` is the escape hatch.
 
 ## Open decisions
 

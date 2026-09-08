@@ -16,7 +16,7 @@ file before touching the code, read this one, then `ARCHITECTURE.md`.
 | Version | 36.0.0 — Gothic Collection (`src/config/release.js` is the single source) |
 | Engine | None. Hand-written JavaScript, ES modules, no framework |
 | Build | Vite 7 |
-| Rendering | Canvas 2D for battle, Three.js r128 for the Village, DOM/CSS for all UI |
+| Rendering | Three.js r128 for the Village and (since Battle 4.0) the battlefield, with the Canvas 2D board as fallback; DOM/CSS for all UI |
 | Persistence | `localStorage`, plus optional Supabase cloud save |
 | Save schema | 15 (`ASCENSION_SAVE_VERSION`) — see [`SAVE_SCHEMA.md`](SAVE_SCHEMA.md) |
 | Platforms | Desktop browsers, iPad, iPhone, Android |
