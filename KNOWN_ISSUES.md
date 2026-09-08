@@ -28,6 +28,22 @@ different and more dangerous thing.
 
 ## Real limitations
 
+### A paused Supabase project looks like a network failure
+
+Supabase pauses free-tier projects after roughly a week without traffic. A
+paused project refuses connections outright, so on the phone the sign-in and
+password-reset forms fail with a fetch error — Safari's "Load failed" — even
+though the device is online.
+
+The auth gate now says "The account service could not be reached. It may be
+paused or down" when the device reports itself online, and only blames the
+connection when it does not. But the fix is operational, not in code: restore
+the project from the Supabase dashboard (Project → Restore project), or keep it
+on a plan that does not pause. Expect this every quiet week until then.
+
+`list_projects` in the Supabase dashboard or CLI shows the status directly;
+`INACTIVE` means paused.
+
 ### Offline play only when accounts are unconfigured
 
 If the build has Supabase credentials but the network is unreachable, the player

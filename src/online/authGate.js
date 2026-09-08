@@ -34,7 +34,17 @@ function readableError(error) {
   if (/email not confirmed/i.test(message)) return 'Confirm your email before signing in.';
   if (/already registered|already been registered|user already exists/i.test(message)) return 'An account already exists for this email.';
   if (/password/i.test(message) && /least|short|characters/i.test(message)) return 'Password must contain at least eight characters.';
-  if (/failed to fetch|network|load failed/i.test(message)) return 'The network is unavailable. Check your connection and try again.';
+  if (/failed to fetch|network|load failed/i.test(message)) {
+    // A fetch that fails at the connection level looks identical whether the
+    // phone is offline or the account service is down. Blaming the player's
+    // connection while the device is clearly online sends them to check Wi-Fi
+    // when the real cause is a paused Supabase project — free-tier projects
+    // pause after a week without traffic and refuse connections until restored.
+    return navigator.onLine === false
+      ? 'You appear to be offline. Check your connection and try again.'
+      : 'The account service could not be reached. It may be paused or down — try again in a few minutes.';
+  }
+  if (/timed out/i.test(message)) return 'The account service is not responding. Try again in a few minutes.';
   if (/relation .* does not exist|schema cache/i.test(message)) return 'Cloud tables are not ready. Apply the Supabase migration, then retry.';
   if (/row-level security|permission denied|policy/i.test(message)) return 'Cloud access is not configured correctly. Verify the migration and RLS policies.';
   return message.replace(/https?:\/\/\S+/g, '').slice(0, 220);

@@ -77,6 +77,14 @@ With them configured, players sign in and progress syncs. Add the deployed
 origin to the Supabase project's allowed redirect URLs, or email confirmation
 and password-reset links will not return to the game.
 
+**Free-tier projects pause.** Supabase pauses a free project after about a week
+with no traffic. While paused, every request from the game fails at the
+connection level and players see "The account service could not be reached."
+Nothing in the deployment is wrong; restore the project from the Supabase
+dashboard and the same build starts working again within a couple of minutes.
+If the game will sit idle between playtest rounds, either plan to restore it
+before each round or move the project to a plan that does not pause.
+
 ---
 
 ## GitHub Pages
