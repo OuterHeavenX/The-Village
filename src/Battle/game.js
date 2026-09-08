@@ -17,6 +17,7 @@ import { battleEvent, diagnosticSnapshot, installCanvasDiagnostics, validateBatt
 import { weightedDraftPool } from './Cards/draftWeights.js';
 import { waveBreathingPeriod, waveIdentity, waveSpawnCount } from './waveDirector.js';
 import { createBattleTelemetryOverlay } from './developmentTelemetry.js';
+import { debugEnabled, debugSummary } from '../config/debug.js';
 import { activateBattle3Runtime, deactivateBattle3Runtime } from './battle3Runtime.js';
 import { cardArtHTML } from '../Cards/cardArtRegistry.js';
 import {
@@ -52,7 +53,8 @@ installCanvasDiagnostics(canvas);
 preloadBattlefield();
 preloadCathedral();
 preloadCoreTowerAtlases();
-const battleTelemetryOverlay=createBattleTelemetryOverlay();
+const battleTelemetryOverlay=createBattleTelemetryOverlay({saveVersion:ASCENSION_SAVE_VERSION});
+if(debugEnabled('diagnostics'))console.info(`[Village] Debug channels active: ${debugSummary()}`);
 // V27.5 — Shadow and enemy sprite assets. Visual-only integration; combat values are unchanged.
 const SPRITE_CACHE=new Map();
 function spriteImage(src){const resolved=new URL(src,document.baseURI).href;if(!SPRITE_CACHE.has(resolved)){const img=new Image();img.decoding='async';img.src=resolved;SPRITE_CACHE.set(resolved,img)}return SPRITE_CACHE.get(resolved)}
@@ -1155,7 +1157,7 @@ function battleDelay(callback,delay,label='battle callback'){
  const session=battleSessionId,handle=setTimeout(()=>{battleTimers.delete(handle);battleEvent('battle-callback-fired',{label,session,currentSession:battleSessionId});if(session!==battleSessionId)return;callback()},delay);
  battleTimers.set(handle,{label,session,createdAt:performance.now(),delay});return handle;
 }
-const visualDebug=()=>new URLSearchParams(location.search).get('visualDebug')==='1'||STORAGE.get('villageVisualDebug')==='1';
+const visualDebug=()=>debugEnabled('visual');
 function resetBattleVisualState(reason='stage cleanup'){
  battleSessionId++;
  for(const handle of battleTimers.keys())clearTimeout(handle);battleTimers.clear();
