@@ -5,6 +5,7 @@
 // `.message`. Reading `.message` blindly produced the misleading
 // "Unknown WebGL error" banner for what was really a 404 on an art file.
 import * as THREE from 'three';
+import { debugEnabled } from '../config/debug.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VILLAGE_MODELS, VILLAGE_BOUNDS, VILLAGE_RIVER, DISTRICTS, MODEL_FOR_BUILDING, PRIMARY_ROADS, SECONDARY_ROADS, LANDMARKS, PLOT_POSITIONS, CITIZEN_SCHEDULE_NODES, modelForBuilding } from '../Village/worldRegistry.js';
 import { createBespokeBridge, createBespokeCathedral, createDistrictGateway } from '../Village/bespokeArchitecture.js';
@@ -50,7 +51,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   viewport.prepend(canvas);
 
   let runtimeProofOverlay=null;
-  if(import.meta.env.DEV && new URLSearchParams(location.search).has('runtimeProof')){
+  if(debugEnabled('proof')){
     runtimeProofOverlay=document.createElement('pre');runtimeProofOverlay.id='villageRuntimeProof';
     runtimeProofOverlay.textContent=`VILLAGE 2 RUNTIME VERIFIED\nrenderer: ${runtimeProof.renderer}\nworld: ${runtimeProof.worldImplementation}\nbuildings: ${runtimeProof.buildingFactory}\nnight: ${runtimeProof.nightSystem}\nbuild: ${runtimeProof.buildVersion}`;
     Object.assign(runtimeProofOverlay.style,{position:'absolute',left:'12px',top:'118px',zIndex:'80',margin:'0',padding:'8px 10px',maxWidth:'min(420px,calc(100vw - 24px))',whiteSpace:'pre-wrap',font:'10px/1.35 monospace',color:'#bfffc8',background:'rgba(3,10,7,.9)',border:'1px solid #4baa65',borderRadius:'7px',pointerEvents:'none'});

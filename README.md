@@ -1,21 +1,21 @@
 # The Village
 
-The Village is a browser-based gothic RPG, tower-defense, and village-building game. Players develop a persistent settlement, assemble a card-driven defensive loadout, guide Shadow and a Familiar, and defend branching roads through a twenty-chapter campaign.
+The Village is a browser-based gothic RPG, tower-defense and village-building
+game. You develop a persistent settlement, assemble a card-driven defensive
+loadout, guide Shadow and a familiar, and defend branching roads through a
+twenty-chapter campaign.
 
-Current version: **36.0.0 — GOTHIC COLLECTION**
+Current version: **36.0.0 — Gothic Collection**
 
-V35.2.0 adds authenticated in-game bug reports, suggestions, and general
-feedback with offline queuing, automatic game/device context, and sanitized
-client-error diagnostics. It also introduces the dynamic battle Essence curve,
-the unique Chapter 1 Dracula's Tooth awakening, complete Shadow Level II visual
-integration, and the first production-art tower pass for Gothic Dagger Tower.
-The Village now uses a consolidated production UI with a compact HUD, live
-economy and production dashboard, responsive construction catalog, contextual
-district reveals, and desktop/tablet/mobile navigation.
+Village development materially changes battle, and battle progression opens
+village research. That loop is the point of the game:
 
-V35.1.1 is a deployment refresh for the Cloudflare Pages production
-environment after configuring the required Supabase build variables. It
-contains no gameplay changes.
+```
+Village → Research → Battle → Boss → Relic → Research → stronger Village → …
+```
+
+New to the project? Read [`PROJECT_STATE.md`](PROJECT_STATE.md), then
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Features
 
@@ -97,52 +97,99 @@ With preview running, execute the production browser smoke suite:
 npm run test:production
 ```
 
-Create a local `.env` from `.env.example` and set the browser-safe
-`VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` values before starting Vite.
+Cloud accounts are optional. Copy `.env.example` to `.env` and set the
+browser-safe `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to work on
+sign-in and cloud saves. Without them the game boots straight into local-only
+play, which is also how a static deployment without build variables behaves.
 
 ## Folder structure
 
 ```text
-assets/         Game art, sprites, models, textures, and source assets
-docs/           Historical audits and patch notes
-project_docs/   Architecture, current project state, audits, and roadmap
-scripts/        Runtime-asset staging, build validation, and production smoke tests
-shaders/        Rendering shader resources
+assets/         Game art, sprites, models, textures and audio
+docs/           Supabase setup, design notes, historical patch notes and audits
+project_docs/   Historical numbered code audits
+scripts/        Asset staging, build and content validation, production smoke tests
 src/
-  config/       Shared release metadata
-  Battle/       Battle simulation, Canvas rendering, cards, and campaign systems
+  config/       Release version and debug channels
+  data/         Campaign and village content registries (pure data)
+  Battle/       Battle simulation, canvas rendering, cards, campaign systems
+  Village/      Economy model and world registry
   Renderer/     Three.js village renderer
+  Ascension/    Relics, equipment, gems, fusions, companions, elements
+  Progression/  Economy and telemetry registries
+  UI/           Bundled stylesheets
+  online/       Supabase client, auth gate, cloud save, tester feedback
   main.js       Application entry point
   villageBootstrap.js
-index.html      Main application document
+index.html      Main application document — its element ids are an API
 styles.css      Shared responsive UI and game presentation
+vite.config.js  Build configuration (relative base for host-agnostic output)
 ```
 
-The authoritative architecture and implementation notes are in [`project_docs/PROJECT_STATE.md`](project_docs/PROJECT_STATE.md) and [`project_docs/ARCHITECTURE.md`](project_docs/ARCHITECTURE.md).
+The authoritative notes are in [`PROJECT_STATE.md`](PROJECT_STATE.md) and
+[`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Save compatibility
 
-Progress is stored locally in the browser. The current game preserves the legacy save key so existing players retain campaign progress, cards, Hunter progression, Village construction, and resources.
+Progress is stored in browser local storage under a legacy save key, so players
+carrying saves forward from earlier versions keep their campaign, cards, Hunter
+progression, village construction and resources. A save is normalised and
+migrated on every load; a save that cannot be read is quarantined rather than
+overwritten.
 
-Do not clear browser storage unless intentionally resetting a save.
+Signed-in players also get revisioned Supabase cloud saves. Local storage is
+always written first, so a failed cloud write never costs progress.
 
-Authenticated players also receive revisioned Supabase cloud saves. Local
-storage remains the immediate offline-safe copy, while the cloud adapter
-debounces and retries remote writes. See
-[`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md) for environment variables,
-database migration, authentication behavior, migration rules, and testing.
+Do not clear browser storage unless you intend to reset a save. The in-game Save
+Manager (More → Save Manager) exports a portable backup.
+
+Full details, including the rules for changing the schema, are in
+[`SAVE_SCHEMA.md`](SAVE_SCHEMA.md).
 
 ## Known issues
 
-- The iOS battle-camera recovery for stale touch pointers has passed Chromium parsing and initialization checks, but still requires repeated manual stage-transition and pinch/drag verification on physical iPhone hardware.
-- Authentication and cloud saving require the Supabase migration and redirect
-  configuration documented in `docs/SUPABASE_SETUP.md`.
-- Physical iPhone/iPad testing remains required for final Safari audio,
-  recovery-link, rotation, and safe-area certification.
+See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md). The short version: everything has been
+tested in Chromium at desktop, iPad and iPhone viewport sizes, and **not** on
+physical iOS or Android hardware.
+
+## Deployment
+
+The build output is static files. `npm run build` produces `dist/`, which works
+from a root domain or a path prefix such as a GitHub Pages project site. Cloud
+accounts are optional — without Supabase credentials the game boots straight
+into local play.
+
+See [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Documentation
 
-- [`project_docs/PROJECT_STATE.md`](project_docs/PROJECT_STATE.md): current technical state and recent fixes
-- [`project_docs/ARCHITECTURE.md`](project_docs/ARCHITECTURE.md): system architecture
-- [`project_docs/ROADMAP.md`](project_docs/ROADMAP.md): planned work
-- [`docs/patch_notes/`](docs/patch_notes/): historical release notes
+| File | What it is for |
+|---|---|
+| [`PROJECT_STATE.md`](PROJECT_STATE.md) | What the game is today. Start here |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | How the code fits together |
+| [`ROADMAP.md`](ROADMAP.md) | Milestones and what to build next |
+| [`SAVE_SCHEMA.md`](SAVE_SCHEMA.md) | Storage keys, save flow, migration rules |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Build and hosting |
+| [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) | Open problems and fragile areas |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history |
+| [`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md) | Cloud account setup |
+| [`docs/patch_notes/`](docs/patch_notes/) | Historical per-release notes |
+| [`project_docs/`](project_docs/) | Historical numbered code audits |
+
+## Development scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Vite development server |
+| `npm run build` | Stage assets, bundle, then validate the build and the content registries |
+| `npm run preview` | Serve the production build |
+| `npm run validate:build` | Check `dist/` without rebuilding |
+| `npm run validate:content` | Check the content registries |
+| `npm run test:production` | Browser smoke suite against a running preview (needs `CHROME_PATH`) |
+
+## Debug channels
+
+Append `?debug=1` to enable the development overlays on any build, or name
+channels with `?debug=overlay,diagnostics,visual,proof`. `?debug=0` clears the
+choice, which is remembered between reloads. See
+[`ARCHITECTURE.md`](ARCHITECTURE.md#10-debug).

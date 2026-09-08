@@ -1,5 +1,6 @@
 import { createVillageThreeWorld, describeLoadError } from './Renderer/villageThreeWorld.js?v=3410';
 import { queueCloudSave } from './online/cloudSave.js';
+import { VILLAGE_BUILDINGS, VILLAGE_BUILD_CATEGORIES } from './data/villageBuildings.js';
 // V30.1 — claim Village ownership immediately at module evaluation time.
 // Battle/game.js contains a preserved legacy Village controller guarded by this
 // flag. Setting it only inside DOMContentLoaded allowed both controllers to bind
@@ -16,6 +17,52 @@ ready(() => {
   const viewport = document.querySelector('.pixel-village');
   const world = document.getElementById('villageWorld');
   if (!viewport || !world) return;
+
+  // One requestAnimationFrame for the whole Village.
+  //
+  // The Village ran four independent frame loops — Shadow, the citizens, the
+  // day/night atmosphere and the construction juice. Each rescheduled itself
+  // every frame, and three of them opened with their own `viewport.offsetParent`
+  // read, which forces a style and layout flush; animateKael then wrote back to
+  // an inline style in the same frame. That is three forced layouts and four rAF
+  // dispatches per frame, sustained even during a battle where every one of them
+  // had already decided it had nothing to do.
+  //
+  // One driver now runs them in order and resolves the visibility questions once
+  // per frame. The callbacks read the same answers they computed for themselves
+  // before, so behaviour is unchanged. A callback that throws is disabled and
+  // reported rather than silently taking its own loop down, which is what
+  // happened when each owned its own rAF chain.
+  const villageFrameCallbacks = [];
+  const villageFrame = { onScreen: false, documentVisible: true, battle: false };
+  let villageFrameHandle = 0;
+
+  function runVillageFrame(now) {
+    villageFrameHandle = 0;
+    villageFrame.battle = document.body.classList.contains('battle-mode');
+    villageFrame.onScreen = viewport.offsetParent !== null;
+    villageFrame.documentVisible = !document.hidden;
+    for (const entry of villageFrameCallbacks) {
+      if (entry.failed) continue;
+      try {
+        entry.callback(now);
+      } catch (error) {
+        entry.failed = true;
+        console.error(`Village frame callback "${entry.name}" disabled after an error.`, error);
+      }
+    }
+    scheduleVillageFrame();
+  }
+
+  function scheduleVillageFrame() {
+    if (villageFrameHandle) return;
+    villageFrameHandle = requestAnimationFrame(runVillageFrame);
+  }
+
+  function registerVillageFrame(name, callback) {
+    villageFrameCallbacks.push({ name, callback, failed: false });
+    scheduleVillageFrame();
+  }
 
   // Clear any stale recovery marker from an earlier failed Village boot.
   viewport.classList.remove('village-boot-failed');
@@ -334,57 +381,10 @@ ready(() => {
   // V30.0 — Village-only construction catalog redesign.
   // Every currently buildable structure is visible in one catalog. Gold is the
   // construction currency; production labels describe the live village output.
-  const BUILDINGS = {
-    house:       { cat:'residential', name:'Village House', icon:'🏠', image:'assets/village/house_lv01.png', cost:120, costs:{gold:120,wood:80,stone:30}, production:'+4 Population', description:'A sturdy home for new villagers.' },
-    manor:       { cat:'residential', name:'Gothic Manor', icon:'🏛️', image:'assets/village/house_lv02.png', cost:320, production:'+9 Population', description:'Expanded housing for established families.' },
-    almshouse:   { cat:'residential', name:'Almshouse', icon:'🛏️', cost:220, production:'+6 Population · +1 Morale', description:'Shelter for travelers and displaced villagers.' },
-
-    farm:        { cat:'production', name:'Farm Plot', icon:'🌾', image:'assets/village/farm_plot.png', cost:145, costs:{gold:145,wood:60,stone:20}, production:'+8 Food / h', description:'Produces food continuously, including offline.' },
-    orchard:     { cat:'production', name:'Moon Orchard', icon:'🍎', cost:190, production:'+11 Food / h', description:'A high-yield orchard protected from the night.' },
-    herbGarden:  { cat:'production', name:'Herb Garden', icon:'🌿', cost:210, production:'+5 Food / h · +2 Essence / h', description:'Cultivates medicinal and arcane herbs.' },
-    well:        { cat:'production', name:'Stone Well', icon:'⛲', cost:105, production:'+3 Food / h · +1 Morale', description:'Clean water improves health and crop yields.' },
-    sawmill:     { cat:'production', name:'Lumber Camp', icon:'🪵', cost:110, costs:{gold:110,wood:40,stone:25}, production:'+9 Wood / h', description:'Cuts timber for construction and repairs.' },
-    quarry:      { cat:'production', name:'Quarry', icon:'⛏️', cost:125, costs:{gold:125,wood:45}, production:'+8 Stone / h', description:'Extracts stone for fortifications and civic works.' },
-    tannery:     { cat:'production', name:'Tannery', icon:'🧵', cost:245, production:'+4 Leather / h', description:'Processes hides for armor and trade.' },
-
-    market:      { cat:'commerce', name:'Night Market', icon:'🏪', cost:300, production:'+12 Gold / h', description:'Generates village Gold from trade.' },
-    tavern:      { cat:'commerce', name:'Hunter Tavern', icon:'🍺', cost:260, production:'+5 Gold / h · +2 Morale', description:'Attracts hunters, rumors, and paying travelers.' },
-    storehouse:  { cat:'commerce', name:'Warehouse', icon:'📦', cost:225, costs:{gold:225,wood:90,stone:80}, production:'+250 Resource Capacity', description:'Expands offline resource storage.' },
-    stable:      { cat:'commerce', name:'Stables', icon:'🐴', cost:285, production:'+4 Gold / h · faster travel', description:'Supports caravans and district travel.' },
-
-    blacksmith:  { cat:'military', name:'Blacksmith', icon:'🔨', cost:360, costs:{gold:360,wood:140,stone:180,iron:20}, production:'+3 Iron / h · tower repair', description:'Forges weapons and repairs village defenses.' },
-    stonemason:  { cat:'production', name:'Stone Mason', icon:'🧱', cost:340, costs:{gold:340,wood:120,stone:160}, production:'+5 Stone / h · stronger works', description:'Shapes Golem-taught masonry for advanced construction.' },
-    watchtower:  { cat:'military', name:'Watchtower', icon:'🗼', cost:295, production:'+1 Gate HP · road vision', description:'Warns the village before enemies arrive.' },
-    barracks:    { cat:'military', name:'Barracks', icon:'⚔️', cost:420, production:'+2 Gate HP · hunter training', description:'Trains defenders and strengthens the gate.' },
-    armory:      { cat:'military', name:'Armory', icon:'🛡️', cost:465, production:'+5% Tower Damage', description:'Stores improved weapons for defensive towers.' },
-    palisade:    { cat:'military', name:'Palisade', icon:'🧱', cost:180, production:'+3 Gate HP', description:'A fast defensive reinforcement for the village.' },
-
-    chapel:      { cat:'sacred', name:'Moon Chapel', icon:'⛪', cost:390, production:'+4 Essence / h', description:'A sacred refuge that gathers Blood Essence.' },
-    shrine:      { cat:'sacred', name:'Roadside Shrine', icon:'🕯️', cost:165, production:'+2 Essence / h', description:'A small ward placed along the village road.' },
-    reliquary:   { cat:'sacred', name:'Reliquary', icon:'📿', cost:510, production:'+1 Relic Slot', description:'Preserves unique artifacts recovered from bosses.' },
-    graveyard:   { cat:'sacred', name:'Consecrated Graveyard', icon:'🪦', cost:195, production:'+3 Essence / h', description:'Honors the fallen and protects their spirits.' },
-
-    library:     { cat:'arcane', name:'Arcane Library', icon:'📚', cost:440, production:'Unlocks Research', description:'Studies boss artifacts and elemental knowledge.' },
-    alchemist:   { cat:'arcane', name:'Alchemist Laboratory', icon:'⚗️', cost:430, production:'+3 Essence / h · crafting', description:'Brews elemental essences and rare mixtures.' },
-    enchanter:   { cat:'arcane', name:'Enchanter Workshop', icon:'✨', cost:520, production:'Equipment Imbuement', description:'Imbues hunter equipment with learned elements.' },
-    gemForge:    { cat:'arcane', name:'Gem Forge', icon:'💎', cost:560, production:'Crafts · upgrades · removes · fuses Gems', description:'A modular elemental forge for fragments, permanent tower Gems, and hidden fusion recipes.' },
-    observatory: { cat:'arcane', name:'Observatory', icon:'🔭', cost:540, production:'Reveals Boss Modifiers', description:'Studies omens before chapter boss encounters.' },
-    runestone:   { cat:'arcane', name:'Rune Stone', icon:'🗿', cost:310, production:'+4% Card Merge Odds', description:'Strengthens card fusion rituals.' },
-
-    townhall:    { cat:'civic', name:'Town Hall', icon:'🏰', cost:650, production:'+1 Village Level', description:'Coordinates districts and unlocks civic growth.' },
-    bathhouse:   { cat:'civic', name:'Bathhouse', icon:'💧', cost:250, production:'+3 Morale', description:'Restores the villagers after long nights.' },
-    workshop:    { cat:'civic', name:'Builder Workshop', icon:'🪚', cost:335, production:'-5% Future Build Cost', description:'Improves construction tools and planning.' }
-  };
-  const BUILD_CATEGORIES = [
-    ['all','✦','All Buildings'],
-    ['residential','🏠','Residential'],
-    ['production','🌾','Production'],
-    ['commerce','🏪','Commerce'],
-    ['military','⚔️','Military'],
-    ['sacred','⛪','Sacred'],
-    ['arcane','⚗️','Arcane'],
-    ['civic','🏛️','Civic']
-  ];
+  // The catalog itself lives in src/data/villageBuildings.js so the engine and
+  // the content validator read the same source as this UI.
+  const BUILDINGS = VILLAGE_BUILDINGS;
+  const BUILD_CATEGORIES = VILLAGE_BUILD_CATEGORIES;
   let activeBuildCategory = 'all';
   let buildSearch = '';
 
@@ -751,9 +751,10 @@ ready(() => {
   let kaelLast=performance.now();
   function animateKael(now){
     const dt=Math.min(.04,(now-kaelLast)/1000); kaelLast=now;
-    const battleVisible=document.body.classList.contains('battle-mode');
-    const villageVisible=viewport.offsetParent!==null && !battleVisible;
-    controls.style.display=(villageVisible||battleVisible)?'flex':'none';
+    const battleVisible=villageFrame.battle;
+    const villageVisible=villageFrame.onScreen && !battleVisible;
+    const controlsDisplay=(villageVisible||battleVisible)?'flex':'none';
+    if(controls.style.display!==controlsDisplay)controls.style.display=controlsDisplay;
     kaelState.moving = Boolean(villageVisible && input.active);
     if(villageVisible && input.active){
       const len=Math.hypot(input.x,input.y)||1;
@@ -809,9 +810,8 @@ ready(() => {
     }
 
     kael.style.left=`${kaelState.x}px`;kael.style.top=`${kaelState.y}px`;kael.style.zIndex=String(80+Math.floor(kaelState.y/20));
-    requestAnimationFrame(animateKael);
   }
-  requestAnimationFrame(animateKael);
+  registerVillageFrame('shadow', animateKael);
 
   // V24.0 — THE LIVING VILLAGE
   // Lightweight road-following citizens using the supplied 4x8 (32px frame) sheets.
@@ -901,7 +901,7 @@ ready(() => {
   function animateCitizens(now) {
     const dt = Math.min(.05, Math.max(0, (now - citizenLast) / 1000));
     citizenLast = now;
-    const villageVisible = !document.hidden && viewport.offsetParent !== null;
+    const villageVisible = villageFrame.documentVisible && villageFrame.onScreen;
     if (villageVisible) {
       for (const citizen of citizens) {
         if (citizen.wait > 0) {
@@ -948,9 +948,8 @@ ready(() => {
         citizen.el.style.zIndex = String(18 + Math.floor(citizen.y / 45));
       }
     }
-    requestAnimationFrame(animateCitizens);
   }
-  requestAnimationFrame(animateCitizens);
+  registerVillageFrame('citizens', animateCitizens);
 
   // V32.6.8 — Three.js renderer can surface harmless hidden-world discoveries
   // through the existing Village toast UI.
@@ -1236,7 +1235,7 @@ ready(() => {
   function animateLivingVillage(now) {
     const dt = Math.min(.1, Math.max(0, (now - atmosphereLast) / 1000));
     atmosphereLast = now;
-    const visible = !document.hidden && viewport.offsetParent !== null;
+    const visible = villageFrame.documentVisible && villageFrame.onScreen;
     if (visible) {
       const time = updateVillageTime(Date.now());
       if (Date.now() >= nextWeatherAt) chooseWeather();
@@ -1250,10 +1249,9 @@ ready(() => {
       citizenLayer.style.setProperty('--village-pace', String(pace));
       statusHud.classList.toggle('near-secret', Boolean(nearestVillagePoint()?.reward));
     }
-    requestAnimationFrame(animateLivingVillage);
   }
   updateVillageTime();
-  requestAnimationFrame(animateLivingVillage);
+  registerVillageFrame('atmosphere', animateLivingVillage);
 
 
   // ---- V31.5 — Living Economy, Construction and Village Life ------------
@@ -1363,10 +1361,9 @@ ready(() => {
       const data=window.ROTKGameBridge?.getVillageEconomy?.();
       setText('economyHappiness',`${getVillageHappiness(data||{})}%`);
     }
-    requestAnimationFrame(animateVillageJuice);
   }
   showVillageEvent(juiceState.event);
-  requestAnimationFrame(animateVillageJuice);
+  registerVillageFrame('construction', animateVillageJuice);
 
   // The game bridge is created by game.js after this module. Render immediately,
   // then refresh economy and grant readiness once the rest of the game is loaded.

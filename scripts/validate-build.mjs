@@ -68,24 +68,43 @@ if (/for\s+(select|update|delete)\s+to\s+authenticated/i.test(feedbackMigration)
   failures.push('Tester feedback migration grants authenticated clients read or mutation policies');
 }
 
-// Cloudflare Pages must publish dist/, never the repository root. The source
-// index intentionally points to /src/main.js for Vite development; Vite must
-// replace that entry with a hashed /assets bundle in production.
+// A static host must publish dist/, never the repository root. The source index
+// intentionally points to /src/main.js for Vite development; Vite must replace
+// that entry with a hashed assets/ bundle in production.
 if (/(?:src|href)=["'][^"']*\/src\//i.test(distIndexHtml)) {
   failures.push('dist/index.html exposes a raw /src/ reference instead of a Vite bundle');
 }
+// vite.config.js builds with a relative base so the same dist/ works from a
+// root domain and from a path prefix such as a GitHub Pages project site.
+// Accept both './assets/...' and the absolute form an explicit VITE_BASE
+// produces, and reject anything that escapes assets/ either way.
+const stripBase = source => source.replace(/^\.?\/+/, '');
 const productionScripts = [...distIndexHtml.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)]
   .map(match => match[1]);
-const bundledEntries = productionScripts.filter(source => /^\/assets\/index-[A-Za-z0-9_-]+\.js$/.test(source));
+const bundledEntries = productionScripts.filter(source => /^assets\/index-[A-Za-z0-9_-]+\.js$/.test(stripBase(source)));
 if (bundledEntries.length !== 1) {
-  failures.push(`dist/index.html must reference exactly one hashed Vite entry under /assets/; found: ${productionScripts.join(', ') || 'none'}`);
+  failures.push(`dist/index.html must reference exactly one hashed Vite entry under assets/; found: ${productionScripts.join(', ') || 'none'}`);
 }
 for (const source of productionScripts) {
-  const relative = source.replace(/^\/+/, '');
-  if (source.startsWith('/') && !source.startsWith('/assets/')) {
-    failures.push(`Unexpected production script outside /assets/: ${source}`);
+  if (/^[a-z]+:/i.test(source)) {
+    failures.push(`Unexpected absolute production script URL: ${source}`);
+    continue;
   }
-  if (source.startsWith('/assets/')) await requireFile(relative);
+  const relative = stripBase(source);
+  if (!relative.startsWith('assets/')) {
+    failures.push(`Unexpected production script outside assets/: ${source}`);
+    continue;
+  }
+  await requireFile(relative);
+}
+// Relative references are what make the default bundle host-agnostic; a
+// root-absolute stylesheet or script would 404 under a path prefix. Skip this
+// when VITE_BASE was set deliberately, since choosing an absolute base is an
+// explicit decision to pin the deployment to one path.
+if (!process.env.VITE_BASE) {
+  for (const [, attribute, value] of distIndexHtml.matchAll(/\b(src|href)=["'](\/[^"'/][^"']*)["']/gi)) {
+    failures.push(`dist/index.html uses a root-absolute ${attribute} (${value}); it will 404 under a path prefix`);
+  }
 }
 for (const assetName of distAssetNames.filter(name => name.endsWith('.js'))) {
   const emittedSource = await readFile(path.join(distRoot, 'assets', assetName), 'utf8');

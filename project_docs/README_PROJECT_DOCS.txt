@@ -1,11 +1,15 @@
-THE VILLAGE — PROJECT DOCUMENTATION PACKAGE
+THE VILLAGE — HISTORICAL CODE AUDITS
 
-Baseline: V27.1.2 Cleaned Cards Screen Repair
+This folder is an archive. The live documentation lives at the repository root:
 
-Files:
-- PROJECT_STATE.md: full source snapshot, project status, mechanics, constraints, and next milestone.
-- ROADMAP.md: planned milestones and release gates.
-- ARCHITECTURE.md: runtime structure, data contracts, input rules, and testing boundaries.
-- CARDS_SYSTEM_AUDIT.md: focused diagnosis and acceptance checklist for Cards recovery.
+  ../PROJECT_STATE.md   what the game is today
+  ../ARCHITECTURE.md    how the code fits together
+  ../ROADMAP.md         milestones
+  ../SAVE_SCHEMA.md     storage keys, save flow, migration rules
+  ../DEPLOYMENT.md      build and hosting
+  ../KNOWN_ISSUES.md    open problems and fragile areas
+  ../CHANGELOG.md       release history (previously PROJECT_STATE.md)
 
-The baseline source itself has not been modified except for adding the project_docs folder.
+What remains here are the numbered point-in-time audits (AUDIT_V29_2.md through
+AUDIT_V34_1_0.md, plus CARDS_SYSTEM_AUDIT.md). They describe the project as it
+stood at those versions and are kept for context, not as current guidance.

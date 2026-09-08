@@ -13,7 +13,7 @@ export const MODEL_FOR_BUILDING = Object.freeze({
   house:'house_lv1',almshouse:'house_lv2',manor:'house_lv3',bathhouse:'house_lv2',estate:'house_lv4',mansion:'house_lv5',
   farm:'farm',orchard:'farm',herbGarden:'farm',sawmill:'lumber_camp',stable:'lumber_camp',quarry:'quarry',stonemason:'quarry',
   storehouse:'warehouse',market:'warehouse',tannery:'warehouse',well:'warehouse',library:'library',observatory:'library',
-  alchemist:'alchemist',enchanter:'enchanter',runestone:'enchanter',blacksmith:'blacksmith',workshop:'blacksmith',armory:'blacksmith',
+  alchemist:'alchemist',enchanter:'enchanter',runestone:'enchanter',gemForge:'enchanter',blacksmith:'blacksmith',workshop:'blacksmith',armory:'blacksmith',
   tavern:'tavern',keep:'keep',townhall:'house_lv4',watchtower:'keep',barracks:'keep',palisade:'keep',chapel:'cathedral',
   shrine:'cathedral',reliquary:'cathedral',graveyard:'cathedral'
 });

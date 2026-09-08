@@ -1,4 +1,5 @@
-const enabled=import.meta.env.DEV||new URLSearchParams(location.search).get('visualAudit')==='1';
+import {debugEnabled} from '../config/debug.js';
+const enabled=debugEnabled('diagnostics');
 const history=[];let lastError=null,lastPromise=null,contextState='2d-active';
 const push=(type,data={})=>{if(!enabled)return;history.push({at:performance.now(),type,...data});if(history.length>50)history.shift()};
 if(enabled){addEventListener('error',event=>{lastError={message:event.message,stack:event.error?.stack};push('javascript-error',lastError)});addEventListener('unhandledrejection',event=>{lastPromise={message:String(event.reason?.message||event.reason),stack:event.reason?.stack};push('unhandled-rejection',lastPromise)});}

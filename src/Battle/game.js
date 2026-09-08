@@ -17,6 +17,7 @@ import { battleEvent, diagnosticSnapshot, installCanvasDiagnostics, validateBatt
 import { weightedDraftPool } from './Cards/draftWeights.js';
 import { waveBreathingPeriod, waveIdentity, waveSpawnCount } from './waveDirector.js';
 import { createBattleTelemetryOverlay } from './developmentTelemetry.js';
+import { debugEnabled, debugSummary } from '../config/debug.js';
 import { activateBattle3Runtime, deactivateBattle3Runtime } from './battle3Runtime.js';
 import { cardArtHTML } from '../Cards/cardArtRegistry.js';
 import {
@@ -41,6 +42,8 @@ import {
   gemById,
   supportCapacity
 } from '../Ascension/registry.js';
+import { VILLAGE_RESEARCH, VILLAGE_STARTER_BUILDINGS } from '../data/villageBuildings.js';
+import { CAMPAIGN_CHAPTERS } from '../data/campaign.js';
 
 'use strict';
 // V32.4.1 — Stability audit, cleanup, Shadow Familiars and evolving battle Keep.
@@ -50,7 +53,8 @@ installCanvasDiagnostics(canvas);
 preloadBattlefield();
 preloadCathedral();
 preloadCoreTowerAtlases();
-const battleTelemetryOverlay=createBattleTelemetryOverlay();
+const battleTelemetryOverlay=createBattleTelemetryOverlay({saveVersion:ASCENSION_SAVE_VERSION});
+if(debugEnabled('diagnostics'))console.info(`[Village] Debug channels active: ${debugSummary()}`);
 // V27.5 — Shadow and enemy sprite assets. Visual-only integration; combat values are unchanged.
 const SPRITE_CACHE=new Map();
 function spriteImage(src){const resolved=new URL(src,document.baseURI).href;if(!SPRITE_CACHE.has(resolved)){const img=new Image();img.decoding='async';img.src=resolved;SPRITE_CACHE.set(resolved,img)}return SPRITE_CACHE.get(resolved)}
@@ -802,20 +806,8 @@ const WEATHERS=[
 ];
 const RELICS=RELIC_REGISTRY;
 const relicEffect=(key,relic=G?.relic)=>Number(relic?.effect?.[key])||0;
-const CHAPTERS=[
- {id:'cemetery',number:1,name:'The Forgotten Cemetery',map:'cemetery',waves:8,boss:{id:'warden',name:'Eclipse Warden',hp:500,speed:.28,reward:140,power:'Raises three Bone Soldiers every five seconds.'},relic:'fang',lore:'The first royal road ends beneath graves that refuse to sleep.'},
- {id:'forest',number:2,name:'The Moonlit Forest',map:'forest',waves:10,boss:{id:'thornbeast',name:'The Thornbound Beast',hp:680,speed:.34,reward:175,power:'Moves faster and releases Night Wolves.'},relic:'candle',lore:'A black forest has swallowed the northern watch road.'},
- {id:'village',number:3,name:'The Ruined Village',map:'village',waves:12,boss:{id:'bloodcount',name:'The Blood Count',hp:880,speed:.30,reward:220,power:'Summons Vampire Spawn and drains the gate on arrival.'},relic:'chalice',lore:'The abandoned village still answers to its dead lord.'},
- {id:'cathedral',number:4,name:'The Frozen Cathedral',map:'cathedral',waves:14,boss:{id:'icebishop',name:'The Frozen Bishop',hp:1120,speed:.25,reward:280,power:'Freezes defenses with waves of cathedral frost.'},relic:'ring',lore:'At the kingdom’s edge, the last cathedral guards the Eclipse.'},
- {id:'marsh',number:5,name:'The Crimson Marsh',map:'marsh',waves:15,boss:{id:'bogqueen',name:'The Bog Queen',hp:1380,speed:.26,reward:330,power:'Calls drowned servants from the blood reeds.'},relic:'thorn',lore:'A drowned royal road winds through reeds stained crimson.'},
- {id:'walls',number:6,name:'The Blackstone Siege',map:'walls',waves:16,boss:{id:'siegeknight',name:'The Hollow Castellan',hp:1680,speed:.22,reward:390,power:'Marches beneath armor and summons shield guards.'},relic:'banner',lore:'The walls that once protected the kingdom now imprison it.'},
- {id:'temple',number:7,name:'The Moon Temple',map:'temple',waves:17,boss:{id:'moonoracle',name:'The Fallen Oracle',hp:1960,speed:.28,reward:460,power:'Bends time and releases spectral disciples.'},relic:'moon',lore:'The stars have vanished above the oldest sanctuary.'},
- {id:'castle',number:8,name:'The Vampire Castle',map:'castle',waves:18,boss:{id:'vampireking',name:'The Blood King',hp:2450,speed:.30,reward:600,power:'Commands the court of night and drains the final gate.'},relic:'bloodseal',lore:'Beyond the last road waits the throne that began the Eclipse.'},
- {id:'harbor',number:9,name:'The Drowned Harbor',map:'harbor',waves:19,boss:{id:'bellkeeper',name:'The Bell Keeper',hp:2850,speed:.25,reward:680,power:'Rings the drowned bell and calls sailors from beneath the tide.'},relic:'tidebell',lore:'Black ships return to a harbor that sank before the Eclipse.'},
- {id:'monastery',number:10,name:'The Ashen Monastery',map:'monastery',waves:20,boss:{id:'ashabbot',name:'The Ashen Abbot',hp:3250,speed:.27,reward:760,power:'Blankets the road in cinders and awakens burning penitents.'},relic:'ashcenser',lore:'The bells are silent, but prayers still burn behind sealed doors.'},
- {id:'underkingdom',number:11,name:'The Underkingdom',map:'underkingdom',waves:21,boss:{id:'underking',name:'The Hollow Underking',hp:3750,speed:.23,reward:860,power:'Summons armored dead and bends the road beneath the earth.'},relic:'underkey',lore:'Below the royal roads lies a kingdom older than the living crown.'},
- {id:'sunlessvault',number:12,name:'The Sunless Vault',map:'sunlessvault',waves:22,boss:{id:'hollowsaint',name:'The Hollow Saint',hp:4200,speed:0.26,reward:880,power:'Splits into lesser saints as its light fails.'},relic:'graveseal',lore:'Beneath the underkingdom, a vault that never knew the sun.'},{id:'catacombs',number:13,name:'The Rotting Catacombs',map:'catacombs',waves:23,boss:{id:'rotmarshal',name:'The Rot Marshal',hp:4700,speed:0.24,reward:960,power:'Raises Plague Revenants from every corpse on the road.'},relic:'voideye',lore:'The dead here were buried standing, facing the gate.'},{id:'hollowcathedral',number:14,name:'The Hollow Cathedral',map:'hollowcathedral',waves:24,boss:{id:'plaguechoir',name:'The Plague Choir',hp:5300,speed:0.28,reward:1050,power:'Its hymn rots defenses from the inside.'},relic:'rotcrown',lore:'A cathedral emptied of everything but its song.'},{id:'weepingspire',number:15,name:'The Weeping Spire',map:'weepingspire',waves:25,boss:{id:'voidprelate',name:'The Void Prelate',hp:5900,speed:0.3,reward:1160,power:'Opens eyes across the battlefield that strike from above.'},relic:'ossuary',lore:'The spire wept for a century. Something answered.'},{id:'bonecathedral',number:16,name:'The Bone Cathedral',map:'bonecathedral',waves:26,boss:{id:'grandossuary',name:'The Grand Ossuary',hp:6600,speed:0.22,reward:1280,power:'Armours every enemy that passes beneath it.'},relic:'pallbearer',lore:'Built from the fallen of the first ten roads.'},{id:'observatory',number:17,name:'Crimson Observatory',map:'observatory',waves:27,boss:{id:'duskempress',name:'The Dusk Empress',hp:7400,speed:0.32,reward:1410,power:'Reads the moon and calls elites in threes.'},relic:'sunless',lore:'She charted the eclipse before anyone knew to fear it.'},{id:'shatteredmoon',number:18,name:'The Shattered Moon',map:'shatteredmoon',waves:28,boss:{id:'eclipseherald',name:'Herald of the Shattered Moon',hp:8300,speed:0.29,reward:1560,power:'Falling moonlight damages towers directly.'},relic:'moonshard',lore:'The moon broke, and the pieces are still falling.'},{id:'abyssgate',number:19,name:'The Abyssal Gate',map:'abyssgate',waves:29,boss:{id:'lastsentinel',name:'The Last Sentinel',hp:9300,speed:0.25,reward:1720,power:'The final guard. Nothing has ever passed it.'},relic:'abyssseal',lore:'One gate remains between the road and the throne.'},{id:'throne',number:20,name:'The Eclipse Throne',map:'throne',waves:30,boss:{id:'eclipselord',name:'The Lord of Final Night',hp:11000,speed:.29,reward:2400,power:'Changes phases, summons elites, and darkens the battlefield.'},relic:'eclipsecrown',lore:'At the end of every road, the Eclipse waits upon its throne.'}
-];
+// A private copy: the campaign rules below mutate chapters and their bosses.
+const CHAPTERS=CAMPAIGN_CHAPTERS.map(chapter=>({...chapter,boss:{...chapter.boss}}));
 // Campaign rewards consume registry order; relic content and effects live in
 // the Ascension registry rather than in battle-system branches.
 for(const chapter of CHAPTERS)chapter.relic=RELIC_REGISTRY[chapter.number-1]?.id||null;
@@ -917,19 +909,6 @@ const unlockChapterForCard=id=>CHAPTERS.find(ch=>(CHAPTER_CARD_UNLOCKS[ch.id]||[
 const progressionUnlockedIds=completed=>{const ids=new Set(DEFAULT_DECK);for(const chapterId of completed||[])for(const id of CHAPTER_CARD_UNLOCKS[chapterId]||[])ids.add(id);return [...ids]};
 
 // V32.0 — campaign-driven Village progression backbone.
-const VILLAGE_STARTER_BUILDINGS=['house','farm','sawmill','quarry','storehouse'];
-const VILLAGE_RESEARCH=[
- {id:'waterworks',name:'Village Waterworks',icon:'⛲',requiresStage:2,cost:{gold:180,wood:80,stone:60},unlocks:['well'],battle:'Improves settlement happiness.'},
- {id:'orchardry',name:'Moon Orchardry',icon:'🍎',requiresStage:3,cost:{gold:240,wood:120,food:100},unlocks:['orchard'],battle:'Improves food reserves between hunts.'},
- {id:'buildersGuild',name:"Builder's Guild",icon:'🪚',requiresStage:4,cost:{gold:320,wood:160,stone:120},unlocks:['workshop','almshouse'],battle:'Strengthens village recovery and construction.'},
- {id:'nightCommerce',name:'Night Commerce',icon:'🏪',requiresStage:6,cost:{gold:450,wood:180,stone:120,food:150},unlocks:['market','tavern','stable'],battle:'+5 starting battle souls from an active Market.'},
- {id:'sacredRoads',name:'Sacred Roads',icon:'🕯️',requiresStage:8,cost:{gold:550,wood:140,stone:240,essence:20},unlocks:['chapel','shrine','graveyard'],battle:'Cathedral blessings add starting gate health.'},
- {id:'golemIndustry',name:'Golem-Forged Industry',icon:'⚒️',requiresStage:10,artifact:'heart-of-the-golem',cost:{gold:900,wood:300,stone:420,iron:40,essence:35},unlocks:['blacksmith','stonemason','watchtower','barracks'],battle:'Blacksmiths improve tower damage; guards strengthen the gate.'},
- {id:'merchantCharter',name:'Merchant Charter',icon:'📜',requiresStage:12,cost:{gold:1200,wood:350,stone:260,iron:60},unlocks:['manor','tannery','armory','palisade'],battle:'Unlocks advanced trade and military supply.'},
- {id:'arcaneFoundation',name:'Arcane Foundation',icon:'📚',requiresStage:14,cost:{gold:1600,wood:400,stone:500,iron:80,essence:90},unlocks:['library','alchemist','enchanter'],battle:'Unlocks elemental research and crafted battle supplies.'},
- {id:'arcaneMastery',name:'Arcane Mastery',icon:'🔮',requiresStage:17,cost:{gold:2200,wood:500,stone:650,iron:120,essence:160},unlocks:['observatory','runestone','reliquary'],battle:'Reveals boss modifiers and empowers card fusion.'},
- {id:'divineKingdom',name:'Divine Kingdom',icon:'♛',requiresStage:20,cost:{gold:3200,wood:700,stone:900,iron:180,essence:250},unlocks:['townhall','bathhouse'],battle:'Completes the kingdom progression era.'}
-];
 function villageCompletedStage(){return Math.max(0,...(save.campaign?.completed||[]).map(id=>CHAPTERS.find(c=>c.id===id)?.number||0));}
 function researchedVillageBuildings(){const out=new Set(VILLAGE_STARTER_BUILDINGS);for(const id of save.villageProgression?.researched||[]){const r=VILLAGE_RESEARCH.find(x=>x.id===id);for(const b of r?.unlocks||[])out.add(b)}return out;}
 function villageBuildingUnlocked(id){return researchedVillageBuildings().has(id)}
@@ -947,7 +926,37 @@ const STORAGE={
   remove(key){try{window.localStorage?.removeItem(key)}catch(err){console.warn('Could not clear progress.',err)}}
 };
 let loadedSave=null;
-try{loadedSave=JSON.parse(STORAGE.get('relicsEclipseSave')||STORAGE.get('gateRunnerSave')||'null')}catch(err){console.warn('Invalid save ignored.',err)}
+// Quarantine rather than discard. A save that fails to parse, or that parses to
+// something that is not a plain object, used to be dropped on the floor: the
+// player silently started a new game and the very next saveProgress() wrote
+// over the damaged original, making recovery impossible. Copy the raw text
+// aside first so a support export can still reach it.
+function quarantineDamagedSave(reason,raw){
+ if(typeof raw!=='string'||!raw)return;
+ const key=`village.saveRecovery.damaged.${Date.now()}`;
+ try{
+  STORAGE.set(key,JSON.stringify({format:'the-village-damaged-save',reason,capturedAt:new Date().toISOString(),gameVersion:ASCENSION_VERSION,raw}));
+  // Keep only the three most recent so a repeatedly failing boot cannot fill the
+  // storage quota and start breaking the writes that still work.
+  const quarantined=Object.keys(localStorage).filter(k=>k.startsWith('village.saveRecovery.damaged.')).sort();
+  for(const stale of quarantined.slice(0,Math.max(0,quarantined.length-3)))STORAGE.remove(stale);
+  console.error(`[Village save] Unreadable save quarantined as ${key} (${reason}). A new profile was started; the original text is preserved.`);
+ }catch(storageError){
+  console.error('[Village save] Unreadable save could not be quarantined.',storageError?.message||storageError);
+ }
+}
+{
+ const rawSave=STORAGE.get('relicsEclipseSave')||STORAGE.get('gateRunnerSave')||'null';
+ let parsed=null;
+ try{parsed=JSON.parse(rawSave)}
+ catch(err){console.warn('Invalid save ignored.',err);quarantineDamagedSave('parse-error',rawSave)}
+ // `null` is the ordinary "no save yet" case and must not be quarantined.
+ if(parsed!==null&&(typeof parsed!=='object'||Array.isArray(parsed))){
+  quarantineDamagedSave('unexpected-shape',rawSave);
+  parsed=null;
+ }
+ loadedSave=parsed;
+}
 function defaultInventory(){return Object.fromEntries(CARD_POOL.map((c,i)=>[c.id,{copies:DEFAULT_DECK.includes(c.id)?2:0,rarity:String(c.rarity||'common').toLowerCase(),level:1,xp:0,recent:DEFAULT_DECK.includes(c.id)&&i<3,lastFound:0,gemSlots:[null,null]}]));}
 // V33.0.1 — save safety: never erase an existing Village save on startup.
 // Older builds used a one-time fresh-start token that removed campaign, card,
@@ -1148,7 +1157,7 @@ function battleDelay(callback,delay,label='battle callback'){
  const session=battleSessionId,handle=setTimeout(()=>{battleTimers.delete(handle);battleEvent('battle-callback-fired',{label,session,currentSession:battleSessionId});if(session!==battleSessionId)return;callback()},delay);
  battleTimers.set(handle,{label,session,createdAt:performance.now(),delay});return handle;
 }
-const visualDebug=()=>new URLSearchParams(location.search).get('visualDebug')==='1'||STORAGE.get('villageVisualDebug')==='1';
+const visualDebug=()=>debugEnabled('visual');
 function resetBattleVisualState(reason='stage cleanup'){
  battleSessionId++;
  for(const handle of battleTimers.keys())clearTimeout(handle);battleTimers.clear();
@@ -2891,7 +2900,21 @@ function draw(){
 function renderInspector(){const el=$('#towerInspector');if(!G?.selectedTower){el.classList.add('hidden');return}const t=G.selectedTower,syn=synergyFor(t),state=cardUpgradeState(t.id),run=t.runEssenceUpgrades||{};el.classList.remove('hidden');const button=(stat,label,bonus)=>{const rank=state[stat]||0,max=towerUpgradeMax(stat),cost=towerUpgradeCost(t,stat);return `<button data-upgrade="${stat}" ${rank>=max?'disabled':''}>${label}<br><small>Lv ${rank}/${max} · ${bonus} · ${cost} pt</small></button>`},essenceButton=(stat,label)=>{const rank=run[stat]||0,max=stat==='range'?3:5,cost=essenceTowerUpgradeCost(t,stat);return `<button data-essence-upgrade="${stat}" ${rank>=max?'disabled':''}>${label}<br><small>Run Lv ${rank}/${max} · ✦ ${cost}</small></button>`};el.innerHTML=`<button id="closeInspect" class="inspect-close">×</button><h3>${t.icon} ${t.name}</h3><div>Damage <b>${Math.round(t.damage*G.globalDamage)}</b></div><div>Attack radius <b>${towerCombatRange(t).toFixed(2)} tiles</b></div><div>Attack <b>${(1/t.rate).toFixed(1)}/s</b></div><div>Spendable Essence <b>${Math.floor(G.essence)}</b></div><div class="tower-upgrade-grid essence-run-upgrades">${essenceButton('damage','✦ Damage')}${essenceButton('rate','✦ Speed')}${essenceButton('range','✦ Radius')}</div><div>Battle points <b>${G.battlePoints||0}</b></div><small class="card-wide-upgrade-note">Battle-point upgrades affect every ${t.name}; Essence reinforcements affect this tower for this hunt.</small><div class="tower-upgrade-grid">${button('damage','⚔ ATK','+24%')}${button('rate','⚡ Speed','+16%')}${button('range','◎ Radius','+0.30 tile')}</div><div>Card <b>${rarityDef(inv(t.id).rarity).name} · ${Math.round((t.permanentPower||1)*100)}%</b></div><div>Supports <b>${(t.supports||[]).map(s=>s.icon+' '+s.name).join(', ')||'None'}</b></div><div class="synergy-line">${(()=>{const ex=synergyExplain(t);if(!ex)return 'No active synergy — place this tower directly beside a partner tower (up, down, left or right) to form one.';return `✦ ${ex.names.join(' + ')}<br><small>${ex.summary}</small><br><small class="synergy-from">from ${ex.links.map(l=>l.n.name||l.n.id).join(', ')}</small>`})()}</div>`;$('#closeInspect').onclick=()=>{G.selectedTower=null;renderInspector()};el.querySelectorAll('[data-upgrade]').forEach(b=>b.onclick=()=>upgradeSelectedTower(b.dataset.upgrade));el.querySelectorAll('[data-essence-upgrade]').forEach(b=>b.onclick=()=>essenceUpgradeSelectedTower(b.dataset.essenceUpgrade))}
 
 const MAX_SIM_STEP=1/50;
-function loop(now){trimParticles();const frameDt=Math.min(.05,(now-(G?.last||now))/1000);if(G)G.last=now;updateCameraTour(frameDt);const scaledDt=frameDt*(G?.speed||1),steps=Math.max(1,Math.ceil(scaledDt/MAX_SIM_STEP)),stepDt=scaledDt/steps;for(let i=0;i<steps;i++){const finalStep=i===steps-1;update(stepDt,finalStep,finalStep?scaledDt:0)}if(G&&Math.floor(now)%31===0)validateBattleState(G);try{draw()}catch(error){battleEvent('render-error',{message:error.message,stack:error.stack,wave:G?.wave});console.error('[Battle render failure]',error)}requestAnimationFrame(loop)}requestAnimationFrame(loop);
+// Outside a battle every animated term in draw() reads `G?.time||0`, which is 0,
+// and shakeOffset() returns the origin — so the idle frame is pixel-identical on
+// every tick. It was still being repainted 60 times a second behind an opaque
+// Village or Cards screen: a full-viewport gradient, a 28-arc dust pass, the
+// battlefield foundation, the gate vignette and the rose window, all while the
+// 3D Village renderer and the Village DOM loops were competing for the same
+// frame budget. Repaint it only when the canvas geometry actually moves.
+let idleFrameKey='';
+function paint(){
+ try{draw()}catch(error){battleEvent('render-error',{message:error.message,stack:error.stack,wave:G?.wave});console.error('[Battle render failure]',error)}
+}
+function loop(now){trimParticles();const frameDt=Math.min(.05,(now-(G?.last||now))/1000);if(G)G.last=now;updateCameraTour(frameDt);const scaledDt=frameDt*(G?.speed||1),steps=Math.max(1,Math.ceil(scaledDt/MAX_SIM_STEP)),stepDt=scaledDt/steps;for(let i=0;i<steps;i++){const finalStep=i===steps-1;update(stepDt,finalStep,finalStep?scaledDt:0)}if(G&&Math.floor(now)%31===0)validateBattleState(G);
+ if(G){idleFrameKey='';paint()}
+ else{const key=`${W}|${H}|${DPR}|${ox}|${oy}|${scale}`;if(key!==idleFrameKey){idleFrameKey=key;paint()}}
+ requestAnimationFrame(loop)}requestAnimationFrame(loop);
 function setBattleMode(active){document.body.classList.toggle('battle-mode',!!active);if(!active)deactivateBattle3Runtime()}
 function updateBottomNav(screen){
  const map={menu:'home',campaignScreen:'campaign',deckScreen:'cards',heroesScreen:'heroes',kingdomScreen:'more',relicVaultScreen:'relics',moreScreen:'more',upgradesScreen:'more',forgeScreen:'more',codexScreen:'more',profileScreen:'more',achievementsScreen:'more'};
@@ -3222,7 +3245,9 @@ bindClick('#cancelPlaceBtn',()=>{if(!G)return;if(G.towerEditMode){cancelTowerEdi
 const RESET_KEYS=['relicsEclipseSave','relicsEclipseSave_backup_v12','gateRunnerSave',
  'theVillageFreshTownV1Plots','rotkVillagePlots','rotkVillagePlotsV224B',
  'village.vk.mode','village.tactical.mode','villageFreshStartToken'];
-const RESET_PREFIXES=/^(relicsEclipse|gateRunner|rotkVillage|theVillage|village\.)/;
+// 'rotk.village.' was missing, so a confirmed "erase everything" left the
+// Living Village state — claimed secrets, constructions, trophies — behind.
+const RESET_PREFIXES=/^(relicsEclipse|gateRunner|rotkVillage|rotk\.village\.|theVillage|village\.)/;
 function wipeAllProgress(){
  let removed=0;
  for(const k of RESET_KEYS){try{if(localStorage.getItem(k)!==null){localStorage.removeItem(k);removed++}}catch(_){}}
@@ -3262,12 +3287,20 @@ function confirmReset(){
 }
 // V33.0.1 — portable save backups without replacing the working navigation system.
 const SAVE_BUNDLE_VERSION=1;
-const SAVE_KEY_PATTERN=/^(relicsEclipse|gateRunner|rotkVillage|theVillage|village\.)/;
+// Kept in step with src/online/cloudSave.js: this decides which keys reach a
+// save export, a recovery backup and a restore.
+const SAVE_KEY_PATTERN=/^(relicsEclipse|gateRunner|rotkVillage|rotk\.village\.|theVillage|village\.)/;
+// An export or backup must not carry earlier backups: without this, every
+// snapshot nested the one before it and the bundle compounded on each save. The
+// debug channel is a per-device preference, not progress. Mirrors
+// EXCLUDED_KEY_PATTERN in src/online/cloudSave.js.
+const SAVE_KEY_EXCLUDED=/^village\.(cloud\.|saveRecovery\.|feedback\.|debug$)/;
+const isSaveKey=key=>(SAVE_KEY_PATTERN.test(key)||key==='villageFreshStartToken')&&!SAVE_KEY_EXCLUDED.test(key);
 function collectVillageStorage(){
  const entries={};
  try{
   for(const key of Object.keys(localStorage)){
-   if(SAVE_KEY_PATTERN.test(key)||key==='villageFreshStartToken')entries[key]=localStorage.getItem(key);
+   if(isSaveKey(key))entries[key]=localStorage.getItem(key);
   }
  }catch(err){console.warn('Could not collect Village save data.',err)}
  return entries;
@@ -3306,7 +3339,7 @@ async function importVillageSaveFile(file){
   backupCurrentStorage('before-import');
   let restored=0;
   for(const [key,value] of Object.entries(entries)){
-   if((SAVE_KEY_PATTERN.test(key)||key==='villageFreshStartToken')&&typeof value==='string'){
+   if(isSaveKey(key)&&typeof value==='string'){
     localStorage.setItem(key,value);restored++;
    }
   }
@@ -3379,7 +3412,7 @@ function restoreLatestBackup(){
   localStorage.setItem('village.saveRecovery.preRestoreBackup',JSON.stringify(current));
   let restored=0;
   for(const [key,value] of Object.entries(snapshot.entries)){
-   if((SAVE_KEY_PATTERN.test(key)||key==='villageFreshStartToken')&&typeof value==='string'){localStorage.setItem(key,value);restored++}
+   if(isSaveKey(key)&&typeof value==='string'){localStorage.setItem(key,value);restored++}
   }
   if(!restored)throw new Error('Backup contained no save records');
   showToast(`Restored ${restored} save records`);setTimeout(()=>location.reload(),500);
