@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "spritecook": {
+      "source": {
+        "source": "github",
+        "repo": "SpriteCook/claude-plugin"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "spritecook@spritecook": true
+  }
+}
