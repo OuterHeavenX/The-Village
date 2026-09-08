@@ -19,10 +19,14 @@ different and more dangerous thing.
   - real touch, as opposed to synthesised pointer events
   - sustained frame rate on actual mobile silicon
 - **Android.** Same position, with less prior evidence.
-- **Supabase against a live project.** The cloud save, sign-up, email
-  confirmation and password-reset paths are exercised against a mocked endpoint
-  in the smoke suite. The mock cannot catch a misconfigured redirect URL, an
-  RLS policy that is too strict, or a migration that was never applied.
+- **Supabase against a live project — partially.** Confirmed directly on the
+  production project after restoring it from a pause: `profiles`,
+  `player_saves` and `tester_feedback` exist with row-level security enabled,
+  the feedback table carries the insert-only policy and the 003 context
+  columns, and the two existing accounts and their saves survived the pause.
+  Still exercised only against the smoke suite's mock: the sign-up email
+  confirmation round-trip, the password-reset email, and whether the deployed
+  origin is in the project's allowed redirect list.
 
 ---
 

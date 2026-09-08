@@ -69,6 +69,14 @@ the bundle at build time and are safe to expose — the anon key is the
 browser-side publishable key, protected by row-level security. Database setup is
 in [`docs/SUPABASE_SETUP.md`](docs/SUPABASE_SETUP.md).
 
+**Apply every file in `supabase/migrations/` to the project, not just the
+first.** The production project had 001 applied by hand and 002/003 never run,
+so the Tester Feedback table did not exist and every report from the game
+failed and sat in the player's local queue. The build validator checks the
+migration *files*; nothing checks the *database*. After any new migration,
+confirm on the project itself — the Supabase dashboard's Table Editor or
+`select * from information_schema.tables where table_schema = 'public'`.
+
 **Without them the game still runs.** Startup skips the sign-in gate and plays
 in local-only mode: progress is saved to browser storage on that device and the
 account panel says so. This is the intended behaviour for a public demo build.
