@@ -5,10 +5,10 @@ const state=(wave,towers,drafts=0)=>({wave,chapterWaves:20,time:200,lastDraftTim
 const enemy={elite:false,mini:false,boss:false};
 assert.ok(dynamicEssenceReward(enemy,state(2,3),7)>=dynamicEssenceReward(enemy,state(19,15,10),7),'late economy must flatten');
 assert.ok(dynamicEssenceReward({...enemy,boss:true},state(20,15,10),10)>=18,'boss reward must remain exciting');
-assert.deepEqual(choiceTier(state(1,0)).milestones,[0,7,15,25,38,52,69,88,110,136]);
-assert.equal(nextChoiceMilestone(state(2,3,1)),7);
+assert.deepEqual(choiceTier(state(1,0)).milestones,[0,6,12,19,27,36,46,57,69,82,96,112]);
+assert.equal(nextChoiceMilestone(state(2,3,1)),6);
 assert.equal(canTriggerChoice(state(2,3,1)),true);
-const capped=state(20,8,10);assert.equal(canTriggerChoice(capped),false,'choice cap cannot be bypassed');
+const capped=state(20,8,choiceTier(state(1,0)).maxChoices);assert.equal(canTriggerChoice(capped),false,'choice cap cannot be bypassed');
 const draftState=state(6,8);registerCompletedDraft(draftState);assert.equal(draftState.draftsCompleted,1);assert.equal(draftState.recentDrafts.length,1);
 assert.deepEqual(RARITY_PROGRESSION.map(row=>row.copies),[3,5,8,12,18,30,50]);
 assert.equal(rewardForStage({victory:false}).copies,0);

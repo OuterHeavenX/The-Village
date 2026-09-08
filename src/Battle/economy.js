@@ -27,7 +27,8 @@ export function canTriggerChoice(state, opening = false) {
   if (!state || state.draftOpen || state.pendingCard || (state.draftsCompleted || 0) >= choiceTier(state).maxChoices) return false;
   if (opening) return (state.draftsCompleted || 0) === 0;
   const elapsed = state.time - (state.lastDraftTime ?? -Infinity), waves = state.wave - (state.lastDraftWave ?? 0);
-  return (state.essenceEarned||0) >= nextChoiceMilestone(state) && elapsed >= (choiceTier(state).minimumSeconds || BATTLE_CHOICE_RULES.minimumSeconds) && waves >= BATTLE_CHOICE_RULES.minimumWaves;
+  const tier = choiceTier(state);
+  return (state.essenceEarned||0) >= nextChoiceMilestone(state) && elapsed >= (tier.minimumSeconds || BATTLE_CHOICE_RULES.minimumSeconds) && waves >= (tier.minimumWaves ?? BATTLE_CHOICE_RULES.minimumWaves);
 }
 
 export function dynamicEssenceReward(enemy, state, baseReward) {
@@ -38,8 +39,12 @@ export function dynamicEssenceReward(enemy, state, baseReward) {
   const towerPressure = clamp((meaningfulTowers - 8) / 8, 0, 1);
   const recentDraftPressure = clamp((state.recentDrafts || []).filter(wave => state.wave - wave <= 3).length / 3, 0, 1);
   const fillPressure = clamp((state.essence + state.pendingEssence) / Math.max(1, nextChoiceMilestone(state)), 0, 1);
-  const progressionCurve = .78 + .28 * Math.sin(Math.PI * progress) - .28 * Math.pow(progress, 1.7);
-  const pressure = 1 - .34 * towerPressure - .20 * recentDraftPressure - .12 * fillPressure;
+  const stage = Number(state?.chapter?.number) || 1;
+  // The reward curve dips to half at the last wave, and the pressure terms cut
+  // it further as towers, recent drafts and a full vial accumulate — exactly the
+  // moments a player most wants to respond. Stages 1-5 keep the full early rate.
+  const progressionCurve = Math.max(stage <= 5 ? .78 : 0, .78 + .28 * Math.sin(Math.PI * progress) - .28 * Math.pow(progress, 1.7));
+  const pressure = stage <= 5 ? 1 : 1 - .34 * towerPressure - .20 * recentDraftPressure - .12 * fillPressure;
   const difficulty = enemy.elite ? 1.32 : enemy.mini ? 1.18 : 1;
   return Math.max(1, Math.round(baseReward * progressionCurve * pressure * difficulty * .86));
 }

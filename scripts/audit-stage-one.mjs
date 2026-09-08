@@ -1,4 +1,6 @@
 import { choiceTier } from '../src/Battle/economy.js';
+import { EARLY_STAGE_DIFFICULTY } from '../src/Progression/economyRegistry.js';
+const envelope = EARLY_STAGE_DIFFICULTY[1];
 
 // Reproducible aggregate simulation using the Stage 1 spawn, HP, damage,
 // attack-speed, Essence, and draft rules from game.js. This models a player
@@ -7,12 +9,12 @@ let seed = 0x35101;
 const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
 const tier = choiceTier({ chapter: { number: 1 }, chapterWaves: 8 });
 const waveCurve = wave => 1 + Math.pow(Math.max(0, wave - 1), 1.08) * .19;
-const normalHp = wave => 30 * waveCurve(wave) * 3.05 * .64;
-const bossHp = 500 * .9 * waveCurve(8) * 1.25 * .72;
+const normalHp = wave => 30 * waveCurve(wave) * 3.05 * envelope.enemyHealth;
+const bossHp = 500 * .9 * waveCurve(8) * 1.25 * envelope.bossHealth;
 const counts = [5, 9, 10, 11, 12, 13, 14, 15];
 
 function run() {
-  let gate = 32, essence = 0, elapsed = 0, drafts = 1, lastDraftTime = 0, towers = [random() < .7 ? 20 : 8 / 3 * 2.2], bossTtk = null;
+  let gate = 20 + envelope.gateHealth, essence = 0, elapsed = 0, drafts = 1, lastDraftTime = 0, towers = [random() < .7 ? 20 : 8 / 3 * 2.2], bossTtk = null;
   const towerQuality = .59 + random() * .28, heroDps = 22 / .48 * (.30 + random() * .12);
   for (let wave = 1; wave <= 8 && gate > 0; wave++) {
     const count = counts[wave - 1], hp = normalHp(wave), spawnWindow = count * Math.max(.24, (1.15 - wave * .025) * .88), combatWindow = spawnWindow + 11;
@@ -22,7 +24,7 @@ function run() {
     gate -= Math.min(normalCount, Math.ceil(uncoveredHp / hp));
     elapsed += combatWindow;
     essence += normalCount + (wave === 8 ? 36 : 0);
-    while (drafts < tier.maxChoices && essence >= tier.milestones[drafts] && elapsed - lastDraftTime >= tier.minimumSeconds && wave > 1) {
+    while (drafts < tier.maxChoices && essence >= tier.milestones[drafts] && elapsed - lastDraftTime >= tier.minimumSeconds && wave > (tier.minimumWaves ?? 1)) {
       if (towers.length < 6 && (towers.length < 5 || random() < .7)) towers.push(random() < .7 ? 20 : 8 / 3 * 2.2);
       else for (let i = 0; i < towers.length; i++) towers[i] *= 1.08;
       lastDraftTime = elapsed; drafts++;
