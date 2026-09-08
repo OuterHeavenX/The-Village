@@ -2022,7 +2022,16 @@ canvas.addEventListener('wheel',e=>{if(!G||G.state!=='play')return;e.preventDefa
 function restoreEssenceCarry(){if(!G||G.essenceCarry<=0)return;const restored=Math.min(G.maxEssence-G.essence,G.essenceCarry);G.essence+=restored;G.essenceCarry-=restored;}
 function finishCardPlacement(){
  const placed=G.pendingCard;
- const cost=Math.max(0,Number(placed?.essenceCost)||0);if(cost>G.essence)return showToast(`Need ${cost-G.essence} more Essence`);
+ // The draft opens on cumulative Essence *earned*, but placement is paid from
+ // Essence *left*, and the battle is paused until the pick is placed. When the
+ // pick cost more than was left, the placement was refused with "Need N more
+ // Essence" and nothing could ever be earned to pay it: a permanent softlock,
+ // reproduced twice by a bot. The draft is the purchase — its first placement
+ // is always affordable. Extra copies of the same card still cost full price.
+ const rawCost=Math.max(0,Number(placed?.essenceCost)||0);
+ const cost=G.draftPlacementPending?Math.min(rawCost,G.essence):rawCost;
+ if(cost>G.essence)return showToast(`Need ${cost-G.essence} more Essence`);
+ G.draftPlacementPending=false;
  G.essence-=cost;G.essenceSpent=(G.essenceSpent||0)+cost;G.lastMeaningfulDecisionAt=G.time;
  commitDraftChoice(placed);
  G.openingDraft=false;G.maxEssence=essenceCapacity(G);
@@ -2549,7 +2558,7 @@ function showWaveReward(completedWave,opening=false,choicesOverride=null){
   el.addEventListener('click',()=>{
    UI.choices.classList.add('hidden');playTone(c.elite?520:390,.12,'triangle',.05);
    const chosen=c._resolved?{...c._resolved}:c;
-   G.activeDraftCard={...chosen};G.draftOpen=false;renderHand();
+   G.activeDraftCard={...chosen};G.draftOpen=false;G.draftPlacementPending=true;renderHand();
    if(chosen.type==='booster'||chosen.type==='hero'){commitDraftChoice(c);G.paused=false;G.pendingWave=false;selectEssenceCard(chosen);return;}
    if(!preparePlacement(chosen)){
     showToast('That choice has no legal placement — choose one of the other original cards');G.activeDraftCard=null;G.draftOpen=true;renderHand();

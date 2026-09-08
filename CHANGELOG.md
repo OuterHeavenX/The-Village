@@ -41,6 +41,23 @@ removed; existing saves are untouched.
   the feedback button was unreachable at both iPad portrait and landscape.
 - **Save exports no longer nest earlier backups.** Each export embedded the
   previous recovery snapshot, so bundles compounded on every save.
+- **A draft pick can no longer softlock the battle.** Drafts open on cumulative
+  Essence *earned*, but placing the pick is paid from Essence *left*, with the
+  battle paused until it is placed. When the pick cost more than was left the
+  placement was refused ("Need N more Essence") and nothing could ever be
+  earned to pay it. The first placement of a drafted card is now always
+  affordable; extra copies still cost full price.
+- **Chapters 1–5 draft roughly every 20 seconds instead of every 30–70.**
+  Tighter milestones, no one-draft-per-wave gate in early stages, the full
+  early kill reward through stage 5, and enough choices to last through the
+  boss wave (twelve in chapter 1; the old cap of ten ran out at wave 6).
+  Bot-measured: average gap between decisions 34 s → 23 s, 12 drafts and 7–8
+  towers by the chapter-1 boss instead of 8 and 5.
+- **The chapter 1 → 2 difficulty step is a slope, not a cliff.** The onboarding
+  envelope now tapers .68/+10 → .80/+8 → .88/+5 → .92/+4 → .95/+3 instead of
+  .64/+12 → .80/+6. The stage-1 model reads it from the registry (92.6% modeled
+  win rate). A bot that lost chapter 2 with 15 gate HP to spare now loses it
+  at 1 and 0.
 - **Battle drafts keep offering towers until the composition is built.** Draft
   weighting was keyed to drafts spent, so an eight-draft chapter dropped tower
   odds to 10% by the sixth draft; a bot reached the boss with two towers of a
