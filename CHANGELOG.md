@@ -8,10 +8,13 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
-## Unreleased — Audit and stabilisation pass
+## V37.0.0 SIEGE OF THE KEEP
 
-Engineering pass over the V36.0.0 baseline. No gameplay content was added or
-removed; existing saves are untouched.
+The battlefield rebuilt: the keep in the centre of a 3D arena with roads that
+breach instead of growing, a new Cards screen, and the audit and stabilisation
+pass over the V36.0.0 baseline that preceded them. Existing saves are untouched;
+the save schema is unchanged. Every build now shows its commit in the Village
+footer next to the version.
 
 ### Fixed
 
