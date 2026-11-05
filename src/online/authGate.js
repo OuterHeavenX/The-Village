@@ -10,6 +10,7 @@ import {
   startCloudAutosave
 } from './cloudSave.js';
 import { logStartupFailure, logStartupStage, withTimeout } from './startupWatchdog.js';
+import { signInRequired } from '../config/testing.js';
 
 let startGameCallback = null;
 let entryPromise = null;
@@ -394,6 +395,11 @@ export async function bootstrapAuthentication(startGame) {
   startGameCallback = startGame;
   bindAuthUI();
   revealAuth();
+  if (!signInRequired()) {
+    // Testing mode (src/config/testing.js): no sign-in screen, local saves only.
+    await enterLocalOnlyGame('Sign-in disabled for testing (src/config/testing.js)');
+    return;
+  }
   if (supabaseConfigurationError || !supabase) {
     await enterLocalOnlyGame(supabaseConfigurationError || 'Supabase client unavailable');
     return;
