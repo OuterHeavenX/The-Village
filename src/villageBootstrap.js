@@ -537,6 +537,7 @@ ready(() => {
     placed[index] = buildType;
     writePlots(placed);
     beginVillageConstruction(index, buildType);
+    villageThreeWorld?.rebuildPlots?.();
     window.ROTKGameBridge?.villageBuildingConstructed?.(buildType);
     refreshVillageEconomy(false);
     plot.classList.add('constructing');
@@ -1276,6 +1277,33 @@ ready(() => {
     const labels=['Laying Foundation','Raising Framework','Adding Walls','Finishing Roof'];
     return {active:true,stage,percent,label:labels[stage]};
   }
+  // V37.1 — PERFORMANCE: construction progress used to call renderPlots() every
+  // 900 ms for the whole 30 s build. That rebuilt all 29 plot buttons, and the
+  // MutationObserver on the plot list turned every rebuild into a full 3D
+  // rebuildPlots() (re-creating every building, leaking its materials and
+  // re-baking the shadow map). Progress now updates the affected plot's text in
+  // place; a full re-render happens only when a construction finishes.
+  function refreshConstructionPlots(){
+    if(!plotsRoot)return;
+    const placed=readPlots();
+    let finished=false;
+    for(const index of Object.keys(juiceState.constructions||{})){
+      const def=BUILDINGS[placed[index]];
+      const plot=plotsRoot.querySelector(`[data-plot="${index}"]`);
+      const c=getConstructionVisual(Number(index));
+      if(!c.active||!def||!plot){finished=true;continue;}
+      const label=plot.querySelector('.placed-building b'),small=plot.querySelector('.placed-building small');
+      if(label&&label.textContent!==c.label)label.textContent=c.label;
+      const pct=`${c.percent}% · workers active`;
+      if(small&&small.textContent!==pct)small.textContent=pct;
+      if(!plot.classList.contains(`construction-stage-${c.stage}`)){
+        plot.classList.remove('construction-stage-0','construction-stage-1','construction-stage-2','construction-stage-3');
+        plot.classList.add('construction-active',`construction-stage-${c.stage}`);
+      }
+      plot.setAttribute('aria-label',`${def.name}, under construction, ${c.percent} percent`);
+    }
+    if(finished)renderPlots();
+  }
   function getVillageHappiness(core={}){
     const placed=Object.values(readPlots());
     const uplifting=new Set(['house','manor','almshouse','well','market','tavern','chapel','shrine','townhall','garden','fountain']);
@@ -1354,7 +1382,7 @@ ready(() => {
       lastJuiceRender=now;
       const activeBuilds=Object.keys(juiceState.constructions||{}).length;
       lifeLayer.classList.toggle('construction-busy',activeBuilds>0);
-      if(activeBuilds>0) renderPlots();
+      if(activeBuilds>0) refreshConstructionPlots();
       if(juiceState.event&&Date.now()-juiceState.event.started>=juiceState.event.duration){juiceState.event=null;saveJuiceState();showVillageEvent(null)}
       else showVillageEvent(juiceState.event);
       if(!juiceState.event&&Date.now()>juiceState.nextEventAt)startVillageEvent();
@@ -1385,6 +1413,7 @@ ready(() => {
   })
     .then((api) => {
       villageThreeWorld = api;
+      api.rebuildPlots?.(); // pick up anything built while the 3D world was loading
       if(new URLSearchParams(location.search).has('visualAudit'))window.VillageVisualAudit=api;
       document.body.classList.add('village-three-active');
       threeStatus.textContent = 'VILLAGE 2.0 WORLD ACTIVE';
@@ -1408,8 +1437,9 @@ ready(() => {
       toast('3D Village unavailable — showing the classic Village.');
     });
 
-  const plotObserver = new MutationObserver(() => villageThreeWorld?.rebuildPlots?.());
-  if (plotsRoot) plotObserver.observe(plotsRoot, { childList:true, subtree:true });
+  // V37.1 — the MutationObserver that mirrored every plot-DOM change into a 3D
+  // rebuild is gone. constructPlot() — the only writer of plot data — now tells
+  // the 3D world directly.
 
   const buildSearchInput = document.getElementById('villageBuildSearch');
   buildSearchInput?.addEventListener('input', (e) => { buildSearch = e.target.value || ''; renderBuildTray(); });

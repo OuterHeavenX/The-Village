@@ -835,6 +835,8 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
 
   // Fixed construction districts. Index order deliberately matches the legacy
   // 29-slot save schema so every existing building survives without migration.
+  let obstructionMeshesDirty=true;
+  const fadedMeshes=new Set();
   const plotPads=new THREE.Group();scene.add(plotPads);
   const plotGroup=new THREE.Group();scene.add(plotGroup);
   const plotMeshes=[];
@@ -858,14 +860,47 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   });
 
   function clearGroup(g){while(g.children.length){const c=g.children.pop();c.traverse?.(o=>{o.geometry?.dispose?.();});}}
+  // V37.1 — a plot building owns its geometry and its materials (GLB placements
+  // are cloned; authored buildings get a fresh materialSet). Removing one must
+  // dispose both and drop it from every per-frame list. Previously each rebuild
+  // left the old roots in buildingInstances/interactiveBuildings — so the
+  // obstruction raycast walked a list that grew with every construction tick —
+  // and never disposed the materials. Shared atlas textures are not disposed
+  // (Material.dispose() leaves textures alone).
+  function disposeModel(root){
+    if(!root)return;
+    root.parent?.remove(root);
+    const owned=new Set();
+    root.traverse?.(o=>{
+      owned.add(o);
+      o.geometry?.dispose?.();
+      const m=o.material;if(Array.isArray(m))m.forEach(x=>x?.dispose?.());else m?.dispose?.();
+      fadedMeshes.delete(o);
+    });
+    const bi=buildingInstances.indexOf(root);if(bi>=0)buildingInstances.splice(bi,1);
+    const ii=interactiveBuildings.findIndex(b=>b.root===root);if(ii>=0)interactiveBuildings.splice(ii,1);
+    const ai=constructionAnims.findIndex(a=>a.root===root);if(ai>=0)constructionAnims.splice(ai,1);
+    for(let i=animatedCropRows.length-1;i>=0;i--)if(owned.has(animatedCropRows[i].mesh))animatedCropRows.splice(i,1);
+    obstructionMeshesDirty=true;
+  }
+  const plotModels=new Map(); // plot index -> { type, root }
   const constructionAnims=[];
   let plotsInitialized=false;
   let priorPlacedKeys=new Set();
+  // V37.1 — incremental: only plots whose building changed are touched, so a
+  // rebuild no longer re-creates every structure, cuts short a running "rise"
+  // animation, or re-bakes shadows when nothing changed.
   function rebuildPlots(){
     invalidatePlotCache(); // construction just changed; do not serve stale plot data
-    clearGroup(plotGroup);const placed=readPlots?.()||{};
+    const placed=readPlots?.()||{};
+    let changed=false;
+    for(const [index,entry] of [...plotModels]){
+      if(placed[index]!==entry.type){disposeModel(entry.root);plotModels.delete(index);changed=true;}
+    }
     Object.entries(placed).forEach(([idx,type])=>{
-      const index=Number(idx);const p=PLOT_POSITIONS[index];if(!p)return;
+      const index=Number(idx);const p=PLOT_POSITIONS[index];if(!p||!type)return;
+      if(plotModels.has(index))return;
+      changed=true;
       // V32.6.8 — face every plot building toward its nearest authored road.
       // Local +Z is the front door for every GLB in the Gothic pack.
       const roadTargets=[
@@ -879,6 +914,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
       const built=placeModel(modelIdForType(type),p[0],p[1],{rot,parent:plotGroup});
       built.userData.plotIndex=index;
       built.userData.buildType=type;
+      plotModels.set(index,{type,root:built});
       if(plotsInitialized&&!priorPlacedKeys.has(String(index))){
         built.userData.finalScale=built.scale.x;built.scale.setScalar(.08);
         constructionAnims.push({root:built,start:performance.now(),duration:4200});
@@ -887,7 +923,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     });
     priorPlacedKeys=new Set(Object.keys(placed));
     plotsInitialized=true;
-    requestShadowUpdate(); // a new building is a new shadow caster
+    if(changed){obstructionMeshesDirty=true;requestShadowUpdate();} // a new building is a new shadow caster
   }
   // V32.6.2 — readPlots() is a synchronous localStorage.getItem + JSON.parse.
   // This ran once per rendered frame (~60x/second), which is a main-thread disk
@@ -924,7 +960,6 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
 
   const raycaster=new THREE.Raycaster();const pointer=new THREE.Vector2();
   const obstructionRay=new THREE.Raycaster();
-  const fadedMeshes=new Set();
   const interactionPrompt=document.createElement('button');
   interactionPrompt.type='button';interactionPrompt.className='village-building-prompt';interactionPrompt.hidden=true;
   Object.assign(interactionPrompt.style,{position:'absolute',left:'50%',bottom:'118px',transform:'translateX(-50%)',zIndex:'42',padding:'9px 14px',border:'1px solid rgba(218,181,111,.75)',borderRadius:'12px',background:'rgba(7,10,16,.92)',color:'#f3d99d',font:'600 13px Georgia,serif',letterSpacing:'.03em',boxShadow:'0 8px 24px rgba(0,0,0,.35)',pointerEvents:'auto'});
@@ -935,12 +970,22 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];
     for(const m of materials){if(!m)continue;if(m.userData.baseOpacity==null)m.userData.baseOpacity=m.opacity??1;m.transparent=fade||m.userData.baseOpacity<1;m.opacity=fade?.24:m.userData.baseOpacity;m.depthWrite=!fade;m.needsUpdate=true;}
   }
+  // V37.1 — the obstruction pass rebuilt its mesh list by traversing every
+  // building every frame, then un-faded and re-faded the same meshes, flagging
+  // their materials needsUpdate each time. The list is cached and only meshes
+  // whose fade state actually changes are touched.
+  let obstructionMeshes=[];
+  const obstructionDir=new THREE.Vector3();
   function updateBuildingObstruction(){
-    fadedMeshes.forEach(m=>setMeshFade(m,false));fadedMeshes.clear();
-    const direction=shadow.position.clone().sub(camera.position);const distance=direction.length();if(distance<1)return;
-    direction.normalize();obstructionRay.set(camera.position,direction);obstructionRay.far=Math.max(0,distance-1.1);
-    const meshes=[];buildingInstances.forEach(root=>root.traverse(o=>{if(o.isMesh)meshes.push(o);}));
-    for(const hit of obstructionRay.intersectObjects(meshes,false)){setMeshFade(hit.object,true);fadedMeshes.add(hit.object);}
+    if(obstructionMeshesDirty){obstructionMeshes=[];buildingInstances.forEach(root=>root.traverse(o=>{if(o.isMesh)obstructionMeshes.push(o);}));obstructionMeshesDirty=false;}
+    const next=new Set();
+    obstructionDir.copy(shadow.position).sub(camera.position);const distance=obstructionDir.length();
+    if(distance>=1){
+      obstructionDir.normalize();obstructionRay.set(camera.position,obstructionDir);obstructionRay.far=Math.max(0,distance-1.1);
+      for(const hit of obstructionRay.intersectObjects(obstructionMeshes,false))next.add(hit.object);
+    }
+    fadedMeshes.forEach(m=>{if(!next.has(m)){setMeshFade(m,false);fadedMeshes.delete(m);}});
+    next.forEach(m=>{if(!fadedMeshes.has(m)){setMeshFade(m,true);fadedMeshes.add(m);}});
   }
   function updateBuildingInteraction(){
     let best=null,bestD=Infinity;
@@ -996,7 +1041,14 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   const ro=new ResizeObserver(resize);ro.observe(viewport);resize();
   let activeDistrict='';
   const districtDescriptions={sacred:'The Cathedral keeps watch beneath the eternal moon.',keep:'The Last Bastion guards the western wall.',industry:'Forgefire and stonework sustain the kingdom.',residential:'Lanterns burn for the families of the last refuge.',commerce:'Trade continues after sunset in the Night Market.',agriculture:'Moonlit fields feed the settlement through the long night.',arcane:'Forbidden learning survives behind veiled doors.'};
-  function frame(now){if(disposed||contextLost){rafId=0;return}const dt=Math.min(.04,(now-last)/1000);last=now;const s=getShadowState();const p=mapState(s);shadow.position.x=p.x;shadow.position.z=p.z;shadow.position.y=.9;
+  // V37.1 — PERFORMANCE: the Village only simulates and renders while it is on
+  // screen. It previously kept updating, raycasting and calling render() during
+  // battles and on every menu screen, competing with the battle for the GPU.
+  const VISUAL_AUDIT=new URLSearchParams(location.search).has('visualAudit');
+  function villageOnScreen(){return VISUAL_AUDIT||(!document.hidden&&viewport.offsetParent!==null&&!document.body.classList.contains('battle-mode'));}
+  function frame(now){if(disposed||contextLost){rafId=0;return}
+    if(!villageOnScreen()){last=now;rafId=requestAnimationFrame(frame);return}
+    const dt=Math.min(.04,(now-last)/1000);last=now;const s=getShadowState();const p=mapState(s);shadow.position.x=p.x;shadow.position.z=p.z;shadow.position.y=.9;
     const clock=villageClock(now);dayNightBadge.textContent='MIDNIGHT · 00:00';
     // The clock still drives schedules and simulation. It no longer changes
     // exposure, fog, ambient colour, or lamp visibility.
@@ -1042,7 +1094,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     updateBuildingInteraction();
     updateBuildingObstruction();
     updatePlotState(now);
-    if(!document.hidden)renderer.render(scene,camera);
+    renderer.render(scene,camera);
     rafId=requestAnimationFrame(frame);}
   rafId=requestAnimationFrame(frame);
 
@@ -1051,5 +1103,5 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
       if(!new URLSearchParams(location.search).has('visualAudit'))return false;
       const state=getShadowState();state.x=768+x*17.5;state.y=512+z*13.2;state.moving=false;return true;
     },
-    dispose(){disposed=true;if(rafId)cancelAnimationFrame(rafId);rafId=0;ro.disconnect();canvas.removeEventListener('pointerup',selectPlotFromPointer);interactionPrompt.remove();dayNightBadge.remove();runtimeProofOverlay?.remove();familiar.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});fadedMeshes.forEach(m=>setMeshFade(m,false));fadedMeshes.clear();shadowTexture.dispose();shadowMaterial.dispose();grassTexture.dispose();cobbleTexture.dispose();Object.values(villageMaterials||{}).forEach(texture=>texture?.dispose?.());Object.values(architectureMaterials||{}).forEach(texture=>texture?.dispose?.());treeTexture.dispose();treeMaterial.dispose();smokePuffs.forEach(p=>{p.geometry?.dispose?.();p.material?.dispose?.();});fireflies3D.forEach(f=>{f.geometry?.dispose?.();f.material?.dispose?.();});villagers.forEach(v=>{v.g.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});v.bodyTex?.dispose?.();v.shadowTex?.dispose?.();});citizenTextures.forEach(t=>{t.body?.dispose?.();t.shade?.dispose?.();});easterEggs.forEach(e=>e.object.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();}));walkwayMat.dispose();clearGroup(plotGroup);glbTemplates.forEach(e=>e.root.traverse(o=>{o.geometry?.dispose?.();const m=o.material;if(Array.isArray(m))m.forEach(x=>x?.dispose?.());else m?.dispose?.();}));glbTemplates.clear();renderer.dispose();canvas.remove();} };
+    dispose(){disposed=true;if(rafId)cancelAnimationFrame(rafId);rafId=0;ro.disconnect();canvas.removeEventListener('pointerup',selectPlotFromPointer);interactionPrompt.remove();dayNightBadge.remove();runtimeProofOverlay?.remove();familiar.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});fadedMeshes.forEach(m=>setMeshFade(m,false));fadedMeshes.clear();shadowTexture.dispose();shadowMaterial.dispose();grassTexture.dispose();cobbleTexture.dispose();Object.values(villageMaterials||{}).forEach(texture=>texture?.dispose?.());Object.values(architectureMaterials||{}).forEach(texture=>texture?.dispose?.());treeTexture.dispose();treeMaterial.dispose();smokePuffs.forEach(p=>{p.geometry?.dispose?.();p.material?.dispose?.();});fireflies3D.forEach(f=>{f.geometry?.dispose?.();f.material?.dispose?.();});villagers.forEach(v=>{v.g.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();});v.bodyTex?.dispose?.();v.shadowTex?.dispose?.();});citizenTextures.forEach(t=>{t.body?.dispose?.();t.shade?.dispose?.();});easterEggs.forEach(e=>e.object.traverse(o=>{o.geometry?.dispose?.();o.material?.dispose?.();}));walkwayMat.dispose();[...plotModels.values()].forEach(e=>disposeModel(e.root));plotModels.clear();clearGroup(plotGroup);glbTemplates.forEach(e=>e.root.traverse(o=>{o.geometry?.dispose?.();const m=o.material;if(Array.isArray(m))m.forEach(x=>x?.dispose?.());else m?.dispose?.();}));glbTemplates.clear();renderer.dispose();canvas.remove();} };
 }

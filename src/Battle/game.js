@@ -109,7 +109,7 @@ function grantFamiliarXp(amount){
  while(st.level<20&&st.xp>=familiarXpNeed(st.level)){st.xp-=familiarXpNeed(st.level);st.level++;leveled=true}
  if(st.level>=20)st.xp=0;
  if(leveled)showToast(`${familiarDef().name} reached Level ${st.level}`);
- saveProgress();
+ if(leveled)saveProgress();else saveProgressSoon('familiar-xp');
 }
 function updateAscensionCompanion(dt){
  const fam=G?.familiar;if(!fam)return;
@@ -1504,9 +1504,18 @@ function showWaveBanner(wave,kicker='WAVE'){
 
 function showToast(t,duration=1400){UI.toast.textContent=t;UI.toast.style.opacity=1;clearTimeout(showToast.t);showToast.t=setTimeout(()=>UI.toast.style.opacity=0,duration)}
 function saveProgress(reason='progress'){
+ clearTimeout(saveProgress.soon);saveProgress.soon=0;if(saveProgress.locked)return;
  if(BALANCE_SANDBOX){STORAGE.set('village.balanceSandbox',JSON.stringify(save));return;}
  STORAGE.set('relicsEclipseSave',JSON.stringify(save));queueCloudSave(reason);
 }
+// V37.1 — PERFORMANCE: coalesced low-value saves. saveProgress() serialises the
+// whole save and writes it synchronously; familiar XP was triggering that on
+// every kill. Such writes now collapse into one save shortly afterwards. Any
+// direct saveProgress() call (wave end, purchases, results) also commits it.
+function saveProgressSoon(reason='progress',delay=2000){if(saveProgress.soon||saveProgress.locked)return;saveProgress.soon=setTimeout(()=>saveProgress(reason),delay)}
+// Reset, import and restore rewrite storage and then reload. From that moment the
+// in-memory save is stale and must never be written back over the new data.
+function lockSaves(){saveProgress.locked=true;clearTimeout(saveProgress.soon);saveProgress.soon=0}
 // THE VILLAGE V23.0 bridge: live construction, persistent village economy,
 // offline production, and backward-compatible access to the existing hunt save.
 const VILLAGE_ECONOMY_MAX_OFFLINE_HOURS=VILLAGE_MAX_OFFLINE_HOURS;
@@ -3082,7 +3091,13 @@ let idleFrameKey='';
 function paint(){
  try{if(battle3d.mounted)draw3D();else draw()}catch(error){battleEvent('render-error',{message:error.message,stack:error.stack,wave:G?.wave});console.error('[Battle render failure]',error)}
 }
-function loop(now){trimParticles();const frameDt=Math.min(.05,(now-(G?.last||now))/1000);if(G)G.last=now;updateCameraTour(frameDt);const scaledDt=frameDt*(G?.speed||1),steps=Math.max(1,Math.ceil(scaledDt/MAX_SIM_STEP)),stepDt=scaledDt/steps;for(let i=0;i<steps;i++){const finalStep=i===steps-1;update(stepDt,finalStep,finalStep?scaledDt:0)}if(G&&Math.floor(now)%31===0)validateBattleState(G);
+// V37.1 — PERFORMANCE: a finished battle leaves G alive (state 'over'), and the
+// branch below repainted the whole battlefield every frame because G existed —
+// behind the Village and the Cards screens. Simulation and painting now run only
+// while a hunt is on screen (body.battle-mode, set by freshGame/setBattleMode).
+function loop(now){
+ if(G&&!document.body.classList.contains('battle-mode')){G.last=now;requestAnimationFrame(loop);return}
+ trimParticles();const frameDt=Math.min(.05,(now-(G?.last||now))/1000);if(G)G.last=now;updateCameraTour(frameDt);const scaledDt=frameDt*(G?.speed||1),steps=Math.max(1,Math.ceil(scaledDt/MAX_SIM_STEP)),stepDt=scaledDt/steps;for(let i=0;i<steps;i++){const finalStep=i===steps-1;update(stepDt,finalStep,finalStep?scaledDt:0)}if(G&&Math.floor(now)%31===0)validateBattleState(G);
  if(G){idleFrameKey='';paint()}
  else{const key=`${W}|${H}|${DPR}|${ox}|${oy}|${scale}`;if(key!==idleFrameKey){idleFrameKey=key;paint()}}
  requestAnimationFrame(loop)}requestAnimationFrame(loop);
@@ -3339,6 +3354,7 @@ function hardReset(){
  try{ if(typeof G!=='undefined'&&G){G.paused=true;G.state='over';} }catch(_){}
  try{ AUDIO.setState('silence',true); }catch(_){}
  try{ window.__villageAudio?.(false); }catch(_){}
+ lockSaves();
  wipeAllProgress();
  // replace() with a changed URL guarantees a genuinely fresh document rather
  // than a reload that can be served from the back/forward cache mid-frame
@@ -3413,13 +3429,14 @@ async function importVillageSaveFile(file){
   const payload=JSON.parse(await file.text());
   const entries=normalizeImportedSave(payload);
   backupCurrentStorage('before-import');
+  lockSaves();
   let restored=0;
   for(const [key,value] of Object.entries(entries)){
    if(isSaveKey(key)&&typeof value==='string'){
     localStorage.setItem(key,value);restored++;
    }
   }
-  if(!restored)throw new Error('No Village save records found');
+  if(!restored){saveProgress.locked=false;throw new Error('No Village save records found');}
   showToast(`Restored ${restored} save records`);
   setTimeout(()=>location.reload(),500);
  }catch(err){console.error('Save import failed.',err);showToast('Invalid or unreadable save file')}
@@ -3486,11 +3503,12 @@ function restoreLatestBackup(){
   if(!snapshot?.entries)throw new Error('No backup available');
   const current=backupCurrentStorage('before-restore');
   localStorage.setItem('village.saveRecovery.preRestoreBackup',JSON.stringify(current));
+  lockSaves();
   let restored=0;
   for(const [key,value] of Object.entries(snapshot.entries)){
    if(isSaveKey(key)&&typeof value==='string'){localStorage.setItem(key,value);restored++}
   }
-  if(!restored)throw new Error('Backup contained no save records');
+  if(!restored){saveProgress.locked=false;throw new Error('Backup contained no save records');}
   showToast(`Restored ${restored} save records`);setTimeout(()=>location.reload(),500);
  }catch(err){console.error('Backup restore failed.',err);showToast('No usable backup was found')}
 }

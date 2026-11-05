@@ -8,6 +8,33 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.0.1 PERFORMANCE PASS
+
+Gameplay, balance, art and the save format are unchanged. This release stops
+work the game was doing for nothing, mainly to help iPad frame rate.
+
+- **The 3D Village pauses while it is off screen.** It kept updating,
+  raycasting and rendering during battles and on every menu screen.
+  Measured over 5 s of battle: 177 Village renders before, 0 after.
+- **The battle canvas only runs during a hunt.** A finished battle left `G`
+  alive, so the battlefield kept repainting behind the Village and Cards
+  screens (about 5,900 canvas operations in 4 s before, 0 after).
+- **Construction no longer leaks or re-bakes.** For the 30 s of every build,
+  the plot list was rebuilt every 0.9 s and a MutationObserver turned each
+  rebuild into a full 3D `rebuildPlots()`: every building re-created, its
+  materials leaked, old copies left in the per-frame raycast list, shadows
+  re-baked. Progress now updates in place and `rebuildPlots()` only touches
+  the plot that changed (`disposeModel()` cleans up geometry, materials and
+  every per-frame list). The 4 s rise animation now plays in full.
+  Measured over 10 s of construction: materials +150 / raycast list +242 /
+  11 shadow re-bakes before; +0 / +0 / 1 after.
+- **Camera-obstruction fade** caches its mesh list and only re-flags
+  materials whose fade state changes, instead of every material every frame.
+- **Familiar XP no longer saves on every kill.** Those writes are coalesced
+  into one save two seconds later (a level-up still saves immediately).
+- **Reset, Import Save and Restore Backup lock saving** before they rewrite
+  storage, so a pending save cannot write the old data back during the reload.
+
 ## V37.0.0 SIEGE OF THE KEEP
 
 The battlefield rebuilt: the keep in the centre of a 3D arena with roads that
