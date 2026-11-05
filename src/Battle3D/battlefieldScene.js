@@ -19,6 +19,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { battleMood } from './moods.js';
+import { createTowerFactory } from './towerModels.js';
 import { KEEP_CENTER, KEEP_LAYOUT, KEEP_ROAD_ORDER, groundHeight } from './layout.js';
 
 export const BATTLE_VIEW_SHAPE = `
@@ -523,6 +524,11 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   const spriteGroup = new THREE.Group(), towerGroup = new THREE.Group();
   scene.add(spriteGroup, towerGroup);
   const spritePool = makeBillboardPool(spriteGroup), towerPool = makeBillboardPool(towerGroup);
+  // V37.3: real 3D tower models, keyed by board tile. Rebuilt only when a
+  // tower's type, level band, elite or support state changes.
+  const towerFactory = LOOK_OFF.has('nomodels') ? null : createTowerFactory({ glowTexture: glow });
+  const towerModels = new Map();
+  let lastRenderTime = null;
 
   // Soft contact shadow under every sprite and tower, so they sit on the
   // ground instead of floating on it.
@@ -822,7 +828,34 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     spritePool.release(n);
 
     n = 0;
+    const now = view.time || 0, dt = lastRenderTime == null ? 0 : Math.max(0, Math.min(.1, now - lastRenderTime));
+    lastRenderTime = now;
+    const seen = new Set();
     for (const tower of view.towers || []) {
+      if (towerFactory && tower.id) {
+        const key = `${tower.x},${tower.y}`;
+        seen.add(key);
+        let entry = towerModels.get(key);
+        const want = `${tower.id}|${Math.max(1, Math.min(5, Math.floor(tower.level) || 1))}|${tower.elite ? 1 : 0}|${tower.support ? 1 : 0}`;
+        if (!entry || entry.model.key !== want) {
+          if (entry) { towerGroup.remove(entry.model.root); entry.model.dispose(); }
+          let model;
+          try { model = towerFactory.create({ id: tower.id, level: tower.level, elite: tower.elite, support: tower.support, shadows: quality.shadowMap > 0 }); }
+          catch (error) { console.warn('[Battle3D] tower model failed', tower.id, error); model = null; }
+          if (!model) { towerModels.delete(key); continue; }
+          entry = { model, born: now };
+          towerModels.set(key, entry);
+          towerGroup.add(model.root);
+        }
+        const cx = tower.x + .5, cy = tower.y + .5;
+        const root = entry.model.root;
+        // Rise out of the ground over a third of a second when first placed.
+        const grow = Math.min(1, (now - entry.born) / .35), ease = 1 - Math.pow(1 - grow, 3);
+        root.position.set(cx, groundHeight(cx, cy) - (1 - ease) * .9, cy);
+        entry.model.update(tower, dt, now);
+        contactShadow(blobs++, cx, cy, 1.1);
+        continue;
+      }
       if (!tower.canvas) continue;
       const mesh = towerPool.acquire(n++);
       mesh.material.map = textureFor(tower.canvas, tower.key);
@@ -838,6 +871,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       orient(mesh, cx, cy, SPRITE_LEAN * .8);
     }
     towerPool.release(n);
+    for (const [key, entry] of towerModels) if (!seen.has(key)) { towerGroup.remove(entry.model.root); entry.model.dispose(); towerModels.delete(key); }
     for (let i = blobs; i < blobPool.length; i++) blobPool[i].visible = false;
 
     n = 0;
@@ -911,6 +945,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); lost = true; onContextLost?.(); }, false);
 
   function dispose() {
+    for (const entry of towerModels.values()) entry.model.dispose(); towerModels.clear(); towerFactory?.dispose();
     spritePool.dispose(); towerPool.dispose(); linkPool.dispose(); lanePool.dispose();
     for (const s of shotPool) s.material.dispose();
     for (const d of trapPool) d.material.dispose();

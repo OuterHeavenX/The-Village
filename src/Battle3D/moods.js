@@ -26,9 +26,9 @@ export const BATTLE_MOODS = Object.freeze({
   // 2 — deep moonlit green
   forest: { grass: [0x06160a, 0x14321a, 0x1a2a12], blade: 0x1f4a26, sky: [0x0f1f22, 0x02060a], fog: [0x0a1612, 22, 50], hemi: [0x24484a, 0x081006, .4], moon: [0xc4e0ff, .8], exposure: .88 },
   // 3 — a burning village: ember horizon, warm smoke
-  village: { grass: [0x14130a, 0x262414, 0x302410], blade: 0x3a3a1e, sky: [0x3a160a, 0x07040a], fog: [0x1c100a, 22, 50], hemi: [0x4a3020, 0x140a04, .42], moon: [0xffb27a, .7], ambient: [0x2a1408, .36], stars: .25, moonDisc: 0xff9a60, exposure: .92 },
+  village: { grass: [0x0e0c07, 0x1c1a0e, 0x24180a], blade: 0x2a2612, sky: [0x30120a, 0x060308], fog: [0x1a0e08, 22, 50], hemi: [0x40281a, 0x0e0804, .34], moon: [0xff9a62, .52], ambient: [0x24100a, .32], stars: .25, moonDisc: 0xff9a60, exposure: .86 },
   // 4 — frozen cathedral: frost on the ground, bright icy moon
-  cathedral: { grass: [0x2a3644, 0x5a6c80, 0x40505e], blade: 0x6a8aa0, sky: [0x24344e, 0x050814], fog: [0x1a2434, 22, 52], hemi: [0x5a76b0, 0x1a2230, .5], moon: [0xd4e4ff, .95], exposure: .88 },
+  cathedral: { grass: [0x161e2a, 0x2c3846, 0x222a36], blade: 0x34485a, sky: [0x1c2a40, 0x040710], fog: [0x141c2a, 22, 52], hemi: [0x46609a, 0x10141c, .42], moon: [0xcfe0ff, .82], exposure: .84 },
   // 5 — crimson marsh: red mist over olive bog
   marsh: { grass: [0x10120a, 0x22240e, 0x2a1a0e], blade: 0x34361a, sky: [0x3a0c10, 0x08020a], fog: [0x240a0e, 22, 50], hemi: [0x5a2026, 0x0c0806, .4], moon: [0xffa0a0, .7], ambient: [0x220a0c, .34], stars: .3, moonDisc: 0xff6a5a, exposure: .9 },
   // 6 — siege: grey stone dusk

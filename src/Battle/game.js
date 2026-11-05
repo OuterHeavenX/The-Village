@@ -3071,6 +3071,7 @@ function draw(){
 // hit flash) on the transparent 2D canvas above it.
 const towerRasterCache=new Map();
 const TOWER_RASTER_SCALE=1.3;
+const TOWER_MODELS_OFF=/(?:^|[,=])nomodels(?:,|&|$)/.test(location.search);
 function rasterTower(t){
  const phase=(t.recoil||0)>.07?3:(t.flashT||0)>0?2:(t.t||0)<.22?4:(t.t||0)<.46?1:0;
  const key=`${t.id}|${t.level||1}|${phase}|${t.supportOnly?1:0}|${t.elite?1:0}|${t.infusionTier||1}|${(t.supports||[]).map(s=>s.id).join('+')}`;
@@ -3116,7 +3117,9 @@ function battleView3D(){
  sprites.push({img:heroImg,cell:64,frame:heroFrame,row:directionRow(G.hero.facing||'down'),x:G.hero.x,y:G.hero.y,size:84});
  const fam=G.familiar;
  if(fam){const visual=COMPANION_BEHAVIOR_REGISTRY[fam.id]?.visual||{},orbit=((visual.orbitRadius||38)+(fam.level||1)*.35)/64;sprites.push({img:emojiSprite(fam.icon),cell:64,frame:0,row:0,x:G.hero.x+Math.cos(fam.angle||0)*orbit,y:G.hero.y+Math.sin(fam.angle||0)*orbit*.4,size:34,lift:1.05,lean:0})}
- const towers=G.towers.map(t=>{const r=rasterTower(t);return {canvas:r.canvas,key:r.key,x:t.x,y:t.y,baseline:r.baseline}});
+ // V37.3: the 3D board builds real tower models from this state; the canvas
+ // raster is only drawn for the ?look=nomodels debug fallback.
+ const towers=G.towers.filter(t=>!t.destroyed).map(t=>{const base={id:t.id,x:t.x,y:t.y,level:t.level||1,elite:!!t.elite,support:!!t.supportOnly,aimX:-(t.recX||0),aimZ:-(t.recY||0),recoil:t.recoil||0,flash:t.flashT||0,stunned:(t.stunT||0)>0};if(!TOWER_MODELS_OFF)return base;const r=rasterTower(t);return {...base,id:null,canvas:r.canvas,key:r.key,baseline:r.baseline}});
  const shots=G.shots.map(s=>({x:s.x,y:s.y,color:s.color,size:s.archer?.26:s.kind==='scripture'?.5:.4}));
  // Synergy links between towers, with the mote that rides each one.
  const links=[];

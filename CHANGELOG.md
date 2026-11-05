@@ -8,6 +8,48 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.3.0 3D TOWERS
+
+Every tower on the 3D battlefield is now a real 3D model instead of a flat
+cut-out (`src/Battle3D/towerModels.js`). All 17 share one gothic style — a
+stepped stone plinth with gold trim, lit gothic windows, a banner in the
+tower's colour and a battlement ring — topped by a head that shows what the
+tower does:
+
+| Tower | Head |
+| --- | --- |
+| Dagger | steel needle spire with four orbiting daggers |
+| Whip | iron post and arm with a hanging chain flail that lashes when it fires |
+| Axe | executioner arm with a double-bit axe that swings at its target |
+| Cross | floating gold cross inside a turning halo |
+| Clock | clock tower with lit faces, a bell and a moving hand |
+| Bone Pillar | stacked vertebrae and a horned skull with green eyes and wisps |
+| Familiar Roost | belfry with a bat that hovers and flaps |
+| Silver Cannon | cannon on a carriage that turns and recoils |
+| Rosary Shrine | small chapel circled by a turning bead ring |
+| Garlic | garlic-bulb dome with hanging braids and a pulsing ward ring |
+| Living Word | lectern with an open glowing book; one orbiting bible per level (up to 6) |
+| Crossbow / Ballista | swivelling bows whose bolt kicks back on each shot |
+| Holy | stained-glass windows, slate spire and a floating holy-water orb |
+| Arcane | rune obelisk with a floating crystal and orbiting shards |
+| Chrono Sigil / Guardian Ward (supports) | smaller pedestals with an hourglass or a shield and crossed swords |
+
+Aiming towers turn toward whatever they last fired at. Each shot flashes in
+the tower's colour.
+
+**Levels:** level 2 adds gold spikes on the battlement and footing, level 3
+side banners and a glowing rune ring, level 4 orbiting runes, level 5 a halo.
+Elite towers get a gold banner and a floating gold crown. New towers rise out
+of the ground when placed.
+
+**Cost:** geometry is merged and cached per tower type and level, so each tower
+is a handful of draw calls. `?look=nomodels` brings back the old flat
+cut-outs for comparison. The 2D board (used while the 3D view loads or if
+WebGL is unavailable) still draws the old tower art.
+
+**Moods:** the Ruined Village and Frozen Cathedral moods were too bright and
+have been darkened.
+
 ## V37.2.0 SMOOTHER CURVE & CHAPTER MOODS
 
 ### Progression curve
