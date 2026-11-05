@@ -8,6 +8,13 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.6.1 TEST MODE SWITCH
+
+- Test mode now has an in-game switch: **More → Test Mode**. It asks once,
+  then reloads with every chapter and card unlocked; tap it again (it reads
+  "Test Mode: ON") to leave and restore your real save. The `?unlockall` URL
+  still works, but home-screen and bookmarked copies of the game drop it.
+
 ## V37.6.0 PLAYTEST FIXES (CHAPTERS 5, 7, 11)
 
 Three bot runs each on chapters 5, 7 and 11 (no Village bonuses) found:

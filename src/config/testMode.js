@@ -59,3 +59,21 @@ if (active) {
   };
   if (document.body) badge(); else addEventListener('DOMContentLoaded', badge);
 }
+
+// V37.6.1: an in-game switch on the More screen, so test mode does not depend
+// on typing the URL (home-screen and bookmarked copies drop the ?unlockall).
+function wireTile() {
+  const tile = document.getElementById('testModeTile');
+  if (!tile || tile.dataset.wired) return;
+  tile.dataset.wired = '1';
+  const label = tile.querySelector('b'), note = tile.querySelector('small');
+  if (active) { label.textContent = 'Test Mode: ON'; note.textContent = 'Every chapter and card is open. Tap to leave and restore your real save.'; tile.style.boxShadow = '0 0 0 2px #f3dc9c inset'; }
+  tile.addEventListener('click', () => {
+    const ok = active || window.confirm('Turn on Test Mode?\n\nEvery chapter and card unlocks. Your real save is copied aside first, and comes back exactly as it was when you leave Test Mode.');
+    if (!ok) return;
+    const url = new URL(location.href);
+    url.searchParams.set('unlockall', active ? '0' : '1');
+    location.href = url.toString();
+  });
+}
+if (document.readyState === 'loading') addEventListener('DOMContentLoaded', wireTile); else wireTile();
