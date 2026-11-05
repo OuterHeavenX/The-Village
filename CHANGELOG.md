@@ -8,6 +8,40 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.6.0 PLAYTEST FIXES (CHAPTERS 5, 7, 11)
+
+Three bot runs each on chapters 5, 7 and 11 (no Village bonuses) found:
+
+- **Shadow never left the south door.** In the keep layout he patrolled one
+  spot, so enemies from any other road stood at their door draining the gate
+  with nothing able to touch them; every chapter 7 loss went from full gate to
+  zero inside one wave this way. He now runs to whichever door is under
+  attack, and goes back to his patrol when it is clear.
+- **Chapter 11 was a wall from wave 1.** Every heavy "deep" enemy — gravelords,
+  dread eyes, revenants — could spawn from the first wave, and the third road
+  opened after wave 2. The deep roster now arrives wave by wave (ghouls,
+  watchers, wolves and bats first; revenants and armour from 3, gazers 4,
+  ghosts 5, vampires 6, dread eyes 7, gravelords 9), and chapters 11–14 open
+  their roads after waves 3, 6 and 9 (15+ keep 2, 5 and 8).
+- **Chapter 7's third road** now opens after wave 10 (was 9).
+
+| | Before | After |
+| --- | --- | --- |
+| Chapter 5 | 1 of 3 won | 2 of 3 won |
+| Chapter 7 | 0 of 3, all lost on wave 10 | 1 of 3 won; losses on waves 12–15 |
+| Chapter 11 | lost on wave 1–2 | lost on waves 4–9 |
+
+Chapter 11 is still very hard for a bot that has no Village upgrades and
+cannot steer Shadow; it is the start of the second act and expects a stronger
+deck.
+
+### Visuals
+
+- Bosses carry a soft light in their own colour, so dark bosses (the
+  Underking, the Void Prelate) read on dark boards.
+- The battle-point "Upgrade an Entire Card Type" window uses the new card
+  style, with each tower's 3D portrait.
+
 ## V37.5.0 BOSSES IN 3D, TEST MODE, INSPECTOR
 
 ### Test mode: everything unlocked

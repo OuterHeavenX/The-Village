@@ -30,7 +30,7 @@ const BOSSES = {
   vampireking:  { rig: 'noble', scale: 1.2, head: 'crown', weapon: 'greatsword', extras: ['cape', 'collar', 'batwings'], pal: { main: 0x2a0a10, trim: COL.gold, cloth: 0x7a0a18, glow: 0xff3048, skin: 0xd8c8d0 } },
   bellkeeper:   { rig: 'robed', scale: 1.1, head: 'hood', weapon: 'bell', extras: ['hunch'], pal: { main: 0x1e3a3a, trim: 0xb08a3a, cloth: 0x14282a, glow: 0x9fe8d0 } },
   ashabbot:     { rig: 'robed', scale: 1.05, head: 'cowl', weapon: 'censer', extras: ['embers'], pal: { main: 0x4a4648, trim: 0xd06a2a, cloth: 0x2e2a2c, glow: 0xff8a3a } },
-  underking:    { rig: 'knight', scale: 1.15, head: 'skull', weapon: 'scythe', extras: ['crown', 'cape'], pal: { main: 0x1a1a20, trim: COL.bone, cloth: 0x2a1a30, glow: 0x9a6aff } },
+  underking:    { rig: 'knight', scale: 1.15, head: 'skull', weapon: 'scythe', extras: ['crown', 'cape'], pal: { main: 0x30303c, trim: COL.bone, cloth: 0x2a1a30, glow: 0x9a6aff } },
   hollowsaint:  { rig: 'robed', scale: 1.1, head: 'hollow', weapon: 'staff', extras: ['float', 'halo', 'featherwings'], pal: { main: 0xe8dcc0, trim: COL.gold, cloth: 0xc8b890, glow: 0xfff0b0, skin: 0x1a1612 } },
   rotmarshal:   { rig: 'knight', scale: 1.1, head: 'helm', weapon: 'halberd', extras: ['horns', 'flies'], pal: { main: 0x3a3a22, trim: 0x6a5a2a, cloth: 0x2a2a14, glow: 0xb8ff5a } },
   plaguechoir:  { rig: 'robed', scale: 1, head: 'beak', weapon: 'lantern', extras: ['masks'], pal: { main: 0x1e1a16, trim: 0x8a7a5a, cloth: 0x2a2218, glow: 0x9aff6a, skin: 0xd8ccb0 } },
@@ -348,6 +348,10 @@ export function createBossFactory({ glowTexture } = {}) {
     // Hit flash: an additive glow that pulses over the boss when it is struck.
     let flash = null;
     if (glowTexture) { flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); flash.position.y = (r.legLen + r.torsoH * .6) * (def.scale || 1); flash.scale.setScalar(1.6 * (def.scale || 1)); root.add(flash); }
+    // A soft light in the boss's own colour keeps dark bosses readable on dark boards.
+    const aura = new THREE.PointLight(def.pal.glow, 1.4, 3.2 * (def.scale || 1), 2);
+    aura.position.set(0, (r.legLen + r.torsoH) * (def.scale || 1), .9);
+    root.add(aura);
     let phase = Math.random() * TAU, yaw = 0, lastX = null, lastZ = null, swing = 0;
     const hoverBase = r.float ? .25 : 0;
 
