@@ -389,7 +389,11 @@ ready(() => {
   let buildSearch = '';
 
   const RESOURCE_ICONS={gold:'🪙',food:'🌾',wood:'🪵',stone:'🪨',iron:'⚙️',essence:'◆'};
-  function buildingCosts(def){return def.costs||{gold:def.cost||0}}
+  // V37.1 — Builder Workshop: −5% build cost each, up to −25%.
+  function workshopDiscount(){const n=Object.values(readPlots()).filter(t=>t==='workshop').length;return Math.min(.25,n*.05)}
+  function buildingCosts(def){const base=def.costs||{gold:def.cost||0},d=workshopDiscount();if(!d)return base;return Object.fromEntries(Object.entries(base).map(([k,v])=>[k,Math.round((Number(v)||0)*(1-d))]))}
+  // V37.1 — Stables: Shadow walks 10% faster each, up to +30%.
+  function refreshWalkSpeed(){const n=Object.values(readPlots()).filter(t=>t==='stable').length;kaelState.speedBonus=1+Math.min(.3,n*.1)}
   function costText(cost){return Object.entries(cost).filter(([,n])=>Number(n)>0).map(([k,n])=>`${RESOURCE_ICONS[k]||''} ${Number(n).toLocaleString('en-US')}`).join(' · ')}
   function buildingUnlocked(key){return window.ROTKGameBridge?.canBuildVillageBuilding?.(key)!==false}
   function buildCardHTML(key, def){
@@ -560,6 +564,7 @@ ready(() => {
   ];
 
   function renderPlots() {
+    if (typeof kaelState !== 'undefined') refreshWalkSpeed();
     if (!plotsRoot) return;
     const placed = readPlots();
     plotsRoot.replaceChildren();
@@ -759,8 +764,9 @@ ready(() => {
     kaelState.moving = Boolean(villageVisible && input.active);
     if(villageVisible && input.active){
       const len=Math.hypot(input.x,input.y)||1;
-      const nextX = kaelState.x + input.x / len * kaelState.speed * dt;
-      const nextY = kaelState.y + input.y / len * kaelState.speed * dt;
+      const walk = kaelState.speed * (kaelState.speedBonus || 1);
+      const nextX = kaelState.x + input.x / len * walk * dt;
+      const nextY = kaelState.y + input.y / len * walk * dt;
       // Navigation-zone movement: free movement inside authored roads, smooth
       // wall sliding at edges, and a tiny recovery nudge when the feet approach
       // a seam between overlapping regions.

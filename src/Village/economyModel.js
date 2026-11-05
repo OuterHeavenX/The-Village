@@ -9,14 +9,17 @@ export function calculateVillageRates(counts={}){
   const workerDemand=rate(counts,'farm',2)+rate(counts,'orchard',2)+rate(counts,'herbGarden',1)+rate(counts,'sawmill',2)+rate(counts,'quarry',2)+rate(counts,'stonemason',2)+rate(counts,'blacksmith',2)+rate(counts,'market',1)+rate(counts,'tavern',1)+rate(counts,'alchemist',2);
   const workforceRatio=workerDemand?Math.min(1,population/workerDemand):1;
   const storageCapacity=500+rate(counts,'storehouse',500)+rate(counts,'market',75)+rate(counts,'townhall',250);
-  const productive=value=>value*workforceRatio;
+  // V37.1 — Morale: each point raises all output by 2%, capped at +20%.
+  const morale=rate(counts,'almshouse',1)+rate(counts,'well',1)+rate(counts,'tavern',2)+rate(counts,'bathhouse',3);
+  const moraleBonus=1+Math.min(.2,morale*.02);
+  const productive=value=>value*workforceRatio*moraleBonus;
   return {
     food:productive(rate(counts,'farm',8)+rate(counts,'orchard',11)+rate(counts,'herbGarden',5)+rate(counts,'well',3)),
     wood:productive(rate(counts,'sawmill',9)),stone:productive(rate(counts,'quarry',8)+rate(counts,'stonemason',5)),
     iron:productive(rate(counts,'blacksmith',3)+rate(counts,'tannery',1)),
     essence:productive(rate(counts,'herbGarden',2)+rate(counts,'chapel',4)+rate(counts,'shrine',2)+rate(counts,'graveyard',3)+rate(counts,'alchemist',3)),
     gold:productive(rate(counts,'market',12)+rate(counts,'tavern',5)+rate(counts,'stable',4)),
-    population,populationCapacity,capacity:populationCapacity,storageCapacity,workerDemand,workersAssigned:Math.min(population,workerDemand),workforceRatio,counts,buildings
+    population,populationCapacity,capacity:populationCapacity,storageCapacity,workerDemand,workersAssigned:Math.min(population,workerDemand),workforceRatio,morale,moraleBonus,counts,buildings
   };
 }
 

@@ -8,6 +8,44 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.1.0 BOSS POWERS & HONEST BUILDINGS
+
+### Chapters 11–20: every boss now uses its power
+
+Before this release each late boss's power existed only as text; in play they
+all summoned skeletons. The rules live in `src/Battle/bossPowers.js`; warnings
+draw on both the 2D board and the 3D battlefield.
+
+| Ch | Boss | Power |
+| --- | --- | --- |
+| 11 | Hollow Underking | Raises Armoured Dead; at 60% and 30% HP sinks beneath the road (immune 1.6 s) and surfaces two segments further on. |
+| 12 | Hollow Saint | Splits into two Lesser Saints at 66% and 33% HP. |
+| 13 | Rot Marshal | Roughly every other corpse rises as a Plague Revenant while it lives (max 6). |
+| 14 | Plague Choir | Every 7 s its hymn rots the two nearest towers: half reload speed for 4.5 s. |
+| 15 | Void Prelate | Every 7 s eyes open over two towers; after a 1.6 s warning they are stunned 2.5 s. |
+| 16 | Grand Ossuary | Enemies that pass beneath it gain armour. |
+| 17 | Dusk Empress | Calls three elites (Ghoul, Gazer, Revenant) every 10 s. |
+| 18 | Herald of the Shattered Moon | Moonlight falls on three towers: stunned 2 s and cracked (−10% damage, max 2 cracks). |
+| 19 | Last Sentinel | Aegis every 10 s: −75% damage taken for 3.5 s, guards nearby −50%. |
+| 20 | Lord of Final Night | Three phases: summons the dead, then elites, then Final Night (tower range −20%, faster). |
+
+### Village buildings now do what their cards say
+
+Made real: **Morale** (Almshouse, Stone Well, Hunter Tavern, Bathhouse) raises
+all Village output 2% per point, up to +20% · **Palisade** +3 gate HP ·
+**Builder Workshop** −5% build cost each (max −25%) · **Stables** Shadow walks
+10% faster each (max +30%) · **Reliquary** +5% relic strength (max 2) ·
+**Enchanter Workshop** +6% familiar damage (max 3) · **Gem Forge** +15% tower
+gem effects · **Observatory** boss powers recharge 20% slower · **Rune Stone**
+4% chance per stone (max 3) that a fusion refunds a copy.
+
+Text corrected to match existing behaviour: Tannery (+1 Iron/h, there is no
+leather), Warehouse (+500 storage, not +250), Blacksmith (+4% tower damage, no
+"repair"), Stone Mason, Watchtower, Barracks, Moon Chapel (+1 gate HP was
+hidden), Night Market and Hunter Tavern (reserve Essence and battle rewards
+were hidden), Arcane Library (+3% Shadow damage, not "unlocks research"),
+Alchemist Laboratory, Town Hall (+250 storage, +1 Battle Keep level).
+
 ## V37.0.2 GAMEPLAY FIXES
 
 Testing build: Supabase sign-in is off (`src/config/testing.js`); add

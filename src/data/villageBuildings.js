@@ -28,6 +28,9 @@ export const VILLAGE_RESEARCH = Object.freeze([
 
 // The Village build catalog. Keys are the ids referenced by
 // VILLAGE_STARTER_BUILDINGS and by VILLAGE_RESEARCH unlocks.
+// V37.1 — every production line describes what the code actually does. Morale
+// (Almshouse, Stone Well, Hunter Tavern, Bathhouse) raises all Village output by
+// 2% per point, up to +20% (src/Village/economyModel.js).
 export const VILLAGE_BUILDINGS = Object.freeze({
   house:       { cat:'residential', name:'Village House', icon:'🏠', image:'assets/village/house_lv01.png', cost:120, costs:{gold:120,wood:80,stone:30}, production:'+4 Population', description:'A sturdy home for new villagers.' },
   manor:       { cat:'residential', name:'Gothic Manor', icon:'🏛️', image:'assets/village/house_lv02.png', cost:320, production:'+9 Population', description:'Expanded housing for established families.' },
@@ -39,35 +42,35 @@ export const VILLAGE_BUILDINGS = Object.freeze({
   well:        { cat:'production', name:'Stone Well', icon:'⛲', cost:105, production:'+3 Food / h · +1 Morale', description:'Clean water improves health and crop yields.' },
   sawmill:     { cat:'production', name:'Lumber Camp', icon:'🪵', cost:110, costs:{gold:110,wood:40,stone:25}, production:'+9 Wood / h', description:'Cuts timber for construction and repairs.' },
   quarry:      { cat:'production', name:'Quarry', icon:'⛏️', cost:125, costs:{gold:125,wood:45}, production:'+8 Stone / h', description:'Extracts stone for fortifications and civic works.' },
-  tannery:     { cat:'production', name:'Tannery', icon:'🧵', cost:245, production:'+4 Leather / h', description:'Processes hides for armor and trade.' },
+  tannery:     { cat:'production', name:'Tannery', icon:'🧵', cost:245, production:'+1 Iron / h', description:'Processes hides for armor and trade.' },
 
-  market:      { cat:'commerce', name:'Night Market', icon:'🏪', cost:300, production:'+12 Gold / h', description:'Generates village Gold from trade.' },
-  tavern:      { cat:'commerce', name:'Hunter Tavern', icon:'🍺', cost:260, production:'+5 Gold / h · +2 Morale', description:'Attracts hunters, rumors, and paying travelers.' },
-  storehouse:  { cat:'commerce', name:'Warehouse', icon:'📦', cost:225, costs:{gold:225,wood:90,stone:80}, production:'+250 Resource Capacity', description:'Expands offline resource storage.' },
-  stable:      { cat:'commerce', name:'Stables', icon:'🐴', cost:285, production:'+4 Gold / h · faster travel', description:'Supports caravans and district travel.' },
+  market:      { cat:'commerce', name:'Night Market', icon:'🏪', cost:300, production:'+12 Gold / h · +5 reserve Essence · +3% battle rewards', description:'Generates village Gold from trade.' },
+  tavern:      { cat:'commerce', name:'Hunter Tavern', icon:'🍺', cost:260, production:'+5 Gold / h · +2 Morale · +3 reserve Essence', description:'Attracts hunters, rumors, and paying travelers.' },
+  storehouse:  { cat:'commerce', name:'Warehouse', icon:'📦', cost:225, costs:{gold:225,wood:90,stone:80}, production:'+500 Storage', description:'Expands offline resource storage.' },
+  stable:      { cat:'commerce', name:'Stables', icon:'🐴', cost:285, production:'+4 Gold / h · Shadow walks 10% faster', description:'Supports caravans and district travel.' },
 
-  blacksmith:  { cat:'military', name:'Blacksmith', icon:'🔨', cost:360, costs:{gold:360,wood:140,stone:180,iron:20}, production:'+3 Iron / h · tower repair', description:'Forges weapons and repairs village defenses.' },
-  stonemason:  { cat:'production', name:'Stone Mason', icon:'🧱', cost:340, costs:{gold:340,wood:120,stone:160}, production:'+5 Stone / h · stronger works', description:'Shapes Golem-taught masonry for advanced construction.' },
-  watchtower:  { cat:'military', name:'Watchtower', icon:'🗼', cost:295, production:'+1 Gate HP · road vision', description:'Warns the village before enemies arrive.' },
-  barracks:    { cat:'military', name:'Barracks', icon:'⚔️', cost:420, production:'+2 Gate HP · hunter training', description:'Trains defenders and strengthens the gate.' },
+  blacksmith:  { cat:'military', name:'Blacksmith', icon:'🔨', cost:360, costs:{gold:360,wood:140,stone:180,iron:20}, production:'+3 Iron / h · +4% Tower Damage', description:'Forges weapons and repairs village defenses.' },
+  stonemason:  { cat:'production', name:'Stone Mason', icon:'🧱', cost:340, costs:{gold:340,wood:120,stone:160}, production:'+5 Stone / h', description:'Shapes Golem-taught masonry for advanced construction.' },
+  watchtower:  { cat:'military', name:'Watchtower', icon:'🗼', cost:295, production:'+1 Gate HP', description:'Warns the village before enemies arrive.' },
+  barracks:    { cat:'military', name:'Barracks', icon:'⚔️', cost:420, production:'+2 Gate HP', description:'Trains defenders and strengthens the gate.' },
   armory:      { cat:'military', name:'Armory', icon:'🛡️', cost:465, production:'+5% Tower Damage', description:'Stores improved weapons for defensive towers.' },
   palisade:    { cat:'military', name:'Palisade', icon:'🧱', cost:180, production:'+3 Gate HP', description:'A fast defensive reinforcement for the village.' },
 
-  chapel:      { cat:'sacred', name:'Moon Chapel', icon:'⛪', cost:390, production:'+4 Essence / h', description:'A sacred refuge that gathers Blood Essence.' },
+  chapel:      { cat:'sacred', name:'Moon Chapel', icon:'⛪', cost:390, production:'+4 Essence / h · +1 Gate HP', description:'A sacred refuge that gathers Blood Essence.' },
   shrine:      { cat:'sacred', name:'Roadside Shrine', icon:'🕯️', cost:165, production:'+2 Essence / h', description:'A small ward placed along the village road.' },
-  reliquary:   { cat:'sacred', name:'Reliquary', icon:'📿', cost:510, production:'+1 Relic Slot', description:'Preserves unique artifacts recovered from bosses.' },
+  reliquary:   { cat:'sacred', name:'Reliquary', icon:'📿', cost:510, production:'+5% Relic Strength', description:'Preserves unique artifacts recovered from bosses.' },
   graveyard:   { cat:'sacred', name:'Consecrated Graveyard', icon:'🪦', cost:195, production:'+3 Essence / h', description:'Honors the fallen and protects their spirits.' },
 
-  library:     { cat:'arcane', name:'Arcane Library', icon:'📚', cost:440, production:'Unlocks Research', description:'Studies boss artifacts and elemental knowledge.' },
-  alchemist:   { cat:'arcane', name:'Alchemist Laboratory', icon:'⚗️', cost:430, production:'+3 Essence / h · crafting', description:'Brews elemental essences and rare mixtures.' },
-  enchanter:   { cat:'arcane', name:'Enchanter Workshop', icon:'✨', cost:520, production:'Equipment Imbuement', description:'Imbues hunter equipment with learned elements.' },
-  gemForge:    { cat:'arcane', name:'Gem Forge', icon:'💎', cost:560, production:'Crafts · upgrades · removes · fuses Gems', description:'A modular elemental forge for fragments, permanent tower Gems, and hidden fusion recipes.' },
-  observatory: { cat:'arcane', name:'Observatory', icon:'🔭', cost:540, production:'Reveals Boss Modifiers', description:'Studies omens before chapter boss encounters.' },
-  runestone:   { cat:'arcane', name:'Rune Stone', icon:'🗿', cost:310, production:'+4% Card Merge Odds', description:'Strengthens card fusion rituals.' },
+  library:     { cat:'arcane', name:'Arcane Library', icon:'📚', cost:440, production:'+3% Shadow Damage', description:'Studies boss artifacts and elemental knowledge.' },
+  alchemist:   { cat:'arcane', name:'Alchemist Laboratory', icon:'⚗️', cost:430, production:'+3 Essence / h', description:'Brews elemental essences and rare mixtures.' },
+  enchanter:   { cat:'arcane', name:'Enchanter Workshop', icon:'✨', cost:520, production:'+6% Familiar Damage', description:'Imbues hunter equipment with learned elements.' },
+  gemForge:    { cat:'arcane', name:'Gem Forge', icon:'💎', cost:560, production:'+15% Tower Gem Effects', description:'A modular elemental forge for fragments, permanent tower Gems, and hidden fusion recipes.' },
+  observatory: { cat:'arcane', name:'Observatory', icon:'🔭', cost:540, production:'Boss powers recharge 20% slower', description:'Studies omens before chapter boss encounters.' },
+  runestone:   { cat:'arcane', name:'Rune Stone', icon:'🗿', cost:310, production:'4% chance a fusion refunds a copy', description:'Strengthens card fusion rituals.' },
 
-  townhall:    { cat:'civic', name:'Town Hall', icon:'🏰', cost:650, production:'+1 Village Level', description:'Coordinates districts and unlocks civic growth.' },
+  townhall:    { cat:'civic', name:'Town Hall', icon:'🏰', cost:650, production:'+250 Storage · +1 Battle Keep Level', description:'Coordinates districts and unlocks civic growth.' },
   bathhouse:   { cat:'civic', name:'Bathhouse', icon:'💧', cost:250, production:'+3 Morale', description:'Restores the villagers after long nights.' },
-  workshop:    { cat:'civic', name:'Builder Workshop', icon:'🪚', cost:335, production:'-5% Future Build Cost', description:'Improves construction tools and planning.' }
+  workshop:    { cat:'civic', name:'Builder Workshop', icon:'🪚', cost:335, production:'−5% Build Cost', description:'Improves construction tools and planning.' }
 });
 
 export const VILLAGE_BUILD_CATEGORIES = Object.freeze([

@@ -48,6 +48,7 @@ import {
 } from '../Ascension/registry.js';
 import { VILLAGE_RESEARCH, VILLAGE_STARTER_BUILDINGS } from '../data/villageBuildings.js';
 import { CAMPAIGN_CHAPTERS } from '../data/campaign.js';
+import { bossPower, minionDef, updateBossMarkers, updateTowerAfflictions } from './bossPowers.js';
 
 'use strict';
 // V32.4.1 — Stability audit, cleanup, Shadow Familiars and evolving battle Keep.
@@ -815,7 +816,7 @@ const RELICS=RELIC_REGISTRY;
 // V37.0.2 — Relic Museum: +4% relic strength per level. Count-style effects
 // (every-N-kills, upgrade points, flat gate HP) and drawbacks are not scaled.
 const RELIC_UNSCALED=new Set(['killExplosionEvery','globalSlowEvery','startingUpgradePoints','gateHp','enemyHealth','enemyArmorMultiplier']);
-const relicEffect=(key,relic=G?.relic)=>{const v=Number(relic?.effect?.[key])||0;if(!v||RELIC_UNSCALED.has(key))return v;return v*(1+.04*Math.max(0,Number(save?.kingdom?.buildings?.museum)||0))};
+const relicEffect=(key,relic=G?.relic)=>{const v=Number(relic?.effect?.[key])||0;if(!v||RELIC_UNSCALED.has(key))return v;return v*(1+.04*Math.max(0,Number(save?.kingdom?.buildings?.museum)||0)+.05*Math.min(2,Number(G?.villageCounts?.reliquary)||0))}; // V37.1: Reliquary +5% each (max 2)
 // A private copy: the campaign rules below mutate chapters and their bosses.
 const CHAPTERS=CAMPAIGN_CHAPTERS.map(chapter=>({...chapter,boss:{...chapter.boss}}));
 // Campaign rewards consume registry order; relic content and effects live in
@@ -928,7 +929,7 @@ function villageChronicle(text,type='milestone'){
  log.unshift({text,type,at:Date.now(),stage:villageCompletedStage()});save.villageProgression.chronicle=log.slice(0,80);return true;
 }
 function availableVillageResearch(){const stage=villageCompletedStage();return VILLAGE_RESEARCH.filter(r=>stage>=r.requiresStage&&!save.villageProgression.researched.includes(r.id)&&( !r.artifact||save.villageProgression.artifacts.includes(r.artifact)));}
-function villageBattleBonuses(){const c=villageBuildingCounts();const n=id=>Number(c[id]||0);return {towerDamage:1+n('blacksmith')*.04+n('armory')*.05,heroDamage:1+n('library')*.03,gateHp:n('watchtower')+n('barracks')*2+n('chapel'),startingGold:n('market')*5+n('tavern')*3,reward:1+n('market')*.03};}
+function villageBattleBonuses(){const c=villageBuildingCounts();const n=id=>Number(c[id]||0);return {towerDamage:1+n('blacksmith')*.04+n('armory')*.05,heroDamage:1+n('library')*.03,gateHp:n('watchtower')+n('barracks')*2+n('chapel')+n('palisade')*3,startingGold:n('market')*5+n('tavern')*3,reward:1+n('market')*.03};}
 
 const STORAGE={
   get(key){try{return window.localStorage?.getItem(key)??null}catch(err){console.warn('Storage unavailable; using session memory.',err);return null}},
@@ -1472,6 +1473,8 @@ function freshGame(mode='chapter',chapterId=null){
  const onboarding=EARLY_STAGE_DIFFICULTY[chapterNumber];if(onboarding?.gateHealth){G.hp+=onboarding.gateHealth;G.maxHp+=onboarding.gateHealth;}
  beginProgressionTelemetry({stage:chapterNumber,accountPower:save.deck.reduce((sum,id)=>sum+cardPower(id),0)});
  if(currentShadowLevel()>=2){G.hero.damage*=1.06;G.hero.moveSpeed=1.04;G.hero.hp+=5;G.hero.max+=5;}
+ G.villageCounts=villageBuildingCounts(); // V37.1: read once per hunt, not per shot
+ if(G.familiar&&G.villageCounts.enchanter)G.familiar.damage*=1+.06*Math.min(3,G.villageCounts.enchanter); // Enchanter Workshop
  applyVanguardBonuses();
  // V37.0.2 — Soul Reserve (Keep), Hunter Tavern (Kingdom) and the Village
  // Market/Tavern promised extra starting souls but nothing read them. The bonus
@@ -1655,7 +1658,7 @@ function reconcileCardUnlocks(){
  return repaired.map(card).filter(Boolean);
 }
 function canPayRarityUpgrade(item,id){const rule=rarityUpgradeFor(item.rarity);return !!rule&&item.copies>=rule.copies&&(save.cardFragments[id]||0)>=(rule.cardFragments||0)&&Object.entries(rule.materials).every(([key,cost])=>(save.materials[key]||0)>=cost)}
-function mergeCard(id){const item=inv(id),rule=rarityUpgradeFor(item.rarity);if(!rule)return showToast('This card is already Mythic');if(item.copies<rule.copies)return showToast(`${rule.copies} matching copies are required`);if((save.cardFragments[id]||0)<(rule.cardFragments||0))return showToast(`Need ${rule.cardFragments} targeted ${card(id).name} fragments`);const missing=Object.entries(rule.materials).find(([key,cost])=>(save.materials[key]||0)<cost);if(missing)return showToast(`Need ${missing[1]} ${missing[0]}`);const from=item.rarity;item.copies-=rule.copies;save.cardFragments[id]=(save.cardFragments[id]||0)-(rule.cardFragments||0);for(const [key,cost] of Object.entries(rule.materials))save.materials[key]-=cost;item.rarity=rule.to;item.recent=false;save.stats.fusions++;telemetryRarityUpgrade(id,from,rule.to);saveProgress('card-rarity-upgrade');showToast(`${card(id).name} fused to ${rarityDef(rule.to).name}`);renderDeck()}
+function mergeCard(id){const item=inv(id),rule=rarityUpgradeFor(item.rarity);if(!rule)return showToast('This card is already Mythic');if(item.copies<rule.copies)return showToast(`${rule.copies} matching copies are required`);if((save.cardFragments[id]||0)<(rule.cardFragments||0))return showToast(`Need ${rule.cardFragments} targeted ${card(id).name} fragments`);const missing=Object.entries(rule.materials).find(([key,cost])=>(save.materials[key]||0)<cost);if(missing)return showToast(`Need ${missing[1]} ${missing[0]}`);const from=item.rarity;item.copies-=rule.copies;const runeRefund=Math.random()<.04*Math.min(3,Number(villageBuildingCounts().runestone)||0);if(runeRefund)item.copies++; /* V37.1: Rune Stone */save.cardFragments[id]=(save.cardFragments[id]||0)-(rule.cardFragments||0);for(const [key,cost] of Object.entries(rule.materials))save.materials[key]-=cost;item.rarity=rule.to;item.recent=false;save.stats.fusions++;telemetryRarityUpgrade(id,from,rule.to);saveProgress('card-rarity-upgrade');showToast(`${card(id).name} fused to ${rarityDef(rule.to).name}`);renderDeck()}
 function mergeAllDuplicates(){let merges=0;for(const c of CARD_POOL){const item=inv(c.id);while(canPayRarityUpgrade(item,c.id)){const rule=rarityUpgradeFor(item.rarity),from=item.rarity;item.copies-=rule.copies;save.cardFragments[c.id]=(save.cardFragments[c.id]||0)-(rule.cardFragments||0);for(const [key,cost] of Object.entries(rule.materials))save.materials[key]-=cost;item.rarity=rule.to;item.recent=false;save.stats.fusions++;telemetryRarityUpgrade(c.id,from,rule.to);merges++}}if(!merges)return showToast('No cards meet their copy, fragment, and material requirements');saveProgress('merge-all-rarity-upgrades');showToast(`Completed ${merges} rarity upgrade${merges===1?'':'s'}`);renderDeck()}
 function requestMergeAllDuplicates(){
  const eligible=CARD_POOL.filter(c=>canPayRarityUpgrade(inv(c.id),c.id));
@@ -1797,7 +1800,8 @@ function applyVanguardBonuses(){
 function ascensionEquipmentStats(){return combinedEquipmentStats(save.ascension?.equipped||{})}
 function towerGemEffects(t){
  const effects={};
- for(const id of inv(t.id).gemSlots){const gem=ascensionGemDef(id);if(!gem)continue;for(const [key,value] of Object.entries(gem.passiveEffects||gem.effects||{}))effects[key]=(effects[key]||0)+Number(value||0)}
+ const forge=1+(Math.min(1,Number(G?.villageCounts?.gemForge)||0)*.15); // V37.1: Gem Forge +15% gem effects
+ for(const id of inv(t.id).gemSlots){const gem=ascensionGemDef(id);if(!gem)continue;for(const [key,value] of Object.entries(gem.passiveEffects||gem.effects||{}))effects[key]=(effects[key]||0)+Number(value||0)*forge}
  return effects;
 }
 function linkedSupportEffects(t){const effects={};for(const support of t.supports||[])for(const [key,value] of Object.entries(support.effect||{}))effects[key]=(effects[key]||0)+Number(value||0)*(support.power||1);return effects}
@@ -2392,7 +2396,7 @@ function towerCombatRange(t){
  const syn=synergyFor(t),weather=G.weather.id==='fog'?.88:1;
  const base=Math.max(1.05,Number(t.range)||1.35),rangeUpgrade=Number(t.upgradeRange||0)*.30;
   const holyRange=towerTags(t).holy?relicEffect('holyTowerRange'):0;
-  return (base+rangeUpgrade+Math.min(.20,((t.level||1)-1)*.05))*syn.range*weather*(1+holyRange+relicEffect('towerRange'))*(1+(G.towerRangeBonus||0)+(linkedSupportEffects(t).range||0)+leadershipForTower(t).range)*TOWER_AOE_SCALE;
+  return (base+rangeUpgrade+Math.min(.20,((t.level||1)-1)*.05))*syn.range*weather*(1+holyRange+relicEffect('towerRange'))*(1+(G.towerRangeBonus||0)+(linkedSupportEffects(t).range||0)+leadershipForTower(t).range)*(1-.2*(G.bossDarkness||0))*TOWER_AOE_SCALE;
 }
 function enemyInsideTowerAOE(t,e){return !e.dead&&Math.hypot(e.x-(t.x+.5),e.y-(t.y+.5))<=towerCombatRange(t);}
 function cardUpgradeState(id){
@@ -2491,9 +2495,34 @@ function spawnEnemy(){
  const elite=!boss&&!mini&&G.wave>=3&&Math.random()<Math.min(.25,.06+G.wave*.014);if(elite){hp*=1.65;speed*=1.10;reward=Math.round(reward*1.70);name='Elite '+name;}
  const routeIndex=chooseSpawnRoute(),points=routePoints(routeIndex),outer=points[0];G.enemies.push({x:outer.x,y:outer.y,routeIndex,seg:0,prog:0,hp,max:hp,speed:speed*(1+Math.min(.25,G.wave*.006))*layoutSpeedFactor(),reward:Math.round(reward*(G.weather.id==='fog'?1.2:G.weather.id==='blood'?1.3:1)*(1+(save.kingdom.buildings.market||0)*.03)*villageBattleBonuses().reward),boss,mini,elite,type,name,slow:1,freeze:0,burn:0,dead:false,summonTimer:mini?4:boss?5:0,armor:type==='armor'?.45:type==='revenant'?.28:type==='gravelord'?.46:0,holyOnly:type==='ghost'||type==='gazer',air:type==='bat'||type==='watcher'||type==='gazer'||type==='dreadeye',attacking:false,attackTimer:0,attackRate:boss?0.78:(elite?0.92:1.18),attackDamage:Math.max(1,Math.round((boss?2:1)*damageCurve)),golemForm:boss&&type==='golem'?(G.chapter.number>=5&&G.chapter.number<=9?2:1):0,golemTransforming:false,towerDestroyTimer:6,bossPauseMarkers:boss?[.20,.58]:[],bossPauseDone:[],cinematicPause:0});
  const spawned=G.enemies[G.enemies.length-1];telemetryEnemySpawn(spawned,G.time);
- if(boss){G.boss=true;beginBossCinematic(spawned)}else if(mini){showToast('MINIBOSS: Grave Necromancer')}
+ if(boss){const power=bossPower(spawned);if(power){power.init?.(spawned,BOSS_CTX);if(power.customSummons)spawned.summonTimer=0;}G.boss=true;beginBossCinematic(spawned)}else if(mini){showToast('MINIBOSS: Grave Necromancer')}
  if(G.queuedSkills?.length){const armed=G.queuedSkills.shift(),target=G.enemies.find(e=>!e.dead);battleDelay(()=>{if(G&&target&&!target.dead)castSkill(armed,target.x,target.y);},120,'queued skill')}
 }
+// V37.1 — the interface src/Battle/bossPowers.js uses to act on a battle.
+function scaledMinionHp(base){
+ const chapterNum=Math.max(1,G.chapter?.number||1),chapterCurve=Math.pow(DIFFICULTY.perChapter,chapterNum-1),waveCurve=1+Math.pow(Math.max(0,G.wave-1),DIFFICULTY.waveEase)*DIFFICULTY.perWave;
+ return base*waveCurve*chapterCurve*DIFFICULTY.baseline*(G.weather.id==='blood'?1.18:1)*(1+relicEffect('enemyHealth'));
+}
+function spawnBossMinion(boss,type,opts={}){
+ if(!G||!boss)return null;
+ const def=minionDef(type),from=opts.from||(opts.atBoss?boss:null),routeIndex=from?.routeIndex??boss.routeIndex??0,points=routePoints(routeIndex);
+ let hp=opts.hpOfBoss?boss.max*opts.hpOfBoss:scaledMinionHp(def.base)*(opts.hpScale??.5);if(opts.elite&&!opts.hpOfBoss)hp*=1.65;
+ const seg=from?Math.min(points.length-2,Math.max(0,from.seg||0)):0,prog=from?Math.max(0,Math.min(.99,(from.prog||0)+(opts.offset||0))):0,start=points[seg]||points[0]||{x:boss.x,y:boss.y};
+ const m={summonedBy:boss,x:from?from.x:start.x,y:from?from.y:start.y,routeIndex,seg,prog,hp,max:hp,speed:(opts.speed??def.speed)*(1+Math.min(.25,G.wave*.006))*layoutSpeedFactor(),reward:Math.max(1,Math.round(def.reward*.5)),boss:false,mini:false,elite:!!opts.elite,type,name:(opts.elite&&!opts.name?'Elite ':'')+(opts.name||def.name),slow:1,freeze:0,burn:0,dead:false,summonTimer:0,armor:def.armor||0,holyOnly:!!def.holyOnly,air:!!def.air,attacking:false,attackTimer:0,attackRate:opts.elite?.92:1.18,attackDamage:Math.max(1,Math.round(1+(Math.max(1,G.chapter?.number||1)-1)*DIFFICULTY.perChapterDamage)),golemForm:0,towerDestroyTimer:6,bossPauseMarkers:[],bossPauseDone:[],cinematicPause:0};
+ G.enemies.push(m);save.discoveredEnemies[type]=true;try{telemetryEnemySpawn(m,G.time)}catch(_){}
+ return m;
+}
+const BOSS_CTX={
+ get G(){return G},
+ get tempo(){return G?.villageCounts?.observatory?.8:1}, // V37.1: Observatory slows boss powers 20%
+ spawnMinion:spawnBossMinion,
+ say(at,text,color='#ffe28a'){if(at)floatText(at.x,(at.y||0)-.45,text,color)},
+ toast(text){showToast(text,2200)},
+ burst(x,y,color,n){burst(x,y,color,n)},
+ shake(power=.2){bossShake(power,0,1,.3)},
+ flash(v=.3){G.flash=Math.max(G.flash||0,v)},
+ advanceAlongRoute(e,steps=2){const pts=routePoints(e.routeIndex||0);if(pts.length<2)return;e.seg=Math.min(pts.length-2,(e.seg||0)+steps);e.prog=0;e.x=pts[e.seg].x;e.y=pts[e.seg].y}
+};
 function destroyTowerByGolem(e){
  const candidates=G.towers.filter(t=>!t.destroyed);
  if(!candidates.length){showToast('The final Golem strikes, but no towers remain');return;}
@@ -2555,7 +2584,7 @@ function fireScripture(t){
  const syn=synergyFor(t),tags=towerTags(t),count=scriptureBibleCount(t),range=towerCombatRange(t);
  const candidates=G.enemies.filter(e=>!e.dead&&Math.hypot(e.x-(t.x+.5),e.y-(t.y+.5))<=range).sort((a,b)=>(b.seg+b.prog)-(a.seg+a.prog));
  if(!candidates.length)return false;
- let base=t.damage*G.globalDamage*syn.damage*(t.elite?1.5:1)*(t.permanentPower||1)*(G.hero.def?.bonus.tower||1);
+ let base=t.damage*G.globalDamage*syn.damage*(t.elite?1.5:1)*(t.permanentPower||1)*(G.hero.def?.bonus.tower||1)*(1-.1*(t.cracks||0));
  if(G.weather.id==='rain')base*=1.18;base*=1+relicEffect('holyTowerDamage');
  const supports=t.supports||[];let supportSlow=1,shotBurn=0;for(const sp of supports){if(sp.id==='holy'){base*=1.08*sp.power;shotBurn=5*sp.power}else if(sp.id==='freeze')supportSlow=Math.min(supportSlow,.62);else if(sp.id==='guardian')base*=1.05*sp.power;}
  for(let i=0;i<count;i++){
@@ -2565,7 +2594,7 @@ function fireScripture(t){
  burst(t.x+.5,t.y+.5,'#ffe58a',Math.min(16,4+count*2));G.cameraPulse=Math.min(1,G.cameraPulse+.12);playTone(520+count*24,.07,'triangle',.05);
  t.t=t.rate/(1+.10*(t.level-1))/syn.rate;return true;
 }
-function fire(t,e){towerFireFX(t,e);const fireFreq=t.id==='axe'?145:t.id==='dagger'?520:t.id==='holy'?690:t.id==='bone'?210:330,fireType=t.id==='bone'?'sawtooth':'triangle';playTone(fireFreq,.06,fireType,.06);playTone(fireFreq*1.55,.03,'square',.028);if(t.id==='scripture'){fireScripture(t);return;}const syn=synergyFor(t),tags=towerTags(t);let shotSupportBurn=0,supportSlow=1;let dmg=t.damage*G.globalDamage*syn.damage*(t.elite?1.5:1)*(t.permanentPower||1)*(G.hero.def?.bonus.tower||1);if(t.id==='familiar')dmg*=G.hero.def?.bonus.familiar||1;const supports=t.supports||[];for(const s of supports){if(s.id==='holy'){dmg*=1.08*s.power;shotSupportBurn=5*s.power}else if(s.id==='freeze'){supportSlow=Math.min(supportSlow,.62)}else if(s.id==='guardian'){dmg*=1.05*s.power}}if(e.air&&['dagger','familiar','cross'].includes(t.id))dmg*=1.45;if(e.type==='armor'&&t.id==='axe')dmg*=1.6;if(G.weather.id==='rain'&&tags.fire)dmg*=.8;if(G.weather.id==='rain'&&(tags.holy||tags.lightning))dmg*=1.18;if(tags.holy)dmg*=1+relicEffect('holyTowerDamage');
+function fire(t,e){towerFireFX(t,e);const fireFreq=t.id==='axe'?145:t.id==='dagger'?520:t.id==='holy'?690:t.id==='bone'?210:330,fireType=t.id==='bone'?'sawtooth':'triangle';playTone(fireFreq,.06,fireType,.06);playTone(fireFreq*1.55,.03,'square',.028);if(t.id==='scripture'){fireScripture(t);return;}const syn=synergyFor(t),tags=towerTags(t);let shotSupportBurn=0,supportSlow=1;let dmg=t.damage*G.globalDamage*syn.damage*(t.elite?1.5:1)*(t.permanentPower||1)*(G.hero.def?.bonus.tower||1)*(1-.1*(t.cracks||0));if(t.id==='familiar')dmg*=G.hero.def?.bonus.familiar||1;const supports=t.supports||[];for(const s of supports){if(s.id==='holy'){dmg*=1.08*s.power;shotSupportBurn=5*s.power}else if(s.id==='freeze'){supportSlow=Math.min(supportSlow,.62)}else if(s.id==='guardian'){dmg*=1.05*s.power}}if(e.air&&['dagger','familiar','cross'].includes(t.id))dmg*=1.45;if(e.type==='armor'&&t.id==='axe')dmg*=1.6;if(G.weather.id==='rain'&&tags.fire)dmg*=.8;if(G.weather.id==='rain'&&(tags.holy||tags.lightning))dmg*=1.18;if(tags.holy)dmg*=1+relicEffect('holyTowerDamage');
  const gemFx=towerGemEffects(t),supportFx=linkedSupportEffects(t),leadership=leadershipForTower(t);
  const profaneTarget=['skeleton','ghost','vampire','necromancer','golem','ghoul','revenant','gravelord','dreadeye'].includes(e.type)||e.boss;
  dmg*=1+(supportFx.damage||0)+leadership.damage+(gemFx.armorPenetration||0)+(profaneTarget?((supportFx.holyDamage||0)+(gemFx.holyDamage||0)):0)+(e.boss?((gemFx.bossDamage||0)+(supportFx.bossDamage||0)+(G.towerBossDamage||0)+leadership.boss):0);
@@ -2601,8 +2630,8 @@ function enemyEssenceReward(e){
 }
 // V32.7.0 damage pipeline: defense/resistance first, critical multiplier second,
 // then a visible skill floor. This prevents criticals and multi-hit holy skills from collapsing to 1.
-function hit(e,d,shot=null){e.hitFlash=.11;if(!e.boss&&!e.attacking&&!e.dead)e.hurtT=ENEMY_ANIM.hurt;e.hitKick=Math.min(.16,(e.hitKick||0)+.055);const rawDamage=Math.max(0,Number(d)||0);if(e.vulnerable>0)d*=1.25;/* V37.0.2: Holy Banner mark */if(e.holyOnly&&!shot?.holy)d*=.22;if(e.armor&&!shot?.holy)d*=1-e.armor*(relicEffect('enemyArmorMultiplier')||1);if(e.air)d*=1+relicEffect('flyingDamage');if(e.boss)d*=1+relicEffect('bossDamage');const crit=!shot?.noCrit&&shot?.source==null&&G.hero&&Math.random()<G.hero.crit;if(crit){const critFloor=Math.max(8,rawDamage*.85,(G.hero.damage||10)*.55);d=Math.max(d*(G.hero.critDamage||1.9),critFloor);G.flash=Math.max(G.flash,.08);hitPause(48)}d=Math.max(shot?.skill?(shot?.holy?5:3):0,d);e.hp-=d;if(e.hp<=0&&e.boss&&G)G.lastBossDeath={x:e.x,y:e.y,form:e.golemForm||1,type:e.type,name:e.name};impactFeedback(e,d,crit,shot);if(e.hp<=0&&!e.dead){e.dead=true;spawnCorpse(e);deathBurst(e);if((e.boss||e.elite)&&navigator.vibrate)navigator.vibrate(e.boss?[35,30,55]:25);G.kills++;grantFamiliarXp(e.boss?18:e.elite?5:2);G.killChain++;G.comboTimer=2.4;G.comboBest=Math.max(G.comboBest||0,G.killChain);const essenceGain=enemyEssenceReward(e);spawnEssencePickup(e,essenceGain);
- const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);floatText(e.x,e.y,`+${battleXp} battle XP`,'#ffe28a');floatText(e.x,e.y+.18,'+'+essenceGain+' essence','#d8c7ff');playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);G.relicKillCount=(G.relicKillCount||0)+1;const slowEvery=relicEffect('globalSlowEvery');if(slowEvery&&G.relicKillCount%slowEvery===0){for(const o of G.enemies)if(!o.dead)o.slow=Math.min(o.slow??1,.55);floatText(GRID.cols/2,1.6,'THE DROWNED BELL TOLLS','#9fd6ff');playTone(220,.4,'sine',.04)}/* V37.0.2: Bell of the Drowned */const explosionEvery=relicEffect('killExplosionEvery');if(explosionEvery&&G.relicKillCount%explosionEvery===0){burst(e.x,e.y,'#ffe7a4',32);floatText(e.x,e.y-.25,'RELIC EXPLOSION','#ffe7a4');playTone(190,.12,'sawtooth',.04);for(const o of [...G.enemies])if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)hit(o,24,{holy:true,noCrit:true,kind:'ringExplosion'})}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
+function hit(e,d,shot=null){e.hitFlash=.11;if(!e.boss&&!e.attacking&&!e.dead)e.hurtT=ENEMY_ANIM.hurt;e.hitKick=Math.min(.16,(e.hitKick||0)+.055);const rawDamage=Math.max(0,Number(d)||0);if(e.vulnerable>0)d*=1.25;if(e.guardT>0&&e.guard!=null)d*=e.guard;/* V37.1 boss guards (Aegis, burrow) *//* V37.0.2: Holy Banner mark */if(e.holyOnly&&!shot?.holy)d*=.22;if(e.armor&&!shot?.holy)d*=1-e.armor*(relicEffect('enemyArmorMultiplier')||1);if(e.air)d*=1+relicEffect('flyingDamage');if(e.boss)d*=1+relicEffect('bossDamage');const crit=!shot?.noCrit&&shot?.source==null&&G.hero&&Math.random()<G.hero.crit;if(crit){const critFloor=Math.max(8,rawDamage*.85,(G.hero.damage||10)*.55);d=Math.max(d*(G.hero.critDamage||1.9),critFloor);G.flash=Math.max(G.flash,.08);hitPause(48)}d=Math.max(shot?.skill?(shot?.holy?5:3):0,d);e.hp-=d;if(e.hp<=0&&e.boss&&G)G.lastBossDeath={x:e.x,y:e.y,form:e.golemForm||1,type:e.type,name:e.name};impactFeedback(e,d,crit,shot);if(e.hp<=0&&!e.dead){e.dead=true;spawnCorpse(e);deathBurst(e);if((e.boss||e.elite)&&navigator.vibrate)navigator.vibrate(e.boss?[35,30,55]:25);G.kills++;grantFamiliarXp(e.boss?18:e.elite?5:2);G.killChain++;G.comboTimer=2.4;G.comboBest=Math.max(G.comboBest||0,G.killChain);const essenceGain=enemyEssenceReward(e);spawnEssencePickup(e,essenceGain);
+ const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);floatText(e.x,e.y,`+${battleXp} battle XP`,'#ffe28a');floatText(e.x,e.y+.18,'+'+essenceGain+' essence','#d8c7ff');playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);G.relicKillCount=(G.relicKillCount||0)+1;for(const b of [...G.enemies])if(b!==e&&b.boss&&!b.dead)bossPower(b)?.onEnemyDeath?.(b,e,BOSS_CTX);if(e.boss&&e.type==='eclipselord')G.bossDarkness=0;const slowEvery=relicEffect('globalSlowEvery');if(slowEvery&&G.relicKillCount%slowEvery===0){for(const o of G.enemies)if(!o.dead)o.slow=Math.min(o.slow??1,.55);floatText(GRID.cols/2,1.6,'THE DROWNED BELL TOLLS','#9fd6ff');playTone(220,.4,'sine',.04)}/* V37.0.2: Bell of the Drowned */const explosionEvery=relicEffect('killExplosionEvery');if(explosionEvery&&G.relicKillCount%explosionEvery===0){burst(e.x,e.y,'#ffe7a4',32);floatText(e.x,e.y-.25,'RELIC EXPLOSION','#ffe7a4');playTone(190,.12,'sawtooth',.04);for(const o of [...G.enemies])if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)hit(o,24,{holy:true,noCrit:true,kind:'ringExplosion'})}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
 function weightedChoices(pool,count=3){
  const available=[...pool],out=[];
  while(out.length<count&&available.length){
@@ -2705,7 +2734,7 @@ function update(dt,syncHud=true,visualDt=dt){
  if(G.weather.id==='rain'){G.rainSplashTimer=(G.rainSplashTimer||0)-dt;if(G.rainSplashTimer<=0){G.rainSplashTimer=.055+Math.random()*.09;const rx=Math.random()*GRID.cols,ry=Math.random()*GRID.rows;G.particles.push({x:rx,y:ry,vx:0,vy:0,life:.22,color:'#b9dcff',kind:'splash',size:3+Math.random()*4});}}
  syncNextWaveButton();G.spawnTimer-=dt;if(G.spawnLeft>0&&G.spawnTimer<=0){spawnEnemy();G.spawnLeft--;G.spawnTimer=Math.max(.24,(1.15-G.wave*.025)*.88)}
  if(G.spawnLeft===0&&G.enemies.length===0&&!G.pendingWave&&!G.waveTransition){G.waveDelay-=dt;if(G.waveDelay<=0){if(G.mode!=='endless'&&G.wave>=G.chapterWaves){chapterClear();return;}beginWaveTransition();return;}}
- for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);if(e.vulnerable>0)e.vulnerable=Math.max(0,e.vulnerable-dt);if(e.slowTimer>0){e.slowTimer=Math.max(0,e.slowTimer-dt);e.slow=Math.min(e.slow,.12)}/* V37.0.2: Holy Banner mark decays; Iron Bear Trap now holds its root */updateGolemBoss(e,dt);if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt/(1+relicEffect('burnDuration'));/* V37.0.2: Ashen Censer */hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);{const gp=gatePoint(e.routeIndex||0);floatText(gp.x,gp.y-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');}playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);const liveSummons=G.enemies.filter(x=>!x.dead&&x.summonedBy===e).length,summonCap=e.boss?6:4;/* a boss raised 3 every 5 s with no ceiling: 25-27 enemies piled up at the boss wave and the finale became a slow grind */for(let i=0;i<summonCount&&liveSummons+i<summonCap;i++)G.enemies.push({summonedBy:e,x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62*layoutSpeedFactor(),reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
+ for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);if(e.vulnerable>0)e.vulnerable=Math.max(0,e.vulnerable-dt);if(e.slowTimer>0){e.slowTimer=Math.max(0,e.slowTimer-dt);e.slow=Math.min(e.slow,.12)}/* V37.0.2: Holy Banner mark decays; Iron Bear Trap now holds its root */updateGolemBoss(e,dt);if(e.guardT>0){e.guardT=Math.max(0,e.guardT-dt);if(!e.guardT)e.guard=null}if(e.boss&&!(e.cinematicPause>0)){const power=bossPower(e);if(power?.update&&power.update(e,dt,BOSS_CTX)==='hold')continue;}if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt/(1+relicEffect('burnDuration'));/* V37.0.2: Ashen Censer */hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);{const gp=gatePoint(e.routeIndex||0);floatText(gp.x,gp.y-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');}playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);const liveSummons=G.enemies.filter(x=>!x.dead&&x.summonedBy===e).length,summonCap=e.boss?6:4;/* a boss raised 3 every 5 s with no ceiling: 25-27 enemies piled up at the boss wave and the finale became a slow grind */for(let i=0;i<summonCount&&liveSummons+i<summonCap;i++)G.enemies.push({summonedBy:e,x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62*layoutSpeedFactor(),reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
  for(const trap of G.traps){
   trap.t-=dt;
   const radius=trap.effect==='blast'?1.25:.68;
@@ -2724,7 +2753,7 @@ function update(dt,syncHud=true,visualDt=dt){
    burst(trap.x+.5,trap.y+.5,trap.color,trap.effect==='blast'?18:7);trap.t=trap.rate;
   }
  }
- for(const t of G.towers){if(t.supportOnly)continue;t.t-=dt;if(t.t<=0){const e=targetFor(t);if(e)fire(t,e)}}
+ for(const t of G.towers){if(t.supportOnly||t.stunT>0)continue;t.t-=dt*(t.rotT>0?.5:1);if(t.t<=0){const e=targetFor(t);if(e)fire(t,e)}}updateTowerAfflictions(G,dt);updateBossMarkers(G,dt);
  // V32.4 — Keep archers and Shadow's equipped familiar.
  const archerCount=Math.max(0,(G.keepLevel||1)-1);
  for(let i=0;i<archerCount;i++){
@@ -3013,7 +3042,7 @@ function draw(){
   for(const rain of G.holyRains||[]){const q=Math.max(0,1-rain.elapsed/rain.duration),r=rain.radius*64;ctx.save();ctx.globalAlpha=.12+.16*q;ctx.fillStyle='#8edcff';ctx.beginPath();ctx.arc(rain.x*64,rain.y*64,r,0,Math.PI*2);ctx.fill();ctx.globalAlpha=.55*q;ctx.strokeStyle='#dffaff';ctx.lineWidth=2;ctx.setLineDash([7,9]);ctx.beginPath();ctx.arc(rain.x*64,rain.y*64,r,0,Math.PI*2);ctx.stroke();ctx.restore()}
   for(const p of G.particles){ctx.globalAlpha=Math.max(0,Math.min(1,p.maxLife?p.life/p.maxLife:p.life));ctx.fillStyle=p.color;if(p.kind==='soul'){const pr=2.2+Math.max(0,p.life);drawGlow(p.x*64,p.y*64,p.color,pr*3.1,.8);ctx.beginPath();ctx.arc(p.x*64,p.y*64,pr,0,7);ctx.fill()}else if(p.kind==='spark'){const k=Math.max(0,Math.min(1,p.life/.4)),sz=(p.size||2)*(.45+k);ctx.fillRect(p.x*64-sz/2,p.y*64-sz/2,sz,sz)}else if(p.kind==='holyDrop'){const x=p.x*64,y=p.y*64,len=8+(p.size||2)*3;drawGlow(x,y,p.color,7,.45);ctx.strokeStyle=p.color;ctx.lineWidth=p.size||2;ctx.beginPath();ctx.moveTo(x-2,y-len);ctx.lineTo(x,y);ctx.stroke()}else if(p.kind==='holySplash'){const q=Math.max(0,p.life/(p.maxLife||.2)),radius=(p.size||5)*(1-q);ctx.strokeStyle=p.color;ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(p.x*64,p.y*64,radius*2.2,radius*.55,0,0,7);ctx.stroke();ctx.fillStyle='#f3fdff';ctx.beginPath();ctx.arc(p.x*64,p.y*64-2,1.2*q,0,7);ctx.fill()}else if(p.kind==='splash'){ctx.strokeStyle=p.color;ctx.lineWidth=1.4;ctx.beginPath();ctx.ellipse(p.x*64,p.y*64,(p.size||4)*(1-p.life),2.2,0,0,7);ctx.stroke()}else if(p.kind==='debris'){const sz=p.size||3;ctx.fillRect(p.x*64-sz/2,p.y*64-sz/2,sz,sz)}else ctx.fillRect(p.x*64,p.y*64,3,3)}for(const f of G.floaters){const pop=1+.55*(1-Math.pow(1-(f.pop??1),3))-.55;const sz=Math.round((f.size||12)*(.55+.45*(f.pop??1))*(1+.18*pop));ctx.globalAlpha=Math.max(0,Math.min(1,f.life*1.4));ctx.font=`bold ${sz}px Georgia`;ctx.textAlign='center';if(f.crit){ctx.lineWidth=3;ctx.strokeStyle='#3a1420';ctx.strokeText(f.text,f.x*64,f.y*64)}ctx.fillStyle=f.color;ctx.fillText(f.text,f.x*64,f.y*64)}ctx.globalAlpha=1;
  }
- ctx.restore();drawGateVignette();drawRoseWindow();if(G?.flash){ctx.fillStyle=`rgba(220,210,255,${G.flash})`;ctx.fillRect(0,0,W,H)}
+ ctx.restore();{const c2=cameraTransform();drawBossOverlay((x,y)=>({x:c2.x+sx+x*GRID.tile*c2.worldScale,y:c2.y+sy+y*GRID.tile*c2.worldScale,visible:true}))}drawGateVignette();drawRoseWindow();if(G?.flash){ctx.fillStyle=`rgba(220,210,255,${G.flash})`;ctx.fillRect(0,0,W,H)}
 }
 
 // ---- Battle 4.0: 3D battlefield ------------------------------------------
@@ -3078,6 +3107,31 @@ function battleView3D(){
  const selected=G.selectedTower?{x:G.selectedTower.x,y:G.selectedTower.y,range:towerCombatRange(G.selectedTower)}:null;
  return {time:G.time,width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0,focus:G.camera?.focus||null},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,towers,shots,traps,particles,rings,links,lanes};
 }
+// V37.1 — boss telegraphs, drawn in screen space so the 2D board and the 3D
+// battlefield share one implementation; `project(x,y)` maps tile coordinates.
+function drawBossOverlay(project){
+ if(!G)return;const now=G.time||0;
+ if(G.bossDarkness>0){ctx.save();ctx.globalAlpha=.28*G.bossDarkness;ctx.fillStyle='#05020a';ctx.fillRect(-50,-50,W+100,H+100);ctx.restore()}
+ ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+ for(const m of G.bossMarkers||[]){
+  const p=project(m.x,m.y);if(!p?.visible)continue;
+  if(!m.done){const k=1-Math.max(0,m.t)/m.total,r=34-20*k,col=m.kind==='moon'?'#cfe0ff':'#c58cff';
+   ctx.globalAlpha=.35+.55*k;ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.stroke();
+   ctx.globalAlpha=.9;ctx.font='20px serif';ctx.fillStyle=col;ctx.fillText(m.kind==='moon'?'☾':'👁',p.x,p.y-38-8*Math.sin(now*8));}
+  else{ctx.globalAlpha=Math.max(0,.45+m.t);ctx.fillStyle=m.kind==='moon'?'#e6efff':'#b07cff';ctx.beginPath();ctx.arc(p.x,p.y,30,0,Math.PI*2);ctx.fill()}
+ }
+ ctx.globalAlpha=1;ctx.font='14px serif';
+ for(const t of G.towers){
+  if(!(t.stunT>0||t.rotT>0||t.cracks))continue;const p=project(t.x+.5,t.y+.5);if(!p?.visible)continue;
+  const icons=(t.stunT>0?'💫':'')+(t.rotT>0?'🦠':'')+(t.cracks?'⚡'.repeat(t.cracks):'');
+  ctx.fillStyle='#0b0810cc';ctx.beginPath();ctx.roundRect?.(p.x-icons.length*6-6,p.y+16,icons.length*12+12,18,8);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(icons,p.x,p.y+25);
+ }
+ for(const e of G.enemies){
+  if(e.dead||!(e.guardT>0))continue;const p=project(e.x,e.y);if(!p?.visible)continue;
+  ctx.globalAlpha=.5+.25*Math.sin(now*10);ctx.strokeStyle=e.guard===0?'#b48cff':'#ffd27a';ctx.lineWidth=e.boss?4:2;ctx.beginPath();ctx.arc(p.x,p.y-12,e.boss?42:20,0,Math.PI*2);ctx.stroke();
+ }
+ ctx.restore();
+}
 function draw3D(){
  battleTelemetryOverlay.update(G,nextChoiceMilestone(G));
  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';ctx.shadowBlur=0;ctx.setLineDash([]);ctx.clearRect(0,0,W,H);
@@ -3102,6 +3156,7 @@ function draw3D(){
   if(!t.supportOnly){const gems=inv(t.id).gemSlots.map(ascensionGemDef).filter(Boolean);if(gems.length){ctx.font='11px serif';const gy=top.y-(t.supports?.length?20:0);gems.forEach((gem,i)=>{const gx=top.x+(i-(gems.length-1)/2)*16;ctx.fillStyle='#09070ddd';ctx.strokeStyle=gem.color||'#e8c77a';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(gx,gy,8,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.fillText(gem.icon,gx,gy)})}}
  }
  if(G.time<=MGS.alertUntil){const left=MGS.alertUntil-G.time,pop=Math.min(1,(1.45-left)*7),rise=(1-Math.min(1,left/1.45))*.3,p=battle3d.project(MGS.alertX,MGS.alertY,groundHeight(MGS.alertX,MGS.alertY)+1.9+rise);if(p.visible){ctx.save();ctx.globalAlpha=Math.min(1,left*3.2);ctx.translate(p.x,p.y);ctx.scale(.7+pop*.45,.7+pop*.45);ctx.font='bold 46px Georgia, serif';ctx.lineWidth=6;ctx.strokeStyle='#160d12';ctx.strokeText('!',0,0);ctx.fillStyle='#ffe14d';ctx.fillText('!',0,0);ctx.restore()}}
+ drawBossOverlay((x,y)=>battle3d.project(x,y,groundHeight(x,y)+.6));
  for(const f of G.floaters){
   const p=battle3d.project(f.x,f.y,groundHeight(f.x,f.y)+.9);if(!p.visible)continue;
   const pop=1+.55*(1-Math.pow(1-(f.pop??1),3))-.55,sz=Math.round((f.size||12)*(.55+.45*(f.pop??1))*(1+.18*pop));
