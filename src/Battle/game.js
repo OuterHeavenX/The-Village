@@ -23,6 +23,7 @@ import { createBattleTelemetryOverlay } from './developmentTelemetry.js';
 import { debugEnabled, debugSummary } from '../config/debug.js';
 import { activateBattle3Runtime, deactivateBattle3Runtime } from './battle3Runtime.js';
 import { cardArtHTML } from '../Cards/cardArtRegistry.js';
+import { testUnlockAll } from '../config/testMode.js';
 import { towerSprite2D, SPRITE_TILES_WIDE, SPRITE_ANCHOR } from '../Cards/cardArt3D.js';
 import { installCardsScreen } from '../Cards/cardsScreen.js';
 import {
@@ -1010,6 +1011,8 @@ if(save.campaign.completed.includes('monastery')||save.uniqueBossDrops.draculaTo
  save.shadowLevel=Math.max(2,save.shadowLevel||1);
  save.heroLevels.warden=Math.max(2,save.heroLevels.warden||1);
 }
+// V37.5 test mode (?unlockall): every chapter open, which also unlocks every chapter's cards below.
+if(testUnlockAll()){save.campaign.unlocked=CHAPTERS.length;for(const g of HERO_GROUND_DEFENSES){const item=save.inventory[g.id]||(save.inventory[g.id]={copies:0,rarity:'common',level:1,recent:false,lastFound:0});if(item.copies<1)item.copies=1;}}
 // Repair older saves that advanced the campaign counter without recording completed chapter IDs.
 for(const ch of CHAPTERS){if(ch.number<save.campaign.unlocked&&!save.campaign.completed.includes(ch.id))save.campaign.completed.push(ch.id)}
 const progressionIds=progressionUnlockedIds(save.campaign.completed);

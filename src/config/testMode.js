@@ -1,0 +1,61 @@
+// V37.5 — "Unlock everything" test mode.
+//
+//   …/The-Village/?unlockall     turn it on (remembered on this browser)
+//   …/The-Village/?unlockall=0   turn it off
+//
+// Turning it on first copies this browser's real save aside; while it is on
+// every chapter is open and every card is unlocked, and anything you do is
+// played on that copy. Turning it off throws the test progress away and puts
+// the real save back exactly as it was.
+//
+// This module must load before the game reads its save, so main.js imports it
+// first. The backup lives under the "vtb:" prefix, which none of the save,
+// reset or cloud-sync code treats as a save key.
+
+const FLAG = 'vtb:active';
+const PREFIX = 'vtb:save:';
+const SAVE_KEY = /^(relicsEclipse|gateRunner|rotkVillage|rotk\.village\.|theVillage|village\.)/;
+const NOT_SAVE = /^village\.(cloud\.|saveRecovery\.|feedback\.|debug$)/;
+const isSaveKey = key => (SAVE_KEY.test(key) || key === 'villageFreshStartToken') && !NOT_SAVE.test(key);
+
+function storage() { try { return window.localStorage; } catch { return null; } }
+
+function turnOn(ls) {
+  if (ls.getItem(FLAG) === '1') return;
+  for (const key of Object.keys(ls)) if (key.startsWith(PREFIX)) ls.removeItem(key);
+  for (const key of Object.keys(ls)) if (isSaveKey(key)) ls.setItem(PREFIX + key, ls.getItem(key));
+  ls.setItem(FLAG, '1');
+}
+function turnOff(ls) {
+  if (ls.getItem(FLAG) !== '1') return;
+  for (const key of Object.keys(ls)) if (isSaveKey(key)) ls.removeItem(key);
+  for (const key of Object.keys(ls)) if (key.startsWith(PREFIX)) { ls.setItem(key.slice(PREFIX.length), ls.getItem(key)); ls.removeItem(key); }
+  ls.removeItem(FLAG);
+}
+
+let active = false;
+try {
+  const ls = storage();
+  const param = new URLSearchParams(location.search).get('unlockall');
+  if (ls) {
+    if (param === '0' || param === 'off' || param === 'false') turnOff(ls);
+    else if (param !== null) turnOn(ls);
+    active = ls.getItem(FLAG) === '1';
+  }
+} catch (error) { console.warn('[TestMode] unavailable', error); }
+
+export function testUnlockAll() { return active; }
+
+if (active) {
+  const badge = () => {
+    if (document.getElementById('testModeBadge')) return;
+    const el = document.createElement('a');
+    el.id = 'testModeBadge';
+    el.href = '?unlockall=0';
+    el.title = 'Test mode: every chapter and card is unlocked on a copy of your save. Click to leave test mode and restore your real save.';
+    el.textContent = 'TEST MODE · all unlocked · tap to exit';
+    el.style.cssText = 'position:fixed;left:50%;bottom:calc(4px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:2147483000;padding:3px 10px;border-radius:999px;font:700 10px/1.4 system-ui,sans-serif;letter-spacing:.06em;color:#1a1206;background:#f3dc9c;box-shadow:0 2px 10px #000a;text-decoration:none;opacity:.85';
+    document.body.append(el);
+  };
+  if (document.body) badge(); else addEventListener('DOMContentLoaded', badge);
+}

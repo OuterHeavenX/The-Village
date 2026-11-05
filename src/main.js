@@ -1,3 +1,4 @@
+import './config/testMode.js';
 import { bootstrapAuthentication } from './online/authGate.js';
 import { applyReleaseMetadata } from './config/release.js';
 import { initializeFeedbackSystem } from './online/feedbackSystem.js';
