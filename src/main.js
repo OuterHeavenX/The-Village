@@ -5,6 +5,7 @@ import { logStartupFailure, logStartupStage, withTimeout } from './online/startu
 import './UI/villageProductionUI.css';
 import './UI/battle3.css';
 import './UI/cards3.css';
+import './UI/cards4.css';
 import { initializeVillageProductionUI } from './UI/villageProductionUI.js';
 
 applyReleaseMetadata();

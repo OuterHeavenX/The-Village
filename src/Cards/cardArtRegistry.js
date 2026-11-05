@@ -1,3 +1,5 @@
+import { cardArt3DHTML, cardArtSupported } from './cardArt3D.js';
+const NO_3D_ART = /(?:^|[,=])nocardart(?:,|&|$)/.test(globalThis.location?.search || '');
 const CARD_ART = Object.freeze({
   dagger: new URL('../../assets/cards/tower-art/dagger.webp', import.meta.url).href,
   axe: new URL('../../assets/cards/tower-art/axe.webp', import.meta.url).href,
@@ -15,7 +17,10 @@ export function cardArtFor(cardOrId) {
   return CARD_ART[id] || null;
 }
 
+// V37.4: every card's art is rendered from the 3D models (cardArt3D.js); the
+// painted webp art is the fallback when WebGL is unavailable.
 export function cardArtHTML(card, options = {}) {
+  if (cardArtSupported() && !NO_3D_ART) { const html = cardArt3DHTML(card, options); if (html) return html; }
   const source = cardArtFor(card);
   if (!source) return '';
   return `<img class="card-art-image" src="${source}" alt="${card.name} tower artwork" loading="${options.eager ? 'eager' : 'lazy'}" decoding="async" draggable="false">`;

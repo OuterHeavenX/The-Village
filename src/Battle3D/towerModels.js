@@ -630,5 +630,12 @@ export function createTowerFactory({ glowTexture } = {}) {
     Object.values(materials).forEach(m => m.dispose());
   }
 
-  return { create, dispose, ids: Object.keys(HEADS).filter(id => id !== 'generic') };
+  // Bakes a free-standing PartBuilder (card emblems) with the tower materials.
+  const loose = [];
+  function meshFromBuilder(builder) { const baked = bake(builder); loose.push(baked); return meshesFor(baked, true); }
+  function disposeLoose() { for (const g of loose) for (const list of ['stone', 'metal', 'glow']) g[list]?.dispose(); loose.length = 0; }
+
+  return { create, dispose: () => { disposeLoose(); dispose(); }, meshFromBuilder, disposeLoose, accentFor: id => HEADS[id]?.base?.accent ?? null, ids: Object.keys(HEADS).filter(id => id !== 'generic') };
 }
+
+export { PartBuilder, bake, COL };

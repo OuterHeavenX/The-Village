@@ -23,6 +23,7 @@ import { createBattleTelemetryOverlay } from './developmentTelemetry.js';
 import { debugEnabled, debugSummary } from '../config/debug.js';
 import { activateBattle3Runtime, deactivateBattle3Runtime } from './battle3Runtime.js';
 import { cardArtHTML } from '../Cards/cardArtRegistry.js';
+import { towerSprite2D, SPRITE_TILES_WIDE, SPRITE_ANCHOR } from '../Cards/cardArt3D.js';
 import { installCardsScreen } from '../Cards/cardsScreen.js';
 import {
   ASCENSION_SAVE_VERSION,
@@ -1734,7 +1735,7 @@ function miniCardHTML(c){
  const atk=c.damage?Math.max(1,Math.round(c.damage*power)):c.type==='support'?Math.round(10*power):c.type==='skill'?Math.round((c.cost||30)*power):Math.round(8*power);
  const hp=c.type==='tower'?Math.round((90+(c.cost||30)*4)*power):c.type==='support'?Math.round(120*power):c.type==='hero'?Math.round(100*power):Math.round(70*power);
  const defenseCard=c.type==='tower'||c.type==='trap';
- return `<span class="deck-card-level">LV ${item.level}</span><div class="deck-card-art">${cardArtHTML(c,{eager:true})}<span>${cardIconHTML(c,item.level)}</span></div><strong class="deck-card-name">${c.name}</strong>${cardGemSlotsHTML(c)}<div class="deck-card-stats ${defenseCard?'defense-stats':''}"><span>⚔ ${atk}</span>${defenseCard?'':`<span>♥ ${hp}</span>`}</div>`;
+ return `<span class="deck-card-level">LV ${item.level}</span><div class="deck-card-art">${cardArtHTML(c,{eager:true,level:item.level,rarity:item.rarity,icon:cardIconHTML(c,item.level)})}<span>${cardIconHTML(c,item.level)}</span></div><strong class="deck-card-name">${c.name}</strong>${cardGemSlotsHTML(c)}<div class="deck-card-stats ${defenseCard?'defense-stats':''}"><span>⚔ ${atk}</span>${defenseCard?'':`<span>♥ ${hp}</span>`}</div>`;
 }
 function groundCardById(id){return HERO_GROUND_DEFENSES.find(c=>c.id===id)}
 
@@ -1853,16 +1854,16 @@ function cardHTML(c,collection=false){
  const atk=c.damage?Math.max(1,Math.round(c.damage*power)):c.type==='support'?Math.round(10*power):c.type==='skill'?Math.round((c.cost||30)*power):Math.round(8*power);
  const hp=c.type==='tower'?Math.round((90+(c.cost||30)*4)*power):c.type==='support'?Math.round(120*power):c.type==='hero'?Math.round(100*power):Math.round(70*power);
  const defenseCard=c.type==='tower'||c.type==='trap';
- return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art">${cardArtHTML(c)}<div class="art-sigil">${cardIconHTML(c,item.level)}</div></div><div class="card-copy"><h3>${c.name}</h3></div>${cardGemSlotsHTML(c)}<div class="ascension-card-xp" title="${Math.min(100,item.xp)}% card XP"><i style="width:${Math.min(100,item.xp)}%"></i></div><div class="card-primary-stats ${defenseCard?'defense-stats':''}"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span>${defenseCard?'':`<span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span>`}</div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
+ return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art">${cardArtHTML(c,{level:item.level,rarity:item.rarity,icon:cardIconHTML(c,item.level)})}<div class="art-sigil">${cardIconHTML(c,item.level)}</div></div><div class="card-copy"><h3>${c.name}</h3></div>${cardGemSlotsHTML(c)}<div class="ascension-card-xp" title="${Math.min(100,item.xp)}% card XP"><i style="width:${Math.min(100,item.xp)}%"></i></div><div class="card-primary-stats ${defenseCard?'defense-stats':''}"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span>${defenseCard?'':`<span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span>`}</div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
 }
 function draftCardHTML(c){
- if(c.tactical)return `<span class="draft-level">TACTICAL</span><span class="draft-type">UTILITY</span><div class="draft-art"><div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>IMMEDIATE EFFECT</small><p>${c.desc}</p></div><div class="draft-cost"><span>Stage choice</span><strong>NO ESSENCE COST</strong></div>`;
+ if(c.tactical)return `<span class="draft-level">TACTICAL</span><span class="draft-type">UTILITY</span><div class="draft-art">${cardArtHTML(c,{rarity:'legendary',icon:c.icon})}<div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>IMMEDIATE EFFECT</small><p>${c.desc}</p></div><div class="draft-cost"><span>Stage choice</span><strong>NO ESSENCE COST</strong></div>`;
  if(c.hiddenSystem)return `<span class="draft-level">SYSTEM</span><span class="draft-type">ROAD</span><div class="draft-art"><div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>SYSTEM EFFECT</small><p>${c.desc}</p></div><div class="draft-stat-grid"><div><small>ROLE</small><b>Road</b></div><div><small>DRAW WEIGHT</small><b>${Math.round((c.drawWeight??1)*100)}%</b></div></div>`;
  const item=inv(c.id),r=rarityDef(item.rarity),power=cardPower(c.id),damage=Math.round((c.damage||0)*power),speed=c.rate?`${(1/c.rate).toFixed(2)}/sec`:'—',range=c.range?`${c.range.toFixed(1)} tiles`:'—',cost=essenceCost(c);
  const role=shortType(c.type);
  const target=c.type==='tower'?(c.id==='dagger'||c.id==='cross'?'Air + Ground':c.id==='axe'?'Ground · Armor':c.id==='scripture'?'Ground · Chain':'Ground'):c.type==='support'?'Allied Tower':'Battlefield';
  const passive=c.desc||'No passive effect.';
- return `<span class="draft-level">LV ${item.level}</span><span class="draft-type">${role}</span><div class="draft-art"><div class="draft-icon">${cardIconHTML(c,item.level)}</div></div><h3>${c.name}</h3><div class="draft-stat-grid"><div><small>DAMAGE</small><b>${damage||'—'}</b></div><div><small>ATTACK SPEED</small><b>${speed}</b></div><div><small>RANGE</small><b>${range}</b></div><div><small>TARGETS</small><b>${target}</b></div></div><div class="draft-passive"><small>PASSIVE ABILITY</small><p>${passive}</p></div><div class="draft-cost"><span>${r.name} · Level ${item.level}</span><strong>✦ ${cost}</strong></div>`;
+ return `<span class="draft-level">LV ${item.level}</span><span class="draft-type">${role}</span><div class="draft-art">${cardArtHTML(c,{level:item.level,rarity:item.rarity,elite:!!c.elite,icon:cardIconHTML(c,item.level)})}<div class="draft-icon">${cardIconHTML(c,item.level)}</div></div><h3>${c.name}</h3><div class="draft-stat-grid"><div><small>DAMAGE</small><b>${damage||'—'}</b></div><div><small>ATTACK SPEED</small><b>${speed}</b></div><div><small>RANGE</small><b>${range}</b></div><div><small>TARGETS</small><b>${target}</b></div></div><div class="draft-passive"><small>PASSIVE ABILITY</small><p>${passive}</p></div><div class="draft-cost"><span>${r.name} · Level ${item.level}</span><strong>✦ ${cost}</strong></div>`;
 }
 
 function renderHand(){
@@ -1876,7 +1877,7 @@ function renderHand(){
   const el=document.createElement('button');
   el.type='button';
   el.className=`hand-card ${isReserve?'reserve':'active'} ${affordable?'affordable':'locked-cost'}`;
-  el.innerHTML=`<span class="hlvl">${isReserve?'Reinforce':'Lv '+inv(c.id).level}</span><div class="hicon">${cardIconHTML(c,inv(c.id).level)}</div><div class="hname">${c.name}</div><div class="hcost">✦ ${cost}</div>`;
+  el.innerHTML=`<span class="hlvl">${isReserve?'Reinforce':'Lv '+inv(c.id).level}</span><div class="hicon">${cardArtHTML(c,{level:inv(c.id).level,rarity:inv(c.id).rarity,icon:cardIconHTML(c,inv(c.id).level)})}<span class="hicon-glyph">${cardIconHTML(c,inv(c.id).level)}</span></div><div class="hname">${c.name}</div><div class="hcost">✦ ${cost}</div>`;
   el.title=affordable?`Place another ${c.name} for ${cost} Essence`:`Need ${cost-G.essence} more Essence`;
   el.onclick=()=>!isReserve&&G.pendingCard&&!G.draftChoiceCommitted?reopenDraftChoices():selectEssenceCard(c);
   UI.hand.append(el);
@@ -2982,6 +2983,9 @@ function drawGothicDaggerTower(t){
  ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(gothicDaggerImage,f.x,f.y,f.w,f.h,-30,-43,60,78);ctx.restore();return true;
 }
 function drawTowerVisual(t,x,y){
+ // V37.4: the 2D board draws the same 3D tower model, pre-rendered to a sprite.
+ const spr=TOWER_MODELS_OFF?null:towerSprite2D(t.id,t.level||1,!!t.elite,!!t.supportOnly);
+ if(spr){const w=64*SPRITE_TILES_WIDE,h=w*spr.naturalHeight/spr.naturalWidth;ctx.drawImage(spr,x-w/2,y+12-h*SPRITE_ANCHOR,w,h);return;}
  const pulse=.5+.5*Math.sin((G?.time||0)*3+t.x);
  const depth=.88+Math.max(0,Math.min(1,y/(GRID.rows*64)))*.22;
  ctx.save();ctx.translate(x,y);ctx.scale(1.18*depth,1.18*depth);

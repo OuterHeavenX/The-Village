@@ -8,6 +8,45 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.4.0 RELIQUARY CARDS
+
+### Card art from the 3D models
+
+Every card's art is now rendered from the same 3D kit as the battlefield
+towers (`src/Cards/cardArt3D.js`):
+
+- **Tower and support cards** show the tower's own 3D model at the card's
+  level, so level-ups (spikes, banners, rune rings, halo) show on the card too.
+- **Skills, traps and hero upgrades** get 3D emblems
+  (`src/Battle3D/cardEmblems.js`): a holy-water flask, a storm of gold
+  crosses, crossed swords and shield, spinning axes, an orthodox cross on an
+  altar, a soul-bound sword, a whetstone, a crescent moon, road spikes, a
+  spilled oil barrel, a bear trap, a frost rune, a poison cauldron, a holy
+  banner, a watch bell, a shadow mine and a soul lantern.
+- Any other card shows its icon on a gilt medallion.
+- The backdrop glows in the card's rarity colour.
+
+Art renders once in the background through a small offscreen renderer, is
+cached for the session, and the renderer lets go of its WebGL context after a
+few idle seconds. `?nocardart` restores the old art.
+
+### The 2D board uses the 3D towers
+
+While the 3D view loads, or on devices without WebGL, the 2D board now draws
+each tower as a sprite rendered from its 3D model instead of the old flat
+shapes.
+
+### New card frame
+
+One frame for the deck collection, loadout slots, detail sheet, battle draft
+and battle hand (`src/UI/cards4.css`): a gilt bevelled border, a rarity gem
+at the top, a rarity-coloured inner glow, full-bleed art, the name on a ribbon
+across the foot of the art, gold level badges and engraved stat plaques.
+
+### Fix
+
+- A two-card draft no longer hugs the left side of the panel.
+
 ## V37.3.0 3D TOWERS
 
 Every tower on the 3D battlefield is now a real 3D model instead of a flat
