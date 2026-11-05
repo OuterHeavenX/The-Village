@@ -41,6 +41,7 @@ the tower's colour.
 side banners and a glowing rune ring, level 4 orbiting runes, level 5 a halo.
 Elite towers get a gold banner and a floating gold crown. New towers rise out
 of the ground when placed.
+Towers on the build spots that hug the keep are nudged clear of its walls.
 
 **Cost:** geometry is merged and cached per tower type and level, so each tower
 is a handful of draw calls. `?look=nomodels` brings back the old flat

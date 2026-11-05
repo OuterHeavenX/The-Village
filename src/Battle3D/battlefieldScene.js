@@ -847,7 +847,11 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
           towerModels.set(key, entry);
           towerGroup.add(model.root);
         }
-        const cx = tower.x + .5, cy = tower.y + .5;
+        // Pads hugging the keep sit inside the keep model's footprint; nudge the
+        // model out along the shallower axis so it stands clear of the wall.
+        let cx = tower.x + .5, cy = tower.y + .5;
+        { const half = KEEP_FOOTPRINT / 2 + .4, dx = cx - KEEP_CENTER.x, dy = cy - KEEP_CENTER.y, px = half - Math.abs(dx), py = half - Math.abs(dy);
+          if (px > 0 && py > 0) { if (px < py) cx += Math.sign(dx || 1) * px; else cy += Math.sign(dy || 1) * py; } }
         const root = entry.model.root;
         // Rise out of the ground over a third of a second when first placed.
         const grow = Math.min(1, (now - entry.born) / .35), ease = 1 - Math.pow(1 - grow, 3);
