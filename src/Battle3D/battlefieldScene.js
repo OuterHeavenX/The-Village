@@ -855,11 +855,12 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       for (const boss of view.bosses || []) {
         live.add(boss.uid);
         let entry = bossModels.get(boss.uid);
+        if (entry && entry.type !== boss.type) { bossGroup.remove(entry.model.root); entry.model.dispose(); bossModels.delete(boss.uid); entry = null; } // the golem changed form
         if (!entry) {
           let model = null;
           try { model = bossFactory.create(boss.type); } catch (error) { console.warn('[Battle3D] boss model failed', boss.type, error); }
           if (!model) continue;
-          entry = { model }; bossModels.set(boss.uid, entry); bossGroup.add(model.root);
+          entry = { model, type: boss.type }; bossModels.set(boss.uid, entry); bossGroup.add(model.root);
         }
         entry.last = boss; entry.dying = null;
         entry.model.root.position.set(boss.x, groundHeight(boss.x, boss.y), boss.y);

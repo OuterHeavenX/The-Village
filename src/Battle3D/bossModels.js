@@ -40,10 +40,15 @@ const BOSSES = {
   eclipseherald:{ rig: 'robed', scale: 1.15, head: 'hood', weapon: 'staff', extras: ['float', 'shards'], pal: { main: 0x14183a, trim: 0xc8d0e8, cloth: 0x1a2048, glow: 0xdfe6ff } },
   lastsentinel: { rig: 'knight', scale: 1.3, head: 'greathelm', weapon: 'halberd', extras: ['shield', 'spikes'], pal: { main: 0x5a5650, trim: COL.gold, cloth: 0x3a2a14, glow: 0x9fe8ff } },
   eclipselord:  { rig: 'knight', scale: 1.35, head: 'crown', weapon: 'greatsword', extras: ['float', 'cape', 'eclipse', 'batwings'], pal: { main: 0x14121a, trim: COL.gold, cloth: 0x2a0a14, glow: 0xffc860 } },
-  golem:        { rig: 'colossus', scale: 1.35, head: 'rock', weapon: 'none', extras: ['runes'], pal: { main: 0x5a5658, trim: 0x3a3638, cloth: 0x2a2628, glow: 0xffa040 } }
+  // Chapters 1-10 all end with the golem; its form grows with the chapter (and Chapter 10's transforms mid-fight).
+  golem:        { rig: 'colossus', scale: 1.35, head: 'rock', weapon: 'none', extras: ['runes'], pal: { main: 0x5a5658, trim: 0x3a3638, cloth: 0x2a2628, glow: 0xffa040 } },
+  golem2:       { rig: 'colossus', scale: 1.45, head: 'rock', weapon: 'none', extras: ['runes', 'crystals'], pal: { main: 0x4a5058, trim: 0x2e3440, cloth: 0x2a2628, glow: 0x8ad8ff } },
+  golem3:       { rig: 'colossus', scale: 1.6, head: 'rock', weapon: 'none', extras: ['runes', 'crystals', 'lava', 'horns'], pal: { main: 0x1e1a1c, trim: 0x140e10, cloth: 0x2a2628, glow: 0xff5a2a } }
 };
 export const BOSS_MODEL_IDS = Object.freeze(Object.keys(BOSSES));
 export const hasBossModel = id => !!BOSSES[id];
+// The golem's model follows its form: golem, golem2, golem3.
+export const bossModelId = e => e?.type === 'golem' ? ((e.golemForm || 1) > 1 ? `golem${Math.min(3, e.golemForm)}` : 'golem') : e?.type;
 
 // ---------------------------------------------------------------------------
 // Part builders
@@ -162,20 +167,33 @@ function buildRig(def) {
   const noble = def.rig === 'noble';
   const colossus = def.rig === 'colossus';
   if (def.rig === 'beast') return buildBeast(def);
-  const legLen = colossus ? .7 : .62, hipW = colossus ? .14 : .1, torsoH = colossus ? .62 : .5, shoulderW = colossus ? .3 : .22;
+  const rock = def.head === 'rock';
+  const legLen = colossus ? .7 : .62, hipW = rock ? .17 : colossus ? .14 : .1, torsoH = colossus ? .62 : .5, shoulderW = rock ? .42 : colossus ? .3 : .22;
   piv.hips = legLen;
   // Legs (hidden under robes).
   if (!robed) {
     for (const s of ['L', 'R']) {
       const g = P(), x = 0;
-      if (colossus) { g.cyl('s', .06, .07, legLen * .55, 6, pal.main, [x, -legLen * .28, 0]); g.ball('s', .07, pal.trim, [x, -legLen * .55, 0]); g.cyl('s', .05, .06, legLen * .45, 6, pal.main, [x, -legLen * .8, 0]); g.box('s', .14, .06, .2, pal.main, [x, -legLen + .03, .04]); }
+      if (colossus && def.head === 'rock') { g.box('s', .2, legLen * .5, .2, pal.main, [x, -legLen * .25, 0], [0, .2, .05]); g.box('s', .17, legLen * .45, .18, pal.trim, [x, -legLen * .72, 0], [0, -.15, 0]); g.box('s', .24, .1, .3, pal.main, [x, -legLen + .05, .04]); g.box('g', .03, .08, .01, pal.glow, [x + .05, -legLen * .25, .105]); }
+      else if (colossus) { g.cyl('s', .06, .07, legLen * .55, 6, pal.main, [x, -legLen * .28, 0]); g.ball('s', .07, pal.trim, [x, -legLen * .55, 0]); g.cyl('s', .05, .06, legLen * .45, 6, pal.main, [x, -legLen * .8, 0]); g.box('s', .14, .06, .2, pal.main, [x, -legLen + .03, .04]); }
       else { g.box(def.rig === 'knight' ? 'm' : 's', .12, legLen * .95, .13, noble ? 0x0c0a10 : pal.main, [x, -legLen / 2, 0]); g.box('m', .14, .08, .2, noble ? 0x18141a : pal.trim, [x, -legLen + .04, .04]); if (def.rig === 'knight') g.ball('m', .07, pal.trim, [x, -legLen * .5, .05], [1, 1, .7]); }
       parts['leg' + s] = g; piv['leg' + s] = [s === 'L' ? -hipW : hipW, legLen, 0];
     }
   }
   // Torso, in hip space.
   const t = P();
-  if (colossus) {
+  if (colossus && def.head === 'rock') {
+    t.box('s', .4, .2, .28, pal.trim, [0, .08, 0], [0, .1, 0]);
+    t.box('s', .62, torsoH * .75, .4, pal.main, [0, torsoH * .58, 0], [.05, -.08, 0]);
+    t.box('s', .5, .2, .34, pal.trim, [0, torsoH * .95, -.04], [0, .2, .05]);
+    for (const sx of [-1, 1]) t.box('s', .26, .24, .3, pal.main, [sx * .36, torsoH * .98, 0], [.2, sx * .4, sx * .3]);
+    t.box('g', .12, .12, .02, pal.glow, [0, torsoH * .6, .205]);
+    t.box('g', .03, .18, .01, pal.glow, [-.14, torsoH * .5, .205], [0, 0, .4]);
+    t.box('g', .03, .14, .01, pal.glow, [.16, torsoH * .72, .205], [0, 0, -.5]);
+    if (ex.has('crystals')) for (const [x, y, z, h] of [[-.22, torsoH + .08, -.04, .22], [.24, torsoH + .1, -.02, .26], [-.08, torsoH * .7, -.16, .2], [.12, torsoH * .5, -.15, .18]]) t.gem('g', .06, pal.glow, [x, y, z], [.7, h / .12, .7]);
+    if (ex.has('lava')) for (let i = 0; i < 6; i++) t.box('g', .02, .14, .01, pal.glow, [(i - 2.5) * .07, torsoH * (.4 + (i % 3) * .12), .205], [0, 0, (i % 2 ? .5 : -.4)]);
+    if (ex.has('horns')) for (const sx of [-1, 1]) t.cone('s', .05, .26, 5, pal.trim, [sx * .2, torsoH + .22, 0], [0, 0, -sx * .5]);
+  } else if (colossus) {
     t.box('s', .16, .12, .12, pal.main, [0, .05, 0]);
     t.cyl('s', .04, .04, torsoH, 6, pal.main, [0, torsoH / 2, -.04]);
     for (let i = 0; i < 4; i++) t.add('stone', new THREE.TorusGeometry(.22 - i * .02, .025, 4, 12, Math.PI), pal.main, [0, .18 + i * .11, .0], [0, Math.PI / 2 + Math.PI / 2, 0], [1, 1, 1.2]);
@@ -211,7 +229,8 @@ function buildRig(def) {
   for (const s of ['L', 'R']) {
     const a = P(), sign = s === 'L' ? -1 : 1;
     const sleeve = robed || noble;
-    if (colossus) { a.cyl('s', .05, .045, armLen * .5, 6, pal.main, [0, -armLen * .25, 0]); a.ball('s', .06, pal.trim, [0, -armLen * .5, 0]); a.cyl('s', .045, .05, armLen * .45, 6, pal.main, [0, -armLen * .75, 0]); a.box('s', .12, .1, .1, pal.main, [0, -armLen, .02]); }
+    if (colossus && def.head === 'rock') { a.box('s', .18, armLen * .5, .18, pal.main, [0, -armLen * .25, 0], [0, .3, .05]); a.box('s', .16, armLen * .45, .16, pal.trim, [0, -armLen * .7, .02], [.1, -.2, 0]); a.box('s', .26, .24, .26, pal.main, [0, -armLen - .06, .03], [.2, .4, .1]); a.box('g', .02, .1, .01, pal.glow, [.05, -armLen * .5, .095]); }
+    else if (colossus) { a.cyl('s', .05, .045, armLen * .5, 6, pal.main, [0, -armLen * .25, 0]); a.ball('s', .06, pal.trim, [0, -armLen * .5, 0]); a.cyl('s', .045, .05, armLen * .45, 6, pal.main, [0, -armLen * .75, 0]); a.box('s', .12, .1, .1, pal.main, [0, -armLen, .02]); }
     else if (sleeve) { a.cone('s', .1, armLen, 8, pal.cloth, [0, -armLen / 2, 0], [Math.PI, 0, 0]); a.ball('s', .045, pal.skin ?? 0x2a2228, [0, -armLen - .02, .02]); }
     else { a.box('m', .1, armLen, .11, pal.main, [0, -armLen / 2, 0]); a.box('m', .12, .1, .13, pal.trim, [0, -armLen + .02, .01]); }
     if (s === 'R' && def.weapon !== 'none') { const w = P(); weapon(w, def.weapon, pal); parts.weapon = w; }

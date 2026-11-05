@@ -21,7 +21,13 @@ which throws the test progress away and restores your real save exactly.
 
 ### 3D bosses
 
-All twenty chapter bosses and the stone golem are now 3D models on the 3D
+Chapters 1–10 all end with the Golem; it is now a hulking 3D stone golem with
+glowing seams, and it grows with its form — Stone Golem (amber), Awakened Golem
+(ice-blue crystals, larger) and the Golem of Three Forms' final shape
+(obsidian, lava cracks, horns, largest), swapping models when it transforms
+mid-fight.
+
+The bosses of chapters 11–20, and the ten named bosses of chapters 1–10, are 3D models too on the 3D
 battlefield (`src/Battle3D/bossModels.js`), built on five rigs — armoured
 knight, robed caster, vampire noble, beast and bone colossus — each with its
 own head, weapon and extras: the Eclipse Warden's black-sun halo and

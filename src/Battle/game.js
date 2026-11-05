@@ -25,7 +25,7 @@ import { activateBattle3Runtime, deactivateBattle3Runtime } from './battle3Runti
 import { cardArtHTML } from '../Cards/cardArtRegistry.js';
 import { testUnlockAll } from '../config/testMode.js';
 import { towerSprite2D, SPRITE_TILES_WIDE, SPRITE_ANCHOR } from '../Cards/cardArt3D.js';
-import { hasBossModel } from '../Battle3D/bossModels.js';
+import { hasBossModel, bossModelId } from '../Battle3D/bossModels.js';
 import { installCardsScreen } from '../Cards/cardsScreen.js';
 import {
   ASCENSION_SAVE_VERSION,
@@ -3124,7 +3124,7 @@ function battleView3D(){
   e.face=face;
   const isGolem=isGolemBoss(e),action=enemyActionFor(e),img=spriteImage(enemySheet(e,action)),frame=enemyFrame(e,action,img),size=isGolem?320:e.boss?240:e.mini?98:e.elite?90:78;
   // V37.5: chapter bosses are 3D models on the 3D board.
-  if(e.boss&&!TOWER_MODELS_OFF&&hasBossModel(e.type)){if(!e.uid)e.uid=++BOSS_UID;bosses.push({uid:e.uid,type:e.type,x:e.x,y:e.y,attacking:!!e.attacking,hit:e.hitFlash||0,hp:Math.max(0,e.hp/(e.max||1)),speed:e.speed||.3,paused:(e.cinematicPause||0)>0||!!G.paused,faceAngle:FACE_ANGLE[face]});continue;}
+  if(e.boss&&!TOWER_MODELS_OFF&&hasBossModel(e.type)){if(!e.uid)e.uid=++BOSS_UID;bosses.push({uid:e.uid,type:bossModelId(e),x:e.x,y:e.y,attacking:!!e.attacking,hit:e.hitFlash||0,hp:Math.max(0,e.hp/(e.max||1)),speed:e.speed||.3,paused:(e.cinematicPause||0)>0||!!G.paused,faceAngle:FACE_ANGLE[face]});continue;}
   sprites.push({img,cell:isGolem?128:64,frame,row:directionRow(face),x:e.x+(e.kickX??-1)*(e.hitKick||0),y:e.y+(e.kickY??0)*(e.hitKick||0),size,tint:(e.hitFlash||0)>0?'#ffb4b4':null,hit:Math.min(1,(e.hitFlash||0)/.11),ring:e.elite?'#ffd27a':e.mini?'#c08cff':null});
  }
  const heroLevel=currentShadowLevel(),heroAction=(G.hero.attackAnim||0)>0?'attack':(G.hero.walking?'Walk':'Idle'),heroImg=spriteImage(shadowAsset(heroLevel,heroAction)),heroFrame=Math.floor((G.hero.anim||0)*(heroAction==='Idle'?.45:1));
