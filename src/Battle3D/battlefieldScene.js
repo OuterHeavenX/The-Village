@@ -344,7 +344,9 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
         p.copy(a).addScaledVector(ab.subVectors(b, a), u).addScaledVector(ac.subVectors(c, a), v);
         if (p.x < .3 || p.x > COLS - .3 || p.z < .3 || p.z > ROWS - .3) continue;
         q.setFromAxisAngle(up, rnd() * Math.PI * 2);
-        const scale = .55 + rnd() * .5;
+        // V37.2: build pads are mown so towers are not buried in the tall grass.
+        const mown = padTiles.has(`${Math.floor(p.x)},${Math.floor(p.z)}`) ? .32 : 1;
+        const scale = (.55 + rnd() * .5) * mown;
         s.set(scale, scale * (.8 + rnd() * .5), scale);
         matrices.push(m.compose(p, q, s).clone());
       }
@@ -447,6 +449,9 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       node.frustumCulled = false; node.castShadow = true; node.receiveShadow = true;
       node.material = node.material.clone();
       node.material.metalness = 0;
+      // V37.2: the near-black slate caught the blue sky fill and the grade's cool
+      // shadow lift and read as bright royal-blue caps. A warm slate cancels it.
+      if (/roof|slate/i.test(node.material.name)) { node.material.color.set(0x1c1512); node.material.roughness = .92; }
       if (/window/i.test(node.material.name)) { node.material.emissive.set(0xffa040); node.material.emissiveIntensity = 2.2; node.material.toneMapped = false; }
       else { if (!LOOK_OFF.has('nokeepstone')) stoneify(node.material, /roof/i.test(node.material.name) ? 9 : 2.6); keepMaterials.push(node.material); }
     });

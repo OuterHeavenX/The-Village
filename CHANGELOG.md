@@ -40,17 +40,21 @@ Bot results, two runs per chapter: v37.1 won 0 of 12 runs across chapters
   mist, a blood-sky castle, sea fog in the harbour, lightless caverns from the
   Underkingdom on. The old scene was the same bright green meadow everywhere.
 - **Towers 30% larger** on the 3D board; they were about half a tile wide.
+- **Build pads are mown**, so towers no longer stand waist-deep in the grass.
+- **Keep roofs** use a warm dark slate; the near-black slate picked up the blue
+  sky fill and read as bright royal-blue caps.
 
 ### Village visuals
 
 - Citizens scaled from 3.65 to 2.85 and Shadow from 5.6 to 4.8, so people sit
   under the doors instead of matching the lamp posts.
-- The river no longer mirrors the moon as one flat cyan sheet: rougher water
-  with a drifting ripple bump.
+- The river no longer reads as one flat cyan sheet: darker, rougher water with
+  a drifting ripple bump.
 - Night lighting lifted slightly (exposure 0.92 → 1.02, warmer fill) so the
   buildings read as more than silhouettes.
-- The chapter message card moves beside the movement stick on wide screens and
-  above it on narrow ones; the two used to overlap.
+- The chapter message card sits above the movement stick (or between the stick
+  and the Build button on screens 1280 px and wider); the two used to overlap.
+- River darkened and set to receive building shadows.
 
 ## V37.1.0 BOSS POWERS & HONEST BUILDINGS
 
