@@ -122,7 +122,7 @@ function updateAscensionCompanion(dt){
  if(fam.activeT<=0&&targets.length){const target=targets[0],power=fam.damage*(2.2+(level-1)*.16),active=behavior.activeEffect||{};if(active.type==='multiHit'){for(const e of targets.slice(0,active.targets||1))hit(e,power*(active.multiplier||1),{kind:'companionActive',noCrit:true})}else if(active.type==='heavyHit')hit(target,power*(active.multiplier||1),{kind:'companionActive',holy:active.holy});else if(active.type==='areaHit'){for(const e of G.enemies.filter(e=>!e.dead&&Math.hypot(e.x-target.x,e.y-target.y)<(active.radius||1))){hit(e,power,{kind:'companionActive'});e.burn=Math.max(e.burn||0,active.burn||0)}}else if(active.type==='control'){for(const e of targets){e.freeze=Math.max(e.freeze||0,active.freeze||0);e.slow=Math.min(e.slow||1,active.slow||1)}}else if(active.type==='support'){G.faerieGuidance=active.duration||0;G.essence=Math.min(G.maxEssence,G.essence+(active.essenceBase||0)+Math.floor(level/(active.essenceLevelsPerBonus||Infinity)))}burst(target.x,target.y,fam.color,28);floatText(target.x,target.y-.35,config.active.toUpperCase(),fam.color);fam.activeT=config.cooldown}
  if(fam.t<=0){const target=targets[0];if(target){const scaling=config.scaling||{},projectile=behavior.projectile||{},dmg=fam.damage*(1+(level-1)*(scaling.damagePerLevel||.09));G.shots.push({x:G.hero.x+Math.cos(fam.angle)*.45,y:G.hero.y-.25+Math.sin(fam.angle)*.18,target,speed:projectile.speed||8.5,damage:dmg,color:fam.color,holy:!!projectile.holy,life:2,kind:'familiar',familiarId:fam.id,slow:projectile.slow?Math.max(.35,projectile.slow-level*(scaling.slowPerLevel||0)):0,burn:projectile.burn?projectile.burn+level*(scaling.burnPerLevel||0):0});fam.t=Math.max(.65,fam.rate-level*.045)}else fam.t=.2}
 }
-function keepBattleLevel(){const walls=Number(save?.keepUpgrades?.walls)||0,town=Number(save?.kingdom?.buildings?.townhall)||0;return Math.max(1,Math.min(5,1+Math.floor(walls/2)+Math.min(2,town)))}
+function keepBattleLevel(){const walls=Number(save?.keepUpgrades?.walls)||0,town=Number(save?.kingdom?.buildings?.townhall)||Number(villageBuildingCounts?.().townhall)||0;/* V37.0.2: the Village Town Hall */return Math.max(1,Math.min(5,1+Math.floor(walls/2)+Math.min(2,town)))}
 // V32.4.2 — a dead per-type Walk-sheet lookup table was removed from here. It
 // existed only to warm sixteen sheets that ENEMY_FAMILY already preloads below,
 // and no code ever read it.
@@ -754,7 +754,7 @@ const ROAD_GROWTH={startingTiles:6,maxTiles:54,safeMargin:1,focusZoom:1.22};
 const CARD_POOL=[
  {id:'whip',name:'Whip Tower',type:'tower',icon:'⛓️',cost:34,desc:'Fast chained lashes. Strong general defense.',rarity:'Common',range:2.3,damage:14,rate:.7,color:'#d8c3a5'},
  {id:'holy',name:'Holy Water Infusion',type:'support',icon:'💧',cost:42,desc:'Consecrates a defense with holy splash and lingering damage.',rarity:'Rare',range:2.1,damage:10,rate:1.05,color:'#8edcff',aoe:.5,burn:5},
- {id:'dagger',name:'Dagger Tower',type:'tower',icon:'🗡️',cost:27,desc:'Fires a piercing straight-line dagger every 3 seconds, striking every enemy in its lane.',rarity:'Common',range:3,damage:8,rate:3,color:'#d9ecff',lanePierce:true},
+ {id:'dagger',name:'Dagger Tower',type:'tower',icon:'🗡️',cost:27,desc:'Fires a piercing straight-line dagger about once a second, striking every enemy in its lane.',rarity:'Common',range:3,damage:8,rate:1,color:'#d9ecff',lanePierce:true},
  {id:'axe',name:'Axe Tower',type:'tower',icon:'🪓',cost:48,desc:'Heavy arcing strikes through armor.',rarity:'Rare',range:2.8,damage:26,rate:1.25,color:'#b8a0a0',pierce:2},
  {id:'cross',name:'Cross Tower',type:'tower',icon:'✝️',cost:56,desc:'Returning holy blades hit twice.',rarity:'Epic',range:3.0,damage:17,rate:.9,color:'#ffe18b',returning:true},
  {id:'clock',name:'Clock Tower',type:'tower',icon:'🕰️',cost:62,desc:'Slows nearby monsters in warped time.',rarity:'Epic',range:2.3,damage:4,rate:1.4,color:'#b98cff',slow:.55},
@@ -812,7 +812,10 @@ const WEATHERS=[
  {id:'blood',name:'Blood Moon',desc:'Enemies +18% HP; shared Battle XP +40%; rewards +30%.'}
 ];
 const RELICS=RELIC_REGISTRY;
-const relicEffect=(key,relic=G?.relic)=>Number(relic?.effect?.[key])||0;
+// V37.0.2 — Relic Museum: +4% relic strength per level. Count-style effects
+// (every-N-kills, upgrade points, flat gate HP) and drawbacks are not scaled.
+const RELIC_UNSCALED=new Set(['killExplosionEvery','globalSlowEvery','startingUpgradePoints','gateHp','enemyHealth','enemyArmorMultiplier']);
+const relicEffect=(key,relic=G?.relic)=>{const v=Number(relic?.effect?.[key])||0;if(!v||RELIC_UNSCALED.has(key))return v;return v*(1+.04*Math.max(0,Number(save?.kingdom?.buildings?.museum)||0))};
 // A private copy: the campaign rules below mutate chapters and their bosses.
 const CHAPTERS=CAMPAIGN_CHAPTERS.map(chapter=>({...chapter,boss:{...chapter.boss}}));
 // Campaign rewards consume registry order; relic content and effects live in
@@ -841,14 +844,14 @@ const HEROES=[
 ];
 const KEEP_UPGRADES=[
  {id:'walls',name:'Reinforced Keep',desc:'+1 starting gate health per rank.',max:10,cost:20},
- {id:'souls',name:'Soul Reserve',desc:'+6 starting souls per rank.',max:10,cost:18},
+ {id:'souls',name:'Soul Reserve',desc:'+6 reserve Essence at the start of every hunt per rank.',max:10,cost:18},
  {id:'hunter',name:'Hunter Training',desc:'+3% permanent hero damage per rank.',max:10,cost:25},
  {id:'fortune',name:'Relic Fortune',desc:'+0.15% card-drop chance per rank.',max:10,cost:30}
 ];
 const KINGDOM_BUILDINGS=[
  {id:'forge',name:'Royal Forge',icon:'⚒️',desc:'Improves all tower damage by 2% per level.',max:5,cost:35},
  {id:'chapel',name:'Moon Chapel',icon:'⛪',desc:'Adds 1 starting gate health per level.',max:5,cost:30},
- {id:'tavern',name:'Hunter Tavern',icon:'🍺',desc:'Adds 5 starting souls per level.',max:5,cost:28},
+ {id:'tavern',name:'Hunter Tavern',icon:'🍺',desc:'Adds 5 reserve Essence at the start of every hunt per level.',max:5,cost:28},
  {id:'library',name:'Eclipse Library',icon:'📚',desc:'Heroes gain 3% damage per level.',max:5,cost:40},
  {id:'market',name:'Night Market',icon:'🏪',desc:'Increases enemy rewards by 3% per level.',max:5,cost:32},
  {id:'museum',name:'Relic Museum',icon:'🏛️',desc:'Relic effects gain 4% strength per level.',max:5,cost:45}
@@ -1470,6 +1473,10 @@ function freshGame(mode='chapter',chapterId=null){
  beginProgressionTelemetry({stage:chapterNumber,accountPower:save.deck.reduce((sum,id)=>sum+cardPower(id),0)});
  if(currentShadowLevel()>=2){G.hero.damage*=1.06;G.hero.moveSpeed=1.04;G.hero.hp+=5;G.hero.max+=5;}
  applyVanguardBonuses();
+ // V37.0.2 — Soul Reserve (Keep), Hunter Tavern (Kingdom) and the Village
+ // Market/Tavern promised extra starting souls but nothing read them. The bonus
+ // goes into the Essence reserve, which refills the vial as you spend.
+ {const startBonus=(Number(save.keepUpgrades?.souls)||0)*6+(Number(save.kingdom?.buildings?.tavern)||0)*5+(Number(villageBonus?.startingGold)||0);if(startBonus>0)G.essenceCarry=(G.essenceCarry||0)+startBonus;}
  applyAscensionBonuses();
  $('#weatherTxt').textContent=map.name+' · '+weather.name;$('#relicTxt').textContent=G.relic?.name||'None';applyEquippedRelic();showToast((chapter?chapter.name:map.name)+' — '+weather.name+': '+weather.desc);
  [UI.menu,UI.deck,$('#campaignScreen'),$('#relicVaultScreen'),$('#heroesScreen'),$('#upgradesScreen'),$('#forgeScreen'),$('#codexScreen'),$('#profileScreen'),$('#cardInspectScreen'),$('#kingdomScreen'),$('#achievementsScreen'),$('#moreScreen')].forEach(s=>s?.classList.add('hidden'));UI.over.classList.add('hidden');UI.choices.classList.add('hidden');UI.hud.classList.remove('hidden');setBattleMode(true);UI.tutorial.classList.add('hidden');renderHand();
@@ -1910,6 +1917,18 @@ function supportTargetsAt(x,y,cardDef=null){
   .sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y)).slice(0,cap);
 }
 function supportTargetAt(x,y){return supportTargetsAt(x,y)[0]||null}
+// V37.0.2 — supports buff the towers around them. Moving or swapping an attack
+// tower used to leave its support links pointing at the tower's object, so the
+// buff followed it anywhere on the map. Links are now rebuilt from positions.
+function relinkSupports(){
+ if(!G?.towers)return;
+ for(const t of G.towers)if(!t.supportOnly)t.supports=[];
+ for(const sp of G.towers){
+  if(!sp.supportOnly||sp.destroyed)continue;
+  const targets=supportTargetsAt(sp.x,sp.y,sp);sp.supportTargets=targets;sp.supportTarget=targets[0]||null;
+  for(const linked of targets)linked.supports.push({id:sp.id,name:sp.name,icon:sp.icon,power:sp.power,effect:sp.supportEffect});
+ }
+}
 function validSupportTile(x,y){return inside(x,y)&&!pathSet().has(key(x,y))&&!occupied(x,y)&&supportTargetsAt(x,y).length>0}
 
 function firstValidRoadPlacement(c){
@@ -2015,12 +2034,12 @@ function handleTowerEditTap(tap){
  const first=G.towerEditFirst;
  if(G.towerEditMode==='swap'){
   if(!tapped||tapped===first||tapped.supportOnly)return showToast('Choose a different attack tower');
-  const ax=first.x,ay=first.y;first.x=tapped.x;first.y=tapped.y;tapped.x=ax;tapped.y=ay;
+  const ax=first.x,ay=first.y;first.x=tapped.x;first.y=tapped.y;tapped.x=ax;tapped.y=ay;relinkSupports();
   burst(first.x+.5,first.y+.5,'#ffe28a',20);burst(tapped.x+.5,tapped.y+.5,'#ffe28a',20);
   cancelTowerEdit('Tower positions swapped');return true;
  }
  if(!validTowerMoveDestination(first,tap.x,tap.y))return showToast('That location is not available or is not connected to the road defense line');
- first.x=tap.x;first.y=tap.y;burst(first.x+.5,first.y+.5,'#ffe28a',24);cancelTowerEdit(`${first.name} moved`);return true;
+ first.x=tap.x;first.y=tap.y;relinkSupports();burst(first.x+.5,first.y+.5,'#ffe28a',24);cancelTowerEdit(`${first.name} moved`);return true;
 }
 
 function handleBattleTap(e){
@@ -2032,7 +2051,7 @@ function handleBattleTap(e){
   if(!validTowerTile(p.x,p.y))return showToast('Towers must touch a road or a road-connected tower');
   const existing=G.towers.find(t=>t.x===p.x&&t.y===p.y);
   const placement=placementFeedback(G,c,p.x,p.y,!!existing||validTowerTile(p.x,p.y));if(!existing&&!placement.valid)return showToast(placement.reason);
-   if(existing){if(existing.id!==c.id||existing.level>=3)return showToast('Only identical towers can merge');existing.level++;existing.damage*=1.7;existing.range+=.18;save.stats.towerMerges++;burst(p.x+.5,p.y+.5,c.color,24);showToast(`Merged to level ${existing.level}`);used=true;}
+   if(existing){if(existing.id!==c.id)return showToast('Only identical towers can merge');if((existing.mergeLevel||1)>=3)return showToast(`${existing.name} is already fully merged`);existing.mergeLevel=(existing.mergeLevel||1)+1;refreshTowerLevel(existing);existing.damage*=1.7;existing.range+=.18;save.stats.towerMerges++;burst(p.x+.5,p.y+.5,c.color,24);showToast(`Merged to level ${existing.level}`);used=true;}
    else {const tower={...c,x:p.x,y:p.y,level:1,t:0,upgradeDamage:0,upgradeRange:0,upgradeRate:0,elite:!!c.elite,permanentPower:cardPower(c.id),supports:[]};applyCardBattleUpgradesToTower(tower);G.towers.push(tower);save.stats.towersPlaced++;used=true;}
  } else if(c.type==='support'){
    const placement=placementFeedback(G,c,p.x,p.y,validSupportTile(p.x,p.y));if(!placement.valid)return showToast(placement.reason);
@@ -2130,11 +2149,12 @@ function castSkill(c,x,y){
  if(c.id==='waterSkill'){
   startHolyWaterRain(x,y);
  }
- if(c.id==='crossSkill'){G.enemies.forEach(e=>hit(e,38));for(let i=0;i<80;i++)G.particles.push({x:Math.random()*GRID.cols,y:Math.random()*GRID.rows,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2,life:1,color:'#ffe9a8'})}
+ const skillPower=cardPower(c.id); // V37.0.2: skills scale with card rarity and level, like towers
+ if(c.id==='crossSkill'){G.enemies.forEach(e=>hit(e,38*skillPower));for(let i=0;i<80;i++)G.particles.push({x:Math.random()*GRID.cols,y:Math.random()*GRID.rows,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2,life:1,color:'#ffe9a8'})}
  if(c.id==='freeze'){G.enemies.forEach(e=>e.freeze=3);G.flash=.35}
  if(c.id==='summon'){G.hero.frenzy=8;G.hp=Math.min(G.maxHp,G.hp+3);burst(G.hero.x,G.hero.y,'#f2d273',35)}
- if(c.id==='axeRain'){G.enemies.forEach(e=>hit(e,52,{holy:false}));hitPause(42);for(const e of G.enemies)burst(e.x,e.y,'#d8c0a0',10)}
- if(c.id==='grandCross'){G.enemies.forEach(e=>hit(e,82,{holy:true}));G.flash=.7;hitPause(55);}
+ if(c.id==='axeRain'){G.enemies.forEach(e=>hit(e,52*skillPower,{holy:false}));hitPause(42);for(const e of G.enemies)burst(e.x,e.y,'#d8c0a0',10)}
+ if(c.id==='grandCross'){G.enemies.forEach(e=>hit(e,82*skillPower,{holy:true}));G.flash=.7;hitPause(55);}
 
 }
 function applyHeroUpgrade(c){
@@ -2265,18 +2285,18 @@ const ROADMAP=[
  {id:'chapter1',label:'Clear Chapter I — The Forgotten Cemetery',
   hint:'Campaign — hold the cathedral gate for eight waves.',
   done:()=>(save.campaign?.completed||[]).includes('cemetery')},
- {id:'artifact',label:'Claim the Heart of the Golem',
-  hint:'It is carried by the Chapter I boss.',
-  done:()=>(save.villageProgression?.artifacts||[]).includes('heart-of-the-golem')},
- {id:'awaken',label:'Return home — Shadow awakens to Level II',
-  hint:'Walk to the cathedral after the road is won.',
-  done:()=>!!save.villageProgression?.shadowAwakeningComplete||Number(save.shadowLevel||1)>=2},
  {id:'build',label:'Raise your first structure',
   hint:'Village — BUILD. You may raise a House, Farm, Lumber Camp, Quarry or Warehouse.',
   done:()=>villagePlacedCount()>0},
  {id:'research',label:'Complete your first research project',
   hint:'Village — Research. New roads unlock new projects.',
-  done:()=>(save.villageProgression?.researched||[]).length>0}
+  done:()=>(save.villageProgression?.researched||[]).length>0},
+ {id:'artifact',label:'Claim the Heart of the Golem',
+  hint:'Carried by the Golem of Three Forms, the Chapter 10 boss.',
+  done:()=>(save.villageProgression?.artifacts||[]).includes('heart-of-the-golem')},
+ {id:'awaken',label:'Shadow awakens to Level II',
+  hint:"Dracula's Tooth, won from the same Chapter 10 Golem, awakens him.",
+  done:()=>!!save.villageProgression?.shadowAwakeningComplete||Number(save.shadowLevel||1)>=2},
 ];
 function roadmapProgress(){const d=ROADMAP.filter(s=>{try{return s.done()}catch(_){return false}}).length;return {done:d,total:ROADMAP.length}}
 function ensureJourneyDom(){
@@ -2389,8 +2409,13 @@ function essenceUpgradeSelectedTower(stat){
  if(stat==='damage')t.damage*=1.18;else if(stat==='rate')t.rate=Math.max(.18,t.rate*.9);else t.upgradeRange=(t.upgradeRange||0)+1;
  burst(t.x+.5,t.y+.5,'#cbb7ff',18);showToast(`${t.name} reinforced for ${cost} Essence`);renderEssenceVial();renderInspector();
 }
+// V37.0.2 — a tower's level is its merge tier (1-3, from placing identical
+// towers on it) plus the card-wide upgrade rank. Both used to write the same
+// field, so buying an upgrade reset a merged tower back to 1 + rank.
+function cardUpgradeRank(id){const state=cardUpgradeState(id);return Math.max(state.damage||0,state.range||0,state.rate||0)}
+function refreshTowerLevel(t){t.mergeLevel=Math.max(1,t.mergeLevel||1);t.level=t.mergeLevel+cardUpgradeRank(t.id);return t.level}
 function applyCardBattleUpgradesToTower(t){
- const state=cardUpgradeState(t.id);t.level=1+Math.max(state.damage||0,state.range||0,state.rate||0);t.upgradeDamage=state.damage||0;t.upgradeRange=state.range||0;t.upgradeRate=state.rate||0;
+ const state=cardUpgradeState(t.id);refreshTowerLevel(t);t.upgradeDamage=state.damage||0;t.upgradeRange=state.range||0;t.upgradeRate=state.rate||0;
  if(t.upgradeDamage)t.damage*=Math.pow(1.24,t.upgradeDamage);
  if(t.upgradeRate)t.rate=Math.max(.18,t.rate*Math.pow(.86,t.upgradeRate));
 }
@@ -2413,17 +2438,23 @@ function renderBattleUpgradeMenu(forceOpen=false){
 }
 
 function openBattleUpgradeMenu(){if(!G)return;if((G.battlePoints||0)<=0)return showToast('Earn Battle XP to gain an Upgrade Point');renderBattleUpgradeMenu(true)}
-function grantBattleXp(amount=1){const mult=G.weather.id==='blood'?1.4:1;G.xp+=amount*mult;let earned=0;while(G.xp>=G.xpNeed){G.xp-=G.xpNeed;G.level++;G.battlePoints=(G.battlePoints||0)+1;earned++;G.xpNeed=Math.ceil(G.xpNeed*1.32);showToast(`Battle Level ${G.level} — choose a card-wide upgrade`);floatText(GRID.cols/2,1.35,'+1 UPGRADE POINT','#ffe28a');playTone(690,.12,'triangle',.04)}if(earned){const session=battleSessionId;setTimeout(()=>{if(session===battleSessionId&&G&&G.state==='play'&&document.body.classList.contains('battle-mode'))renderBattleUpgradeMenu(true)},120)}}
+function grantBattleXp(amount=1){const mult=G.weather.id==='blood'?1.4:1;G.xp+=amount*mult;let earned=0;while(G.xp>=G.xpNeed){G.xp-=G.xpNeed;G.level++;G.battlePoints=(G.battlePoints||0)+1;earned++;G.xpNeed=Math.ceil(G.xpNeed*1.32);showToast(`Battle Level ${G.level} — choose a card-wide upgrade`);floatText(GRID.cols/2,1.35,'+1 UPGRADE POINT','#ffe28a');playTone(690,.12,'triangle',.04)}if(earned){const session=battleSessionId;setTimeout(()=>{if(session===battleSessionId&&G&&G.state==='play'&&document.body.classList.contains('battle-mode')&&G.towers.some(t=>!t.supportOnly&&!t.destroyed))renderBattleUpgradeMenu(true)},120)}}
 function upgradeSelectedTower(stat,showDetails=true){
  const t=G?.selectedTower;if(!t||t.supportOnly)return;const state=cardUpgradeState(t.id),max=towerUpgradeMax(stat),rank=Number(state[stat]||0);if(rank>=max)return showToast(`${stat==='range'?'Radius':stat==='rate'?'Speed':'ATK'} is already Level ${max}`);const cost=towerUpgradeCost(t,stat);if((G.battlePoints||0)<cost)return showToast(`Need ${cost} Upgrade Point${cost===1?'':'s'}`);
  G.battlePoints-=cost;state[stat]=rank+1;
  const affected=G.towers.filter(x=>!x.supportOnly&&!x.destroyed&&x.id===t.id);
- for(const tower of affected){tower.level=1+Math.max(state.damage||0,state.range||0,state.rate||0);if(stat==='damage'){tower.upgradeDamage=(tower.upgradeDamage||0)+1;tower.damage*=1.24}else if(stat==='range')tower.upgradeRange=(tower.upgradeRange||0)+1;else if(stat==='rate'){tower.upgradeRate=(tower.upgradeRate||0)+1;tower.rate=Math.max(.18,tower.rate*.86)}burst(tower.x+.5,tower.y+.5,'#ffe28a',24)}
+ for(const tower of affected){refreshTowerLevel(tower);if(stat==='damage'){tower.upgradeDamage=(tower.upgradeDamage||0)+1;tower.damage*=1.24}else if(stat==='range')tower.upgradeRange=(tower.upgradeRange||0)+1;else if(stat==='rate'){tower.upgradeRate=(tower.upgradeRate||0)+1;tower.rate=Math.max(.18,tower.rate*.86)}burst(tower.x+.5,tower.y+.5,'#ffe28a',24)}
  showToast(`All ${t.name}s · ${stat==='range'?'Radius':stat==='rate'?'Speed':'ATK'} Level ${state[stat]}/${max}`);if(showDetails)renderInspector();const bp=$('#battlePointTxt');if(bp)bp.textContent=G.battlePoints||0;
 }
 
 window.upgradeSelectedTower=upgradeSelectedTower;window.openBattleUpgradeMenu=openBattleUpgradeMenu;
-function awardRelic(){const pool=RELICS.filter(r=>!save.unlockedRelics.includes(r.id)),r=pool.length?pool[Math.floor(Math.random()*pool.length)]:RELICS[Math.floor(Math.random()*RELICS.length)],oldAttackSpeed=relicEffect('heroAttackSpeed');if(oldAttackSpeed)G.hero.rate*=1+oldAttackSpeed;G.relic=r;const newAttackSpeed=relicEffect('heroAttackSpeed');if(newAttackSpeed)G.hero.rate/=1+newAttackSpeed;if(relicEffect('killExplosionEvery'))G.relicKillCount=0;$('#relicTxt').textContent=r.name;if(!save.unlockedRelics.includes(r.id))save.unlockedRelics.push(r.id);saveProgress();showToast(`Relic discovered: ${r.name}`)}
+function awardRelic(){const pool=RELICS.filter(r=>!save.unlockedRelics.includes(r.id)),r=pool.length?pool[Math.floor(Math.random()*pool.length)]:RELICS[Math.floor(Math.random()*RELICS.length)];
+ // V37.0.2 — the relic you chose for this hunt stays equipped. A discovered
+ // relic is added to the Vault; it is only worn this run if none was equipped.
+ const keepEquipped=!!G.relic;
+ if(!keepEquipped){G.relic=r;const newAttackSpeed=relicEffect('heroAttackSpeed');if(newAttackSpeed)G.hero.rate/=1+newAttackSpeed;if(relicEffect('killExplosionEvery')||relicEffect('globalSlowEvery'))G.relicKillCount=0;$('#relicTxt').textContent=r.name;}
+ const isNew=!save.unlockedRelics.includes(r.id);if(isNew)save.unlockedRelics.push(r.id);saveProgress();
+ showToast(keepEquipped?(isNew?`Relic discovered: ${r.name} — added to your Relic Vault`:`${r.name} found again`):`Relic discovered: ${r.name}`)}
 function enemyDeath(e){if(e.type==='skeleton')for(let i=0;i<18;i++)G.particles.push({x:e.x,y:e.y,vx:(Math.random()-.5)*4,vy:-Math.random()*3,life:.6+Math.random()*.5,color:'#d8d0be'});else if(e.type==='ghost')burst(e.x,e.y,'#bda8ff',28);else if(e.type==='vampire')for(let i=0;i<9;i++)G.particles.push({x:e.x,y:e.y,vx:(Math.random()-.5)*5,vy:(Math.random()-.5)*5,life:.8,color:'#632b78'});else burst(e.x,e.y,e.boss?'#d6b1ff':'#ba233e',e.boss?70:14);const motes=e.boss?12:e.elite?7:4;for(let i=0;i<motes;i++)G.particles.push({x:e.x+(Math.random()-.5)*.25,y:e.y+(Math.random()-.5)*.2,vx:(Math.random()-.5)*.25,vy:-.55-Math.random()*.35,life:1.1+Math.random()*.55,color:'#cdb7ff',kind:'soul',phase:Math.random()*6.28})}
 // V32.1 — one place to retune the entire campaign difficulty curve.
 const DIFFICULTY={
@@ -2548,14 +2579,14 @@ function fire(t,e){towerFireFX(t,e);const fireFreq=t.id==='axe'?145:t.id==='dagg
   const dir=daggerDirection(t,e),length=daggerLaneLength(t),victims=G.enemies.filter(target=>enemyInDaggerLane(t,target,dir,length));
   for(const target of victims){hit(target,dmg,{holy:tags.holy||syn.holy,source:t,kind:'daggerLane'});if(supportSlow<1)target.slow=Math.min(target.slow,supportSlow);if(shotSupportBurn)target.burn=Math.max(target.burn||0,shotSupportBurn)}
   G.laneShots=G.laneShots||[];G.laneShots.push({x:t.x+.5,y:t.y+.5,dx:dir.x,dy:dir.y,length,life:.18,maxLife:.18,color:t.color,kind:'gothicDagger'});
-  burst(t.x+.5,t.y+.5,t.color,5);t.t=1/Math.max(.4,syn.rate*(1+.12*(t.level-1)));return;
+  burst(t.x+.5,t.y+.5,t.color,5);t.t=(Number(t.rate)||1)/Math.max(.4,syn.rate*(1+.12*(t.level-1)));return; // V37.0.2: honours Speed upgrades (rate 1 = the ~1 s pace it always had)
  }
  if(t.id==='garlic'){
   const radius=towerCombatRange(t);let hits=0;
   for(const target of G.enemies){if(enemyInsideTowerAOE(t,target)){hit(target,dmg,{holy:true,source:t});target.slow=Math.min(target.slow,t.slow||.78);hits++;}}
   burst(t.x+.5,t.y+.5,t.color,Math.min(18,5+hits*2));t.t=t.rate/(1+.12*(t.level-1))/syn.rate;return;
  }
- burst(t.x+.5,t.y+.5,t.color,3);G.cameraPulse=Math.min(1,G.cameraPulse+.08);G.shots.push({x:t.x+.5,y:t.y+.5,px:t.x+.5,py:t.y+.5,target:e,speed:7,damage:dmg,color:t.color,aoe:t.aoe||0,pierce:t.pierce||0,slow:Math.min(t.slow||1,supportSlow),burn:(t.burn||0)+(syn.ignite?3:0)+shotSupportBurn+gemBurn,poison:gemPoison,freeze:gemFreeze?.7:0,chainChance:gemFx.chainChance||0,chainDamage:gemFx.chainDamage||0,holy:tags.holy||syn.holy||(gemFx.holyDamage||0)>0,source:t,kind:t.projectileKind||coreTower(t.id)?.projectile||t.id,spin:Math.random()*6.28,life:2});t.t=t.rate/(1+.12*(t.level-1))/syn.rate/(1+(G.towerRateBonus||0)+(supportFx.attackSpeed||0)+leadership.rate)}
+ burst(t.x+.5,t.y+.5,t.color,3);G.cameraPulse=Math.min(1,G.cameraPulse+.08);G.shots.push({x:t.x+.5,y:t.y+.5,px:t.x+.5,py:t.y+.5,target:e,speed:7,damage:dmg,color:t.color,aoe:t.aoe||0,pierce:t.pierce||0,returning:!!t.returning,slow:Math.min(t.slow||1,supportSlow),burn:(t.burn||0)+(syn.ignite?3:0)+shotSupportBurn+gemBurn,poison:gemPoison,freeze:gemFreeze?.7:0,chainChance:gemFx.chainChance||0,chainDamage:gemFx.chainDamage||0,holy:tags.holy||syn.holy||(gemFx.holyDamage||0)>0,source:t,kind:t.projectileKind||coreTower(t.id)?.projectile||t.id,spin:Math.random()*6.28,life:2});t.t=t.rate/(1+.12*(t.level-1))/syn.rate/(1+(G.towerRateBonus||0)+(supportFx.attackSpeed||0)+leadership.rate)}
 // Enemy kills now award in-stage resources only. Permanent card progression is
 // settled once at stage completion so fast-kill builds cannot farm copies.
 function rollCardDrop(){return false;}
@@ -2570,8 +2601,8 @@ function enemyEssenceReward(e){
 }
 // V32.7.0 damage pipeline: defense/resistance first, critical multiplier second,
 // then a visible skill floor. This prevents criticals and multi-hit holy skills from collapsing to 1.
-function hit(e,d,shot=null){e.hitFlash=.11;if(!e.boss&&!e.attacking&&!e.dead)e.hurtT=ENEMY_ANIM.hurt;e.hitKick=Math.min(.16,(e.hitKick||0)+.055);const rawDamage=Math.max(0,Number(d)||0);if(e.holyOnly&&!shot?.holy)d*=.22;if(e.armor&&!shot?.holy)d*=1-e.armor*(relicEffect('enemyArmorMultiplier')||1);if(e.air)d*=1+relicEffect('flyingDamage');if(e.boss)d*=1+relicEffect('bossDamage');const crit=!shot?.noCrit&&shot?.source==null&&G.hero&&Math.random()<G.hero.crit;if(crit){const critFloor=Math.max(8,rawDamage*.85,(G.hero.damage||10)*.55);d=Math.max(d*(G.hero.critDamage||1.9),critFloor);G.flash=Math.max(G.flash,.08);hitPause(48)}d=Math.max(shot?.skill?(shot?.holy?5:3):0,d);e.hp-=d;if(e.hp<=0&&e.boss&&G)G.lastBossDeath={x:e.x,y:e.y,form:e.golemForm||1,type:e.type,name:e.name};impactFeedback(e,d,crit,shot);if(e.hp<=0&&!e.dead){e.dead=true;spawnCorpse(e);deathBurst(e);if((e.boss||e.elite)&&navigator.vibrate)navigator.vibrate(e.boss?[35,30,55]:25);G.kills++;grantFamiliarXp(e.boss?18:e.elite?5:2);G.killChain++;G.comboTimer=2.4;G.comboBest=Math.max(G.comboBest||0,G.killChain);const essenceGain=enemyEssenceReward(e);spawnEssencePickup(e,essenceGain);
- const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);floatText(e.x,e.y,`+${battleXp} battle XP`,'#ffe28a');floatText(e.x,e.y+.18,'+'+essenceGain+' essence','#d8c7ff');playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);G.relicKillCount=(G.relicKillCount||0)+1;const explosionEvery=relicEffect('killExplosionEvery');if(explosionEvery&&G.relicKillCount%explosionEvery===0){burst(e.x,e.y,'#ffe7a4',32);floatText(e.x,e.y-.25,'RELIC EXPLOSION','#ffe7a4');playTone(190,.12,'sawtooth',.04);for(const o of [...G.enemies])if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)hit(o,24,{holy:true,noCrit:true,kind:'ringExplosion'})}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
+function hit(e,d,shot=null){e.hitFlash=.11;if(!e.boss&&!e.attacking&&!e.dead)e.hurtT=ENEMY_ANIM.hurt;e.hitKick=Math.min(.16,(e.hitKick||0)+.055);const rawDamage=Math.max(0,Number(d)||0);if(e.vulnerable>0)d*=1.25;/* V37.0.2: Holy Banner mark */if(e.holyOnly&&!shot?.holy)d*=.22;if(e.armor&&!shot?.holy)d*=1-e.armor*(relicEffect('enemyArmorMultiplier')||1);if(e.air)d*=1+relicEffect('flyingDamage');if(e.boss)d*=1+relicEffect('bossDamage');const crit=!shot?.noCrit&&shot?.source==null&&G.hero&&Math.random()<G.hero.crit;if(crit){const critFloor=Math.max(8,rawDamage*.85,(G.hero.damage||10)*.55);d=Math.max(d*(G.hero.critDamage||1.9),critFloor);G.flash=Math.max(G.flash,.08);hitPause(48)}d=Math.max(shot?.skill?(shot?.holy?5:3):0,d);e.hp-=d;if(e.hp<=0&&e.boss&&G)G.lastBossDeath={x:e.x,y:e.y,form:e.golemForm||1,type:e.type,name:e.name};impactFeedback(e,d,crit,shot);if(e.hp<=0&&!e.dead){e.dead=true;spawnCorpse(e);deathBurst(e);if((e.boss||e.elite)&&navigator.vibrate)navigator.vibrate(e.boss?[35,30,55]:25);G.kills++;grantFamiliarXp(e.boss?18:e.elite?5:2);G.killChain++;G.comboTimer=2.4;G.comboBest=Math.max(G.comboBest||0,G.killChain);const essenceGain=enemyEssenceReward(e);spawnEssencePickup(e,essenceGain);
+ const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);floatText(e.x,e.y,`+${battleXp} battle XP`,'#ffe28a');floatText(e.x,e.y+.18,'+'+essenceGain+' essence','#d8c7ff');playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);G.relicKillCount=(G.relicKillCount||0)+1;const slowEvery=relicEffect('globalSlowEvery');if(slowEvery&&G.relicKillCount%slowEvery===0){for(const o of G.enemies)if(!o.dead)o.slow=Math.min(o.slow??1,.55);floatText(GRID.cols/2,1.6,'THE DROWNED BELL TOLLS','#9fd6ff');playTone(220,.4,'sine',.04)}/* V37.0.2: Bell of the Drowned */const explosionEvery=relicEffect('killExplosionEvery');if(explosionEvery&&G.relicKillCount%explosionEvery===0){burst(e.x,e.y,'#ffe7a4',32);floatText(e.x,e.y-.25,'RELIC EXPLOSION','#ffe7a4');playTone(190,.12,'sawtooth',.04);for(const o of [...G.enemies])if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)hit(o,24,{holy:true,noCrit:true,kind:'ringExplosion'})}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
 function weightedChoices(pool,count=3){
  const available=[...pool],out=[];
  while(out.length<count&&available.length){
@@ -2674,7 +2705,7 @@ function update(dt,syncHud=true,visualDt=dt){
  if(G.weather.id==='rain'){G.rainSplashTimer=(G.rainSplashTimer||0)-dt;if(G.rainSplashTimer<=0){G.rainSplashTimer=.055+Math.random()*.09;const rx=Math.random()*GRID.cols,ry=Math.random()*GRID.rows;G.particles.push({x:rx,y:ry,vx:0,vy:0,life:.22,color:'#b9dcff',kind:'splash',size:3+Math.random()*4});}}
  syncNextWaveButton();G.spawnTimer-=dt;if(G.spawnLeft>0&&G.spawnTimer<=0){spawnEnemy();G.spawnLeft--;G.spawnTimer=Math.max(.24,(1.15-G.wave*.025)*.88)}
  if(G.spawnLeft===0&&G.enemies.length===0&&!G.pendingWave&&!G.waveTransition){G.waveDelay-=dt;if(G.waveDelay<=0){if(G.mode!=='endless'&&G.wave>=G.chapterWaves){chapterClear();return;}beginWaveTransition();return;}}
- for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);updateGolemBoss(e,dt);if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt;hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);{const gp=gatePoint(e.routeIndex||0);floatText(gp.x,gp.y-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');}playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);const liveSummons=G.enemies.filter(x=>!x.dead&&x.summonedBy===e).length,summonCap=e.boss?6:4;/* a boss raised 3 every 5 s with no ceiling: 25-27 enemies piled up at the boss wave and the finale became a slow grind */for(let i=0;i<summonCount&&liveSummons+i<summonCap;i++)G.enemies.push({summonedBy:e,x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62*layoutSpeedFactor(),reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
+ for(const e of G.enemies){const points=routePoints(e.routeIndex||0);if(e.dead)continue;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);e.hitKick=Math.max(0,(e.hitKick||0)-dt*1.8);e.animT=(e.animT||0)+dt;e.hurtT=Math.max(0,(e.hurtT||0)-dt);e.squashT=Math.max(0,(e.squashT||0)-dt);if(e.vulnerable>0)e.vulnerable=Math.max(0,e.vulnerable-dt);if(e.slowTimer>0){e.slowTimer=Math.max(0,e.slowTimer-dt);e.slow=Math.min(e.slow,.12)}/* V37.0.2: Holy Banner mark decays; Iron Bear Trap now holds its root */updateGolemBoss(e,dt);if(updateBossPresentation(e,dt))continue;if(e.freeze>0){e.freeze-=dt;continue}if(e.burn>0){e.burn-=dt/(1+relicEffect('burnDuration'));/* V37.0.2: Ashen Censer */hit(e,4*dt,{holy:false})}if(e.attacking){e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.attackRate||1.18;G.hp-=e.attackDamage||1;G.gateHurt=Math.max(G.gateHurt||0,e.boss?1:.7);if(e.boss)bossShake(.28,0,1,.28);G.flash=Math.max(G.flash,e.boss?0.16:0.06);{const gp=gatePoint(e.routeIndex||0);floatText(gp.x,gp.y-.35,`-${e.attackDamage||1} GATE`,'#ff6b78');}playTone(e.boss?75:95,.08,'sawtooth',.035);}continue;}if((e.boss||e.mini)&&e.summonTimer>0){e.summonTimer-=dt;if(e.summonTimer<=0){e.summonTimer=e.boss?5:4;const summonRoute=e.routeIndex||0,summonPoints=routePoints(summonRoute),outer=summonPoints[0];const summonType=e.type==='thornbeast'?'wolf':e.type==='bloodcount'?'vampire':'skeleton';const summonCount=e.type==='icebishop'?2:(e.boss?3:2);const liveSummons=G.enemies.filter(x=>!x.dead&&x.summonedBy===e).length,summonCap=e.boss?6:4;/* a boss raised 3 every 5 s with no ceiling: 25-27 enemies piled up at the boss wave and the finale became a slow grind */for(let i=0;i<summonCount&&liveSummons+i<summonCap;i++)G.enemies.push({summonedBy:e,x:outer.x,y:outer.y,routeIndex:summonRoute,seg:0,prog:0,hp:78*(1+G.wave*.18),max:78*(1+G.wave*.18),speed:.62*layoutSpeedFactor(),reward:3,type:summonType,name:summonType==='wolf'?'Thorn Wolf':summonType==='vampire'?'Blood Spawn':'Summoned Bone',slow:1,freeze:0,burn:0,dead:false,attacking:false,attackTimer:0,attackRate:1.22,attackDamage:1});if(e.type==='icebishop'){for(const t of G.towers)t.t+=1.25;G.flash=.35;}showToast(e.boss?(e.type==='icebishop'?'The Frozen Bishop locks the towers in frost!':e.type==='thornbeast'?'The Thornbound Beast calls its pack!':e.type==='bloodcount'?'The Blood Count summons his spawn!':'The Warden summons reinforcements!'):'Necromancer raises the dead!')}}const a=points[e.seg],b=points[e.seg+1];if(!b){e.attacking=true;e.attackTimer=.35;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}continue}const len=Math.max(.001,Math.hypot(b.x-a.x,b.y-a.y)),spd=e.speed*(e.slow||1);e.prog+=spd*dt/len;while(e.prog>=1){e.prog-=1;e.seg++;if(e.seg>=points.length-1){e.seg=points.length-1;e.prog=0;e.attacking=true;e.attackTimer=.35+Math.random()*.2;{const gp=gatePoint(e.routeIndex||0);e.x=gp.x;e.y=gp.y;}break}}if(!e.dead&&!e.attacking){const aa=points[e.seg],bb=points[e.seg+1];e.x=aa.x+(bb.x-aa.x)*e.prog;e.y=aa.y+(bb.y-aa.y)*e.prog;e.slow+=(1-e.slow)*dt*1.5}}
  for(const trap of G.traps){
   trap.t-=dt;
   const radius=trap.effect==='blast'?1.25:.68;
@@ -2730,7 +2761,12 @@ function update(dt,syncHud=true,visualDt=dt){
  G.hero.anim=(G.hero.anim||0)+dt*(G.hero.walking?7:2.2);
  G.hero.t-=dt;G.hero.attackAnim=Math.max(0,(G.hero.attackAnim||0)-dt);G.hero.frenzy=Math.max(0,G.hero.frenzy-dt);if(G.hero.t<=0){let best=null,bd=G.hero.range;for(const e of G.enemies){const d=Math.hypot(e.x-G.hero.x,e.y-G.hero.y);if(d<bd){best=e;bd=d}}if(best){G.shots.push({x:G.hero.x,y:G.hero.y,target:best,speed:9,damage:G.hero.damage*(G.hero.frenzy?2:1)*(G.hero.executeBonus&&best.hp/best.max<.35?1+G.hero.executeBonus:1),color:'#fff2c5',holy:G.hero.holy,life:2});G.hero.attackAnim=.34;G.hero.t=G.hero.rate*(G.hero.frenzy?.45:1)}}
  for(const lane of G.laneShots||[]){lane.life-=dt;}
- for(const s of G.shots){s.life-=dt;if(!s.target||s.target.dead){s.life=0;continue}const dx=s.target.x-s.x,dy=s.target.y-s.y,d=Math.hypot(dx,dy);if(d<s.speed*dt+.15){if(s.source&&!enemyInsideTowerAOE(s.source,s.target)){s.life=0;continue}if(s.aoe)G.enemies.forEach(e=>{if(!e.dead&&Math.hypot(e.x-s.target.x,e.y-s.target.y)<s.aoe&&(!s.source||enemyInsideTowerAOE(s.source,e))){hit(e,s.damage,s);if(s.burn)e.burn=s.burn}});else {hit(s.target,s.damage,s);if(s.burn)s.target.burn=Math.max(s.target.burn||0,s.burn);if(s.kind==='scripture'&&s.chain>0){let from=s.target;const struck=new Set([s.target]);for(let jump=0;jump<s.chain;jump++){const next=G.enemies.filter(e=>!e.dead&&!struck.has(e)&&(!s.source||enemyInsideTowerAOE(s.source,e))&&Math.hypot(e.x-from.x,e.y-from.y)<1.25).sort((a,b)=>Math.hypot(a.x-from.x,a.y-from.y)-Math.hypot(b.x-from.x,b.y-from.y))[0];if(!next)break;G.shots.push({x:from.x,y:from.y,px:from.x,py:from.y,target:next,speed:15,damage:s.damage*.62,color:'#fff3a6',holy:true,source:s.source,kind:'scripture',life:.75,chain:0});struck.add(next);from=next;}}}if(s.slow)s.target.slow=Math.min(s.target.slow,s.slow);burst(s.target.x,s.target.y,s.color,s.kind==='scripture'?9:5);s.life=0}else{s.px=s.x;s.py=s.y;s.x+=dx/d*s.speed*dt;s.y+=dy/d*s.speed*dt}}
+ for(const s of G.shots){s.life-=dt;if(!s.target||s.target.dead){s.life=0;continue}const dx=s.target.x-s.x,dy=s.target.y-s.y,d=Math.hypot(dx,dy);if(d<s.speed*dt+.15){if(s.source&&!enemyInsideTowerAOE(s.source,s.target)){s.life=0;continue}if(s.aoe)G.enemies.forEach(e=>{if(!e.dead&&Math.hypot(e.x-s.target.x,e.y-s.target.y)<s.aoe&&(!s.source||enemyInsideTowerAOE(s.source,e))){hit(e,s.damage,s);if(s.burn)e.burn=s.burn}});else {hit(s.target,s.damage,s);if(s.burn)s.target.burn=Math.max(s.target.burn||0,s.burn);
+ // V37.0.2 — Axe Tower 'pierce' and Cross Tower 'returning' were card text only.
+ // Axe: the blade carries on into up to `pierce` enemies close behind the target.
+ if(s.pierce>0&&!s.pierced){const from=s.target,extra=G.enemies.filter(o=>!o.dead&&o!==from&&Math.hypot(o.x-from.x,o.y-from.y)<1.1&&(!s.source||enemyInsideTowerAOE(s.source,o))).sort((a,b)=>Math.hypot(a.x-from.x,a.y-from.y)-Math.hypot(b.x-from.x,b.y-from.y)).slice(0,s.pierce);for(const o of extra){hit(o,s.damage*.6,{...s,pierced:true});burst(o.x,o.y,s.color,4)}}
+ // Cross: the blade flies back for a second, weaker strike — the same enemy if it survived, otherwise the nearest one in range.
+ if(s.returning&&!s.returned&&s.source){const from=s.target,back=!from.dead&&from.hp>0?from:G.enemies.filter(o=>!o.dead&&enemyInsideTowerAOE(s.source,o)).sort((a,b)=>Math.hypot(a.x-from.x,a.y-from.y)-Math.hypot(b.x-from.x,b.y-from.y))[0];if(back){const ox=from.x-(s.source.x+.5),oy=from.y-(s.source.y+.5),ol=Math.hypot(ox,oy)||1,sx=from.x+ox/ol*.9,sy=from.y+oy/ol*.9;G.shots.push({...s,x:sx,y:sy,px:sx,py:sy,target:back,damage:s.damage*.5,returned:true,returning:false,pierce:0,life:1.4,spin:0})}}if(s.kind==='scripture'&&s.chain>0){let from=s.target;const struck=new Set([s.target]);for(let jump=0;jump<s.chain;jump++){const next=G.enemies.filter(e=>!e.dead&&!struck.has(e)&&(!s.source||enemyInsideTowerAOE(s.source,e))&&Math.hypot(e.x-from.x,e.y-from.y)<1.25).sort((a,b)=>Math.hypot(a.x-from.x,a.y-from.y)-Math.hypot(b.x-from.x,b.y-from.y))[0];if(!next)break;G.shots.push({x:from.x,y:from.y,px:from.x,py:from.y,target:next,speed:15,damage:s.damage*.62,color:'#fff3a6',holy:true,source:s.source,kind:'scripture',life:.75,chain:0});struck.add(next);from=next;}}}if(s.slow)s.target.slow=Math.min(s.target.slow,s.slow);burst(s.target.x,s.target.y,s.color,s.kind==='scripture'?9:5);s.life=0}else{s.px=s.x;s.py=s.y;s.x+=dx/d*s.speed*dt;s.y+=dy/d*s.speed*dt}}
  if(visualDt>0){
   for(const p of G.particles){
    p.life-=visualDt;
@@ -2955,7 +2991,7 @@ function draw(){
    for(const trap of G.traps){const x=(trap.x+.5)*64,y=(trap.y+.5)*64,pulse=.5+.5*Math.sin((G.time||0)*3+trap.x),id=String(trap.id||'');ctx.save();ctx.translate(x,y);ctx.fillStyle='rgba(4,5,7,.45)';ctx.beginPath();ctx.ellipse(0,8,25,10,0,0,Math.PI*2);ctx.fill();if(/spike|bear/i.test(id)){ctx.fillStyle='#25282a';ctx.strokeStyle='#090a0b';ctx.lineWidth=1.5;for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(i*8-5,8);ctx.lineTo(i*8,-18-(i%2)*4);ctx.lineTo(i*8+5,8);ctx.closePath();ctx.fill();ctx.stroke()}}else if(/oil|fog|fire/i.test(id)){ctx.globalAlpha=.45+.16*pulse;const stain=ctx.createRadialGradient(0,5,2,0,5,25);stain.addColorStop(0,trap.color||'#6f5835');stain.addColorStop(1,'rgba(18,14,12,0)');ctx.fillStyle=stain;ctx.fillRect(-28,-23,56,56);for(let i=0;i<5;i++){ctx.fillStyle='#d47835';ctx.fillRect(-12+i*6,-2-Math.sin(i+G.time*5)*5,3,7)}}else{ctx.globalAlpha=.5+.16*pulse;ctx.strokeStyle=trap.color||'#c6a35c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,3,20,0,Math.PI*2);ctx.stroke();ctx.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4,r=i%2?8:17;i?ctx.lineTo(Math.cos(a)*r,3+Math.sin(a)*r):ctx.moveTo(Math.cos(a)*r,3+Math.sin(a)*r)}ctx.closePath();ctx.stroke()}ctx.restore()}
   drawSynergyLinks();
   ctx.save();for(const t of G.towers){const x=(t.x+.5)*64,y=(t.y+.5)*64;ctx.fillStyle='rgba(2,3,4,.52)';ctx.beginPath();ctx.ellipse(x,y+14,24,8,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#262728';ctx.strokeStyle='#111214';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x-22,y+11);ctx.lineTo(x-17,y+2);ctx.lineTo(x+18,y+1);ctx.lineTo(x+23,y+11);ctx.closePath();ctx.fill();ctx.stroke();ctx.strokeStyle='rgba(174,159,125,.18)';ctx.beginPath();ctx.moveTo(x-14,y+5);ctx.lineTo(x+14,y+4);ctx.stroke()}ctx.restore();
-  for(const t of G.towers){const x=(t.x+.5)*64,y=(t.y+.5)*64;ctx.save();if(t.recoil>0)ctx.translate((t.recX||0)*t.recoil*13,(t.recY||0)*t.recoil*13);drawTowerVisual(t,x,y);if((t.level||1)>1){ctx.save();ctx.globalAlpha=.34+.08*Math.sin((G.time||0)*3+t.x);ctx.strokeStyle=(t.level||1)>=5?'#ffe58a':(t.level||1)>=3?'#b8d9ff':'#c8b08a';ctx.lineWidth=1.5+Math.min(2,(t.level||1)*.3);ctx.beginPath();ctx.arc(x,y-7,20+Math.min(8,(t.level||1)*2),0,Math.PI*2);ctx.stroke();if((t.level||1)>=4){ctx.fillStyle='#8c2f4a';ctx.fillRect(x-18,y-31,5,13);ctx.fillRect(x+13,y-31,5,13)}ctx.restore()}if(t.flashT>0){ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=Math.min(.85,t.flashT*8);ctx.fillStyle='#fff3c4';ctx.beginPath();ctx.arc(x,y-6,13,0,Math.PI*2);ctx.fill();ctx.restore()}ctx.restore();if(t.supportOnly){ctx.save();ctx.strokeStyle='#ffe58a';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo((t.supportTarget.x+.5)*64,(t.supportTarget.y+.5)*64);ctx.stroke();ctx.restore();}ctx.font='11px serif';ctx.textAlign='center';ctx.fillStyle='#ffe69c';ctx.fillText('★'.repeat(Math.min(5,t.level)),x,y+28);if(t.supports?.length){ctx.font='13px serif';t.supports.forEach((s,i)=>{ctx.fillStyle='#15101ddd';ctx.beginPath();ctx.arc(x-14+i*16,y-34,9,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(s.icon,x-14+i*16,y-34)})}}
+  for(const t of G.towers){const x=(t.x+.5)*64,y=(t.y+.5)*64;ctx.save();if(t.recoil>0)ctx.translate((t.recX||0)*t.recoil*13,(t.recY||0)*t.recoil*13);drawTowerVisual(t,x,y);if((t.level||1)>1){ctx.save();ctx.globalAlpha=.34+.08*Math.sin((G.time||0)*3+t.x);ctx.strokeStyle=(t.level||1)>=5?'#ffe58a':(t.level||1)>=3?'#b8d9ff':'#c8b08a';ctx.lineWidth=1.5+Math.min(2,(t.level||1)*.3);ctx.beginPath();ctx.arc(x,y-7,20+Math.min(8,(t.level||1)*2),0,Math.PI*2);ctx.stroke();if((t.level||1)>=4){ctx.fillStyle='#8c2f4a';ctx.fillRect(x-18,y-31,5,13);ctx.fillRect(x+13,y-31,5,13)}ctx.restore()}if(t.flashT>0){ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=Math.min(.85,t.flashT*8);ctx.fillStyle='#fff3c4';ctx.beginPath();ctx.arc(x,y-6,13,0,Math.PI*2);ctx.fill();ctx.restore()}ctx.restore();if(t.supportOnly&&t.supportTarget){ctx.save();ctx.strokeStyle='#ffe58a';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo((t.supportTarget.x+.5)*64,(t.supportTarget.y+.5)*64);ctx.stroke();ctx.restore();}ctx.font='11px serif';ctx.textAlign='center';ctx.fillStyle='#ffe69c';ctx.fillText('★'.repeat(Math.min(5,t.level)),x,y+28);if(t.supports?.length){ctx.font='13px serif';t.supports.forEach((s,i)=>{ctx.fillStyle='#15101ddd';ctx.beginPath();ctx.arc(x-14+i*16,y-34,9,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(s.icon,x-14+i*16,y-34)})}}
   for(const t of G.towers.filter(t=>!t.supportOnly)){const gems=inv(t.id).gemSlots.map(ascensionGemDef).filter(Boolean);if(!gems.length)continue;const x=(t.x+.5)*64,y=(t.y+.5)*64;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='12px serif';gems.forEach((gem,index)=>{ctx.fillStyle='#09070ddd';ctx.strokeStyle=gem.color||'#e8c77a';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x+(index-.5)*16,y-45,8,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.fillText(gem.icon,x+(index-.5)*16,y-45)});ctx.restore()}
   // Keep progression remains active mechanically; no second façade is drawn over
   // the cathedral already present in the painted world.
@@ -3145,7 +3181,7 @@ function openScreen(screen){
  const musicState=screen===UI.menu?'menu':screen?.id==='campaignScreen'?'campaign':'menu';AUDIO.setState(musicState);
 }
 function attackPattern(c){
- const map={axe:{title:'Rainbow Arc',html:'<div class="arc-demo"><span class="demo-tower">🪓</span><i></i><b>🦇</b><em>●</em></div>',text:'Throws a heavy axe through a high curved arc. It pierces clustered ground enemies and can strike flying bats along the arc.'},dagger:{title:'Rapid Line Volley',html:'<div class="line-demo"><span>🗡️</span><i>➤ ➤ ➤</i><b>●</b></div>',text:'Fires once every 3 seconds in a straight cardinal lane and pierces every enemy in its path. Level 1 reaches 3 tiles, Level 2 reaches 4, and Level 3 reaches 5.'},whip:{title:'Chain Sweep',html:'<div class="line-demo"><span>⛓️</span><i>⌁⌁⌁</i><b>● ●</b></div>',text:'Sweeps a short chain across nearby targets and excels at general defense.'},cross:{title:'Returning Path',html:'<div class="return-demo"><span>✝️</span><i>→ → ↩</i><b>●</b></div>',text:'The holy blade travels outward, then returns through enemies for a possible second hit.'},silver:{title:'Explosive Parabola',html:'<div class="arc-demo"><span>💥</span><i></i><b>●●●</b></div>',text:'Launches a slow shell in an arc that explodes across a clustered group.'},garlic:{title:'Pungent Aura',html:'<div class="line-demo"><span>🧄</span><i>◉ ◉ ◉</i><b>●●●</b></div>',text:'Continuously damages and slows every undead enemy inside its circular aura. Excellent beside bends and crowded road sections.'},familiar:{title:'Seeking Flight',html:'<div class="line-demo"><span>🦇</span><i>⌁ ↗ ⌁</i><b>●</b></div>',text:'Summoned familiars seek distant targets and naturally engage airborne enemies.'},scripture:{title:'Living Word Field',html:'<div class="line-demo"><span>📖</span><i>⚡ ✦ ⚡</i><b>● ● ●</b></div>',text:'Living Bibles orbit the tower and independently strike enemies inside its sacred field. Every level adds another Bible; level 3 and above chains holy lightning.'}};
+ const map={axe:{title:'Rainbow Arc',html:'<div class="arc-demo"><span class="demo-tower">🪓</span><i></i><b>🦇</b><em>●</em></div>',text:'Throws a heavy axe through a high curved arc. It pierces clustered ground enemies and can strike flying bats along the arc.'},dagger:{title:'Rapid Line Volley',html:'<div class="line-demo"><span>🗡️</span><i>➤ ➤ ➤</i><b>●</b></div>',text:'Fires about once a second in a straight cardinal lane and pierces every enemy in its path. Level 1 reaches 3 tiles, Level 2 reaches 4, and Level 3 reaches 5.'},whip:{title:'Chain Sweep',html:'<div class="line-demo"><span>⛓️</span><i>⌁⌁⌁</i><b>● ●</b></div>',text:'Sweeps a short chain across nearby targets and excels at general defense.'},cross:{title:'Returning Path',html:'<div class="return-demo"><span>✝️</span><i>→ → ↩</i><b>●</b></div>',text:'The holy blade travels outward, then returns through enemies for a possible second hit.'},silver:{title:'Explosive Parabola',html:'<div class="arc-demo"><span>💥</span><i></i><b>●●●</b></div>',text:'Launches a slow shell in an arc that explodes across a clustered group.'},garlic:{title:'Pungent Aura',html:'<div class="line-demo"><span>🧄</span><i>◉ ◉ ◉</i><b>●●●</b></div>',text:'Continuously damages and slows every undead enemy inside its circular aura. Excellent beside bends and crowded road sections.'},familiar:{title:'Seeking Flight',html:'<div class="line-demo"><span>🦇</span><i>⌁ ↗ ⌁</i><b>●</b></div>',text:'Summoned familiars seek distant targets and naturally engage airborne enemies.'},scripture:{title:'Living Word Field',html:'<div class="line-demo"><span>📖</span><i>⚡ ✦ ⚡</i><b>● ● ●</b></div>',text:'Living Bibles orbit the tower and independently strike enemies inside its sacred field. Every level adds another Bible; level 3 and above chains holy lightning.'}};
  return map[c.id]||{title:c.type==='support'?'Tower Infusion':'Attack Profile',html:`<div class="line-demo"><span>${c.icon}</span><i>✦ ✦ ✦</i><b>●</b></div>`,text:c.desc};
 }
 function cardMetrics(c){

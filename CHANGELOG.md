@@ -8,6 +8,51 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.0.2 GAMEPLAY FIXES
+
+Testing build: Supabase sign-in is off (`src/config/testing.js`); add
+`?signin` to the URL to sign in for one visit.
+
+Bugs fixed:
+
+- **Merged towers keep their merge tier.** A tower's level is now its merge
+  tier (1-3) plus the card-wide upgrade rank. Buying any upgrade used to reset a
+  merged tower to 1 + rank (a ×3 merge plus one ATK upgrade showed Level 2;
+  it is now Level 4).
+- **Dagger Tower** text now matches how it actually plays (about once a
+  second; the "every 3 seconds" text was never true), and the Speed upgrade
+  now shortens its interval (1.00 s → 0.77 s after one rank).
+- **Cross Storm, Axe Rain and Grand Cross scale with card rarity and level**
+  like towers do. They were fixed at 38 / 52 / 82 damage forever (a Legendary
+  L5 Cross Storm now deals 69).
+- **Moving or swapping a tower re-links supports by position.** The buff used
+  to follow the tower anywhere on the map.
+- **A relic found mid-hunt no longer replaces the relic you equipped.** It
+  goes to the Relic Vault (it is worn only if nothing was equipped).
+- **The upgrade popup no longer opens and pauses the battle when you have no
+  attack towers.** Points are kept for later.
+- **First-steps roadmap:** the Heart of the Golem is carried by the Chapter 10
+  boss, not Chapter I; the two Chapter 10 milestones now come after the early
+  Village steps.
+
+Effects that were text only, now working:
+
+- **Bell of the Drowned** — every 10th kill slows every enemy on the road.
+- **Ashen Censer** — burns last 35% longer.
+- **Holy Banner** — marked enemies take 25% more damage for 3.5 s.
+- **Iron Bear Trap** — the root now holds for its full duration.
+- **Axe Tower** — pierces up to 2 enemies right behind its target (60% damage).
+- **Cross Tower** — the blade returns for a second strike (50% damage) on the
+  same enemy, or the nearest one if the first died.
+- **Soul Reserve** (Keep, +6 per rank), **Hunter Tavern** (Kingdom, +5 per
+  level) and the Village **Market / Tavern** now add reserve Essence at the
+  start of every hunt.
+- **Relic Museum** — +4% relic strength per level (percentage effects only;
+  kill counts, upgrade points, flat gate HP and drawbacks are not scaled).
+- **Town Hall** — a Village Town Hall now raises the battle Keep level, as the
+  Keep code always intended (it was reading a Kingdom building that does not
+  exist).
+
 ## V37.0.1 PERFORMANCE PASS
 
 Gameplay, balance, art and the save format are unchanged. This release stops
