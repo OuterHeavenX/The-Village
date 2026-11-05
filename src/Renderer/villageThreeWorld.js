@@ -93,7 +93,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   const cameraOffset = new THREE.Vector3(0, 16, 22);
   const lookOffset = new THREE.Vector3(0, 2.2, -7);
 
-  scene.add(new THREE.HemisphereLight(0x526b91, 0x070708, .68));
+  scene.add(new THREE.HemisphereLight(0x5a74a0, 0x0c0c10, .8));
   const moon = new THREE.DirectionalLight(0xa9c8ff, 1.75);
   moon.position.set(-28, 42, 18);
   moon.castShadow = true;
@@ -404,6 +404,12 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   // channel and every crossing has full bank-to-bank road connections.
   PRIMARY_ROADS.forEach(([x,z,w,d])=>box(x,z,w,d));
 
+  // V37.2: a flat glossy plane mirrored the moon as one flat cyan sheet. A
+  // streaked ripple bump and rougher surface break the highlight into glints.
+  {const c=document.createElement('canvas');c.width=64;c.height=256;const x=c.getContext('2d');x.fillStyle='#808080';x.fillRect(0,0,64,256);
+   for(let i=0;i<420;i++){const v=Math.random()*255|0;x.fillStyle=`rgba(${v},${v},${v},.35)`;x.fillRect(Math.random()*64,Math.random()*256,4+Math.random()*12,1+Math.random()*2);}
+   const ripple=new THREE.CanvasTexture(c);ripple.wrapS=ripple.wrapT=THREE.RepeatWrapping;ripple.repeat.set(2,18);
+   mats.water.bumpMap=ripple;mats.water.bumpScale=.05;mats.water.roughness=.5;mats.water.color.set(0x05121c);mats.water.needsUpdate=true;}
   const river = new THREE.Mesh(new THREE.PlaneGeometry(10, 112), mats.water);
   river.rotation.x=-Math.PI/2; river.position.set(-18,.06,0); scene.add(river);
 
@@ -654,6 +660,8 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   // V32.6.8 — actual citizen sprite sheets replace the temporary 3D capsules.
   // Sheets are 4 columns x 8 rows of 32px frames: idle rows 0-3, walk rows 4-7.
   const villagers=[];
+  // V37.2: citizens were drawn near lamp-post height; 2.85 sits them under the doors.
+  const CITIZEN_SCALE=2.85;
   const citizenDefs=[
     ['assets/citizens/Blonde Woman/blonde_woman.png','assets/citizens/Blonde Woman/blonde_woman_shadow.png'],
     ['assets/citizens/Blonde Man/blonde_man.png','assets/citizens/Blonde Man/blonde_man_shadow.png'],
@@ -701,8 +709,8 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     const g=new THREE.Group();
     const shadowMat=new THREE.SpriteMaterial({map:shadowTex,transparent:true,alphaTest:.02,depthWrite:false,depthTest:true});
     const bodyMat=new THREE.SpriteMaterial({map:bodyTex,transparent:true,alphaTest:.02,depthWrite:false,depthTest:true});
-    const shade=new THREE.Sprite(shadowMat);shade.center.set(.5,.08);shade.scale.set(3.65,3.65,1);shade.renderOrder=28;
-    const body=new THREE.Sprite(bodyMat);body.center.set(.5,.08);body.scale.set(3.65,3.65,1);body.renderOrder=29;
+    const shade=new THREE.Sprite(shadowMat);shade.center.set(.5,.08);shade.scale.set(CITIZEN_SCALE,CITIZEN_SCALE,1);shade.renderOrder=28;
+    const body=new THREE.Sprite(bodyMat);body.center.set(.5,.08);body.scale.set(CITIZEN_SCALE,CITIZEN_SCALE,1);body.renderOrder=29;
     g.add(shade,body);g.position.set(x,.62,z);scene.add(g);
     const v={g,bodyTex,shadowTex,bodyMat,shadowMat,from:new THREE.Vector3(x,.62,z),to:new THREE.Vector3(x,.62,z),t:0,speed:.055+Math.random()*.025,wait:Math.random()*1.4,walk:0,face:'down'};
     setCitizenFrame(v,0,'down',false);villagers.push(v);return v;
@@ -807,7 +815,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   });
   const shadow=new THREE.Sprite(shadowMaterial);
   shadow.center.set(.5,.16);
-  shadow.scale.set(5.6,5.6,1);
+  shadow.scale.set(4.8,4.8,1);
   shadow.renderOrder=20;
   scene.add(shadow);
 
@@ -1052,7 +1060,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     const clock=villageClock(now);dayNightBadge.textContent='MIDNIGHT · 00:00';
     // The clock still drives schedules and simulation. It no longer changes
     // exposure, fog, ambient colour, or lamp visibility.
-    moon.intensity=2.72;villageFill.intensity=.30;renderer.toneMappingExposure=.92;
+    moon.intensity=2.72;villageFill.intensity=.42;renderer.toneMappingExposure=1.02;/* V37.2: lifted from .92/.30 — buildings read as silhouettes only */
     scene.background.set(0x091018);
     livingLampLights.forEach(l=>l.visible=true);
     const familiarPhase=now*.004;familiar.position.set(shadow.position.x+1.25+Math.sin(familiarPhase)*.25,shadow.position.y+1.8+Math.sin(familiarPhase*1.7)*.22,shadow.position.z+.35+Math.cos(familiarPhase)*.28);familiar.rotation.z=Math.sin(familiarPhase*3)*.18;
@@ -1070,7 +1078,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
     for(const t of swayingTrees)t.rotation.z=Math.sin(now*.00075+t.userData.phase)*.012;
     for(const row of animatedCropRows){row.mesh.position.y=row.baseY+Math.sin(now*.0018+row.phase)*.035;row.mesh.rotation.z=Math.sin(now*.0012+row.phase)*.012;}
     // Living Village atmosphere.
-    mats.water.map&&(mats.water.map.offset.y=(now*.000035)%1);
+    mats.water.map&&(mats.water.map.offset.y=(now*.000035)%1);mats.water.bumpMap&&(mats.water.bumpMap.offset.y=(now*.00004)%1);
     livingLampLights.forEach(l=>{l.intensity=1.18+Math.sin(now*.006+l.userData.phase)*.22+Math.sin(now*.017+l.userData.phase*2)*.08;});
     smokePuffs.forEach((p,i)=>{const age=((now*.00018+p.userData.phase)%1);p.position.y=p.userData.baseY+age*3.1;p.position.x+=Math.sin(now*.0008+i)*.0009;p.position.z+=p.userData.drift*.0007;p.scale.setScalar(.72+age*1.5);p.material.opacity=(1-age)*.22;});
     fireflies3D.forEach((f,i)=>{const t=now*.001*f.userData.speed+f.userData.phase;f.position.x=f.userData.ox+Math.sin(t*1.3+i)*1.1;f.position.z=f.userData.oz+Math.cos(t*.9+i*.4)*.8;f.position.y=1.0+Math.sin(t*1.8+i)*.75;f.material.opacity=.35+.55*(.5+.5*Math.sin(t*3.2));});

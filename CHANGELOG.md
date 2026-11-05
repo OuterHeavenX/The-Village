@@ -8,6 +8,50 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.2.0 SMOOTHER CURVE & CHAPTER MOODS
+
+### Progression curve
+
+A headless bot (same profile per chapter, no Village bonuses) won chapters 1–4
+with the gate untouched and then lost every chapter from 5 to 10, always the
+wave after the third road opened. Changes:
+
+- **Breach schedule smoothed.** Chapter 4 opens its second road after wave 9
+  (was 11); chapters 5, 6 and 7 open roads at 6/11, 5/10 and 5/9 (all three
+  were 4/8). Chapters 8–10 and 11+ are unchanged.
+- **Breach reinforcements.** Every new road arrives with an Essence grant
+  (8 + 1.2 × chapter) so it can be fortified straight away. It does not count
+  toward the draft vial, so draft pacing is unchanged.
+- **Reinforce card.** Once the draft moves on to a skill, trap or booster, the
+  last attack tower you placed stays in the hand as a *Reinforce* card you can
+  keep buying with Essence. Previously Essence could only be spent on the
+  active draft card or upgrades, so a third road often stayed uncovered.
+- **Chapters 3–4 tightened.** Enemy health 0.88 → 0.93 (ch3) and 0.92 → 1.00
+  (ch4); boss health 0.84 → 0.88 and 0.88 → 0.94.
+
+Bot results, two runs per chapter: v37.1 won 0 of 12 runs across chapters
+5–10; v37.2 wins about half, with chapter 7 and chapter 5 the hardest.
+
+### Battlefield visuals
+
+- **Chapter moods.** Each of the 20 maps now sets its own ground tones, grass,
+  sky, fog, moonlight, ambient and exposure (`src/Battle3D/moods.js`): a cold
+  blue graveyard, an ember-lit burning village, a frosted cathedral, red marsh
+  mist, a blood-sky castle, sea fog in the harbour, lightless caverns from the
+  Underkingdom on. The old scene was the same bright green meadow everywhere.
+- **Towers 30% larger** on the 3D board; they were about half a tile wide.
+
+### Village visuals
+
+- Citizens scaled from 3.65 to 2.85 and Shadow from 5.6 to 4.8, so people sit
+  under the doors instead of matching the lamp posts.
+- The river no longer mirrors the moon as one flat cyan sheet: rougher water
+  with a drifting ripple bump.
+- Night lighting lifted slightly (exposure 0.92 → 1.02, warmer fill) so the
+  buildings read as more than silhouettes.
+- The chapter message card moves beside the movement stick on wide screens and
+  above it on narrow ones; the two used to overlap.
+
 ## V37.1.0 BOSS POWERS & HONEST BUILDINGS
 
 ### Chapters 11–20: every boss now uses its power

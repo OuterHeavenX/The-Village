@@ -36,7 +36,12 @@ export function breachWavesForStage(stage = 1) {
   if (n === 1) return [5];
   if (n === 2) return [7];
   if (n === 3) return [9];
-  if (n === 4) return [11];
+  if (n === 4) return [9];
+  // V37.2: ch4 (one breach at 11) to ch5 (breaches at 4 and 8) was a cliff.
+  // Second and third roads now arrive progressively earlier through ch5-8.
+  if (n === 5) return [6, 11];
+  if (n === 6) return [5, 10];
+  if (n === 7) return [5, 9];
   if (n <= 10) return [4, 8];
   return [2, 5, 8];
 }

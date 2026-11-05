@@ -18,6 +18,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { battleMood } from './moods.js';
 import { KEEP_CENTER, KEEP_LAYOUT, KEEP_ROAD_ORDER, groundHeight } from './layout.js';
 
 export const BATTLE_VIEW_SHAPE = `
@@ -169,7 +170,10 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     moon.shadow.bias = -.0006;
     moon.shadow.normalBias = .03;
   }
-  scene.add(new THREE.AmbientLight(0x1b2038, .35));
+  const ambient = new THREE.AmbientLight(0x1b2038, .35);
+  scene.add(ambient);
+  // Per-chapter ground tones, shared by the terrain shader (see moods.js).
+  const moodUniforms = { uGrassLo: { value: new THREE.Color(0x0f2612) }, uGrassHi: { value: new THREE.Color(0x26451a) }, uGrassDry: { value: new THREE.Color(0x1c330d) } };
 
   // Torches: warm point lights at the keep doors and the lamp posts, with a
   // small glow sprite for the flame. Tiered by count; flicker in render().
@@ -233,16 +237,17 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   function terrainMaterial() {
     const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .95, metalness: 0 });
     material.onBeforeCompile = shader => {
+      Object.assign(shader.uniforms, moodUniforms);
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vArenaPos;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvArenaPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vArenaPos;' + PROCEDURAL_GLSL)
+        .replace('#include <common>', '#include <common>\nvarying vec3 vArenaPos; uniform vec3 uGrassLo; uniform vec3 uGrassHi; uniform vec3 uGrassDry;' + PROCEDURAL_GLSL)
         .replace('#include <color_fragment>', `
           vec2 uvw = vArenaPos.xz;
           float n = c3fbm(uvw * 1.6), n2 = c3noise(uvw * 9.), n3 = c3noise(uvw * 27.);
-          vec3 grass = mix(vec3(.06, .15, .07), vec3(.15, .27, .10), n);
-          grass = mix(grass, vec3(.11, .2, .05), smoothstep(.55, .85, n2) * .55) * (.88 + .24 * n3);
+          vec3 grass = mix(uGrassLo, uGrassHi, n);
+          grass = mix(grass, uGrassDry, smoothstep(.55, .85, n2) * .55) * (.88 + .24 * n3);
           vec2 cb = c3cells(uvw * 6.5);
           float c3grout = smoothstep(.0, .12, cb.y);
           vec3 road = mix(vec3(.21, .19, .17), vec3(.33, .30, .27), cb.x) * (.5 + .5 * c3grout) * (.88 + .24 * n3);
@@ -415,6 +420,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
         grass.receiveShadow = quality.shadowMap > 0;
         arena.add(grass);
         disposables.push(grass.material);
+        if (currentMood) grass.material.color.set(battleMood(currentMood).blade);
       }
       if (stoneGeometry) {
         stones = placeRoadStones(stoneGeometry, stoneMaterial);
@@ -661,6 +667,27 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   grade.uniforms.uVignette.value = quality.tier === 'phone' ? .45 : .55;
   composer.addPass(grade);
 
+  // ---- chapter mood --------------------------------------------------------
+  let currentMood = null;
+  const tmpColor = new THREE.Color();
+  function applyMood(mapId) {
+    currentMood = mapId;
+    const m = battleMood(mapId);
+    moodUniforms.uGrassLo.value.set(m.grass[0]); moodUniforms.uGrassHi.value.set(m.grass[1]); moodUniforms.uGrassDry.value.set(m.grass[2]);
+    if (grass?.material?.color) grass.material.color.set(m.blade);
+    sky.material.uniforms.horizon.value.set(m.sky[0]); sky.material.uniforms.zenith.value.set(m.sky[1]);
+    scene.fog.color.set(m.fog[0]); scene.fog.near = m.fog[1]; scene.fog.far = m.fog[2];
+    renderer.setClearColor(tmpColor.set(m.fog[0]).multiplyScalar(.6), 1);
+    hemi.color.set(m.hemi[0]); hemi.groundColor.set(m.hemi[1]); hemi.intensity = m.hemi[2];
+    moon.color.set(m.moon[0]); moon.intensity = m.moon[1];
+    ambient.color.set(m.ambient[0]); ambient.intensity = m.ambient[1];
+    stars.material.opacity = m.stars; stars.visible = m.stars > 0;
+    moonDisc.material.color.set(m.moonDisc); moonDisc.visible = m.moonDisc !== 0;
+    apron.material.color.set(m.grass[0]).multiplyScalar(.7);
+    grade.uniforms.uExposure.value = m.exposure;
+  }
+  applyMood('default');
+
   let width = 1, height = 1, baseDistance = 24;
   const target = new THREE.Vector3(KEEP_CENTER.x, .5, KEEP_CENTER.y);
   function resize() {
@@ -725,6 +752,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   // ---- per-frame -----------------------------------------------------------
   const keepEmissive = new THREE.Color(0x000000);
   function render(view) {
+    if ((view.mood || 'default') !== currentMood) applyMood(view.mood || 'default');
     wind.value = view.time || 0;
     applyCamera(view);
     if (keepMaterials.length && !LOOK_OFF.has('nokeepemissive')) {
@@ -897,7 +925,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
 
   resize();
   return {
-    canvas, ready, dressed, render, resize, dispose, worldAt, project,
+    canvas, ready, dressed, render, resize, dispose, worldAt, project, applyMood, get mood() { return currentMood; },
     get lost() { return lost; },
     get quality() { return quality; },
     stats() { return { keep: keepMaterials.map(m => ({ name: m.name, type: m.type, color: m.color?.getHexString(), emissive: m.emissive?.getHexString(), vc: m.vertexColors, metal: m.metalness, rough: m.roughness, side: m.side, transparent: m.transparent, opacity: m.opacity })), grass: grass?.count || 0, stones: stones?.count || 0, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, textures: textures.size, rubble: Object.fromEntries(KEEP_ROAD_ORDER.map(road => [road, (rubble.get(road) || []).slice(0, 1).map(p => ({ visible: p.visible, y: +p.position.y.toFixed(2), s: +p.scale.x.toFixed(2) }))[0] || null])) }; }

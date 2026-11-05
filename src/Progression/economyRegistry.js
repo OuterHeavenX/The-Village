@@ -30,8 +30,8 @@ export const EARLY_STAGE_DIFFICULTY = Object.freeze({
   // the gate never touched, then lost chapter 2 at wave 5 with a stronger build.
   1: { enemyHealth: .68, bossHealth: .74, gateHealth: 10, label: 'Tutorial guardian' },
   2: { enemyHealth: .80, bossHealth: .80, gateHealth: 8, label: 'Foundation guardian' },
-  3: { enemyHealth: .88, bossHealth: .84, gateHealth: 5, label: 'Placement check' },
-  4: { enemyHealth: .92, bossHealth: .88, gateHealth: 4, label: 'First challenge' },
+  3: { enemyHealth: .93, bossHealth: .88, gateHealth: 5, label: 'Placement check' },
+  4: { enemyHealth: 1.0, bossHealth: .94, gateHealth: 4, label: 'First challenge' },
   5: { enemyHealth: .95, bossHealth: .94, gateHealth: 3, label: 'First progression check' }
 });
 

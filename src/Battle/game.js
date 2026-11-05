@@ -1345,11 +1345,16 @@ function activateNextRoute(){
  if(added.length){G.branchActive=true;G.spawnMode='split';}
  return added;
 }
+// V37.2 breach reinforcements: a new road arrives with zero coverage, so the
+// keep sends enough Essence to fortify it at once. Kept out of essenceEarned so
+// the draft cadence is unchanged.
+function breachBounty(){const stage=Math.max(1,G?.chapter?.number||1);return Math.round(8+stage*1.2);}
+function grantBreachBounty(event){if(!G)return;const amount=breachBounty();G.essence+=amount;G.breachBounties=(G.breachBounties||0)+amount;G.lastMeaningfulDecisionAt=G.time;floatText(GRID.cols/2,2.1,`+${amount} ESSENCE · FORTIFY THE NEW ROAD`,'#d8c7ff');try{renderEssenceVial();}catch{}}
 function roadGrowthForWave(completedWave){if(completedWave<=10)return 1;if(completedWave<=15)return Math.random()<.55?2:1;return 2}
 function growRoadAfterWave(completedWave){
  const added=[];
  const scheduled=(G.roadEvents||[]).filter(event=>event.wave===completedWave&&!event.applied);
- for(const event of scheduled){event.applied=true;if(event.type==='OPEN_ROUTE'){while(G.routes.length<=event.routeIndex)G.routes.push(G.roadPlans[G.routes.length].slice(0,G.layout==='keep'?undefined:4));rebuildVisiblePath();G.branchActive=true;G.spawnMode='split';battleEvent('road-breach-opened',{wave:completedWave,route:event.routeIndex});if(G.layout==='keep')added.push(...G.routes[event.routeIndex].map(cell=>({...cell,routeIndex:event.routeIndex})));}const target=G.routes[event.routeIndex];if(!target)continue;for(let i=0;i<event.count&&target.length<G.roadPlans[event.routeIndex].length;i++){const cell=appendRouteTile(event.routeIndex);if(cell&&!cell.shared)added.push(cell)}if(event.label)showToast(event.label,1900)}
+ for(const event of scheduled){event.applied=true;if(event.type==='OPEN_ROUTE'){while(G.routes.length<=event.routeIndex)G.routes.push(G.roadPlans[G.routes.length].slice(0,G.layout==='keep'?undefined:4));rebuildVisiblePath();G.branchActive=true;G.spawnMode='split';battleEvent('road-breach-opened',{wave:completedWave,route:event.routeIndex});grantBreachBounty(event);if(G.layout==='keep')added.push(...G.routes[event.routeIndex].map(cell=>({...cell,routeIndex:event.routeIndex})));}const target=G.routes[event.routeIndex];if(!target)continue;for(let i=0;i<event.count&&target.length<G.roadPlans[event.routeIndex].length;i++){const cell=appendRouteTile(event.routeIndex);if(cell&&!cell.shared)added.push(cell)}if(event.label)showToast(event.label,1900)}
  if(scheduled.length||G.layout==='keep')return added; // keep layout: breaches only, the roads never grow
  const count=completedWave%3===0?roadGrowthForWave(completedWave):0;
  for(let i=0;i<count;i++){
@@ -1863,22 +1868,35 @@ function draftCardHTML(c){
 function renderHand(){
  if(!UI.hand||!G)return;
  UI.hand.innerHTML='';
- const c=G.activeDraftCard;
- if(!c){UI.hand.classList.add('hidden');UI.hand.setAttribute('aria-hidden','true');return;}
- if(c.tactical){UI.hand.classList.add('hidden');UI.hand.setAttribute('aria-hidden','true');return;}
- const cost=essenceCost(c),affordable=G.essence>=cost;
- const el=document.createElement('button');
- el.type='button';
- el.className=`hand-card active ${affordable?'affordable':'locked-cost'}`;
-  el.innerHTML=`<span class="hlvl">Lv ${inv(c.id).level}</span><div class="hicon">${cardIconHTML(c,inv(c.id).level)}</div><div class="hname">${c.name}</div><div class="hcost">✦ ${cost}</div>`;
- el.title=affordable?`Place another ${c.name} for ${cost} Essence`:`Need ${cost-G.essence} more Essence`;
- el.onclick=()=>G.pendingCard&&!G.draftChoiceCommitted?reopenDraftChoices():selectEssenceCard(c);
- UI.hand.append(el);UI.hand.classList.remove('hidden');UI.hand.setAttribute('aria-hidden','false');
+ const active=G.activeDraftCard&&!G.activeDraftCard.tactical?G.activeDraftCard:null;
+ const reserve=reinforcementCard();
+ if(!active&&!reserve){UI.hand.classList.add('hidden');UI.hand.setAttribute('aria-hidden','true');return;}
+ const addCard=(c,isReserve)=>{
+  const cost=essenceCost(c),affordable=G.essence>=cost;
+  const el=document.createElement('button');
+  el.type='button';
+  el.className=`hand-card ${isReserve?'reserve':'active'} ${affordable?'affordable':'locked-cost'}`;
+  el.innerHTML=`<span class="hlvl">${isReserve?'Reinforce':'Lv '+inv(c.id).level}</span><div class="hicon">${cardIconHTML(c,inv(c.id).level)}</div><div class="hname">${c.name}</div><div class="hcost">✦ ${cost}</div>`;
+  el.title=affordable?`Place another ${c.name} for ${cost} Essence`:`Need ${cost-G.essence} more Essence`;
+  el.onclick=()=>!isReserve&&G.pendingCard&&!G.draftChoiceCommitted?reopenDraftChoices():selectEssenceCard(c);
+  UI.hand.append(el);
+ };
+ if(active)addCard(active,false);
+ if(reserve)addCard(reserve,true);
+ UI.hand.classList.remove('hidden');UI.hand.setAttribute('aria-hidden','false');
+}
+// V37.2 reinforcements: once a draft moves on to a skill, trap or booster, the
+// last attack tower placed this run stays buyable with Essence, so a new road
+// can be covered without waiting for a tower to come round in the draft.
+function reinforcementCard(){
+ const r=G?.lastTowerCard;if(!r||G.draftPlacementPending||G.draftOpen)return null;
+ if(G.activeDraftCard?.id===r.id)return null;
+ return r;
 }
 function selectEssenceCard(c){
  if(!G||G.state!=='play'||G.draftOpen)return;const cost=G.openingDraft&&!G.draftChoiceCommitted?0:essenceCost(c);
  if(G.essence<cost)return showToast(`Need ${cost-G.essence} more Essence`);
- if(!G.activeDraftCard||G.activeDraftCard.id!==c.id)return showToast('Fill the vial and draft a card first');
+ if((!G.activeDraftCard||G.activeDraftCard.id!==c.id)&&reinforcementCard()?.id!==c.id)return showToast('Fill the vial and draft a card first');
  if(c.tactical){applyTacticalChoice(c);G.activeDraftCard=null;renderEssenceVial();renderHand();return;}
  if(c.type==='hero'){applyHeroUpgrade(c);G.activeDraftCard=null;renderEssenceVial();renderHand();return;}
  if(c.type==='support'&&!G.towers.some(t=>!t.supportOnly))return showToast('Place an attack tower before a support tower');
@@ -2113,6 +2131,7 @@ function finishCardPlacement(){
  G.draftPlacementPending=false;
  G.essence-=cost;G.essenceSpent=(G.essenceSpent||0)+cost;G.lastMeaningfulDecisionAt=G.time;
  commitDraftChoice(placed);
+ if(placed?.type==='tower'){const{essenceCost:_ec,...base}=placed;G.lastTowerCard=base;}
  G.openingDraft=false;G.maxEssence=essenceCapacity(G);
  G.pendingCard=null;G.selected=null;G.hoverTile=null;setPlacementUI(null);G.draftOpen=false;G.paused=false;G.pendingWave=false;renderEssenceVial();renderHand();
  if(placed&&G.activeDraftCard?.id===placed.id){const cost=essenceCost(placed);showToast(G.essence>=cost?`${G.essence} Essence left · tap ${placed.name} to place another`:`${placed.name} cycle complete · refill the vial`);}
@@ -3051,15 +3070,18 @@ function draw(){
 // that are better as screen-space overlays (health bars, damage numbers, the
 // hit flash) on the transparent 2D canvas above it.
 const towerRasterCache=new Map();
+const TOWER_RASTER_SCALE=1.3;
 function rasterTower(t){
  const phase=(t.recoil||0)>.07?3:(t.flashT||0)>0?2:(t.t||0)<.22?4:(t.t||0)<.46?1:0;
  const key=`${t.id}|${t.level||1}|${phase}|${t.supportOnly?1:0}|${t.elite?1:0}|${t.infusionTier||1}|${(t.supports||[]).map(s=>s.id).join('+')}`;
  let hit=towerRasterCache.get(key);
  if(hit)return hit;
- const c=document.createElement('canvas');c.width=128;c.height=128;const offscreen=c.getContext('2d');
+ // V37.2: towers read ~30% larger on the 3D board (they were half a tile wide).
+ const S=TOWER_RASTER_SCALE,size=Math.ceil(128*S)+2,ax=size/2,ay=size-(128-92)*S;
+ const c=document.createElement('canvas');c.width=size;c.height=size;const offscreen=c.getContext('2d');
  const previous=ctx;ctx=offscreen;
- try{drawTowerVisual(t,64,92)}catch(error){console.warn('[Battle3D] tower raster failed',t.id,error)}finally{ctx=previous}
- hit={canvas:c,key,baseline:(128-107)/64};
+ try{offscreen.translate(ax,ay);offscreen.scale(S,S);offscreen.translate(-64,-92);drawTowerVisual(t,64,92)}catch(error){console.warn('[Battle3D] tower raster failed',t.id,error)}finally{ctx=previous}
+ hit={canvas:c,key,baseline:(size-(ay+(107-92)*S))/64};
  if(towerRasterCache.size>96)towerRasterCache.delete(towerRasterCache.keys().next().value);
  towerRasterCache.set(key,hit);
  return hit;
@@ -3105,7 +3127,7 @@ function battleView3D(){
  const rings=(G.holyRains||[]).map(r=>({x:r.x,y:r.y,radius:r.radius,color:'#8edcff',alpha:.15+.45*Math.max(0,1-r.elapsed/r.duration)}));
  if(G.roadReveal){const q=Math.max(0,G.roadReveal.life/G.roadReveal.maxLife);for(const cell of G.roadReveal.cells)rings.push({x:cell.x+.5,y:cell.y+.5,radius:.2+.5*(1-q),color:'#d1b078',alpha:.55*q})}
  const selected=G.selectedTower?{x:G.selectedTower.x,y:G.selectedTower.y,range:towerCombatRange(G.selectedTower)}:null;
- return {time:G.time,width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0,focus:G.camera?.focus||null},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,towers,shots,traps,particles,rings,links,lanes};
+ return {time:G.time,mood:G.chapter?.map||G.map?.id||'default',width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0,focus:G.camera?.focus||null},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,towers,shots,traps,particles,rings,links,lanes};
 }
 // V37.1 — boss telegraphs, drawn in screen space so the 2D board and the 3D
 // battlefield share one implementation; `project(x,y)` maps tile coordinates.
