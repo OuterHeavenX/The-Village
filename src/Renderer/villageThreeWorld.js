@@ -409,7 +409,7 @@ export async function createVillageThreeWorld({ viewport, world, getShadowState,
   {const c=document.createElement('canvas');c.width=64;c.height=256;const x=c.getContext('2d');x.fillStyle='#808080';x.fillRect(0,0,64,256);
    for(let i=0;i<420;i++){const v=Math.random()*255|0;x.fillStyle=`rgba(${v},${v},${v},.35)`;x.fillRect(Math.random()*64,Math.random()*256,4+Math.random()*12,1+Math.random()*2);}
    const ripple=new THREE.CanvasTexture(c);ripple.wrapS=ripple.wrapT=THREE.RepeatWrapping;ripple.repeat.set(2,18);
-   mats.water.bumpMap=ripple;mats.water.bumpScale=.05;mats.water.roughness=.62;mats.water.color.set(0x020a10);if('reflectivity' in mats.water)mats.water.reflectivity=.3;mats.water.needsUpdate=true;}
+   mats.water.bumpMap=ripple;mats.water.bumpScale=.05;mats.water.roughness=.45;mats.water.color.set(0x010304);mats.water.emissive?.set(0x03090d);if('reflectivity' in mats.water)mats.water.reflectivity=.3;mats.water.needsUpdate=true;}
   const river = new THREE.Mesh(new THREE.PlaneGeometry(10, 112), mats.water);
   river.rotation.x=-Math.PI/2; river.position.set(-18,.06,0); river.receiveShadow=true; scene.add(river);
 
