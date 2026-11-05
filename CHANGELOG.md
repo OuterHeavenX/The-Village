@@ -8,6 +8,65 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.5.0 BOSSES IN 3D, TEST MODE, INSPECTOR
+
+### Test mode: everything unlocked
+
+Open the game with `?unlockall` (…/The-Village/?unlockall) to open all 20
+chapters and unlock every card. The game first copies your real save aside;
+everything you do in test mode is played on that copy. A gold "TEST MODE" tag
+sits at the bottom of the screen — tap it (or open `?unlockall=0`) to leave,
+which throws the test progress away and restores your real save exactly.
+(`src/config/testMode.js`)
+
+### 3D bosses
+
+All twenty chapter bosses and the stone golem are now 3D models on the 3D
+battlefield (`src/Battle3D/bossModels.js`), built on five rigs — armoured
+knight, robed caster, vampire noble, beast and bone colossus — each with its
+own head, weapon and extras: the Eclipse Warden's black-sun halo and
+greatsword, the Thornbound Beast's thorned back, the Blood Count's cape and
+rapier, the Frozen Bishop's mitre, crozier and frost shards, the Castellan's
+great helm, shield and mace, the Blood King's crown and bat wings, the Bell
+Keeper's bell, the Ashen Abbot's censer and embers, the Underking's skull
+crown and scythe, the Hollow Saint's halo and feathered wings, the Plague
+Choir's beaked mask and floating masks, the Grand Ossuary's bone body, the
+Lord of Final Night's eclipse, crown and wings, and more. They walk (legs,
+arms, capes and robes move), turn to face where they are going, swing their
+weapon at the gate, flinch and flash when hit, stoop as they weaken, and sink
+into the ground when they die. Floating bosses hover.
+
+Regular enemies stay flat figures, with a small pop when hit and a turning
+gold (elite) or violet (miniboss) ring at their feet.
+
+### Tower inspector
+
+The panel you get by tapping a placed tower uses the new card style: the
+tower's 3D portrait, rarity, a five-step level track that names what the next
+level adds to the model, stat plaques, and the Essence and battle-point
+upgrades in their own sections.
+
+### Level-up feedback
+
+When a tower levels up on the 3D board, a gold pillar and ring of light rise
+from it, the model dips and bounces up into its new shape, and a two-note
+chime plays.
+
+### Cards
+
+- New 3D emblems for Hunter's Reach, Field Repair, Battlefield Merge, Battle
+  Insight and Overclock the Line.
+- Eclipse Consecration is now a black sun with a burning corona; the bear trap
+  is tipped toward the viewer so its jaws read.
+
+### Fixes
+
+- **The battle hand was never shown in battle.** An old style rule hid it, so
+  the "place another" card and the Reinforce card added in V37.2.0 could not
+  be used. It now sits above the battle controls.
+- The battle draft panel is centred, and the draft art has its full height
+  again.
+
 ## V37.4.0 RELIQUARY CARDS
 
 ### Card art from the 3D models

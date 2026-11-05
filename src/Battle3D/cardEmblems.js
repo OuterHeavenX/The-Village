@@ -114,10 +114,64 @@ export const EMBLEMS = {
     sparks(b, 0xffe9a8, 8, .3, .2, .5, .025);
   },
   moonBlessing(b) {
+    // An eclipse: a dark moon in front of a burning corona, a thin crescent of light.
+    const top = altar(b, .3, .12), y = top + .52;
+    b.cyl('g', .3, .3, .02, 32, 0xffe9b0, [0, y, -.04], [Math.PI / 2, 0, 0]);
+    b.ring('g', .34, .03, 0xffc860, [0, y, -.03], [0, 0, 0], 40);
+    for (let i = 0; i < 16; i++) { const a = i / 16 * TAU, r = .4 + (i % 2) * .08; b.cone('g', .025, .12 + (i % 2) * .06, 4, 0xffd890, [Math.sin(a) * r, y + Math.cos(a) * r, -.05], [0, 0, -a]); }
+    b.cyl('s', .27, .27, .05, 32, 0x0c0a12, [.05, y + .03, .02], [Math.PI / 2, 0, 0]);
+    b.add('glow', new THREE.TorusGeometry(.28, .02, 4, 24, Math.PI * .9), 0xfff4d0, [-.02, y - .01, .03], [0, 0, Math.PI * .55]);
+    sparks(b, 0xfff0c0, 8, .55, top + .05, top + 1, .025);
+  },
+  fortify(b) {
+    // Hunter's Reach: a chain flail swung wide inside a range ring.
+    const top = altar(b, .28, .1);
+    b.ring('g', .5, .014, 0x9fe0ff, [0, top + .02, 0], [Math.PI / 2, 0, 0], 40);
+    b.ring('g', .36, .01, 0x9fe0ff, [0, top + .02, 0], [Math.PI / 2, 0, 0], 32);
+    b.cyl('s', .04, .05, .5, 6, COL.wood, [0, top + .25, 0]);
+    b.box('s', .07, .1, .07, COL.leather, [0, top + .45, 0]);
+    for (let i = 0; i < 7; i++) b.ring('m', .035, .011, COL.steel, [.06 + i * .06, top + .52 + Math.sin(i * .5) * .05, 0], [0, i % 2 ? Math.PI / 2 : 0, Math.PI / 2], 8);
+    b.ball('m', .08, COL.iron, [.5, top + .62, 0]);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; b.cone('m', .022, .07, 4, COL.steel, [.5 + Math.sin(a) * .08, top + .62 + Math.cos(a) * .08, 0], [0, 0, -a]); }
+    b.cone('g', .05, .16, 4, 0x9fe0ff, [.4, top + .02, .3], [Math.PI / 2, 0, -.6]);
+  },
+  // --- battle boosters -------------------------------------------------------
+  fieldRepair(b) {
+    const top = altar(b, .32, .1);
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3 - (r % 2); c++) b.box('s', .2, .1, .14, r === 2 && c === 1 ? COL.stoneLight : COL.stone, [(c - (2 - (r % 2)) / 2) * .21, top + .06 + r * .11, 0]);
+    b.box('s', .06, .4, .06, COL.wood, [.22, top + .52, .12], [0, 0, -.6]);
+    b.box('m', .22, .1, .1, COL.iron, [.34, top + .7, .12], [0, 0, -.6]);
+    b.ring('g', .34, .014, 0x8aff9a, [0, top + .2, 0], [Math.PI / 2, 0, 0], 32);
+    for (const [x, y] of [[-.3, .5], [-.12, .62], [.05, .48]]) { b.box('g', .1, .03, .03, 0x8aff9a, [x, top + y, .1]); b.box('g', .03, .1, .03, 0x8aff9a, [x, top + y, .1]); }
+  },
+  fieldMerge(b) {
+    // Two small towers fusing into a star above an anvil.
+    b.box('m', .44, .12, .24, COL.iron, [0, .2, 0]);
+    b.box('m', .26, .14, .18, COL.iron, [0, .07, 0]);
+    b.cone('m', .1, .2, 4, COL.iron, [.3, .22, 0], [0, 0, -Math.PI / 2], [1, 1, .9]);
+    for (const s of [-1, 1]) { b.cyl('s', .07, .08, .26, 8, COL.stone, [s * .16, .39, 0], [0, 0, -s * .35]); b.cone('s', .09, .12, 8, COL.slate, [s * .2, .55, 0], [0, 0, -s * .35]); }
+    b.gem('g', .11, 0xffe9a8, [0, .78, 0], [1, 1.3, 1]);
+    b.ring('g', .2, .012, 0xffe9a8, [0, .78, 0], [0, 0, 0], 28);
+    sparks(b, 0xffe9a8, 10, .42, .35, .95, .028);
+  },
+  battleInsight(b) {
     const top = altar(b, .3, .12);
-    b.half('g', .3, .06, 0xe8ecff, [0, top + .5, 0], [Math.PI / 2, 0, -.5], 0, 20);
-    b.half('s', .25, .065, 0x1a1c2e, [.08, top + .52, .005], [Math.PI / 2, 0, -.5], 0, 20);
-    sparks(b, 0xdfe6ff, 10, .5, top + .1, top + .95, .03);
+    b.box('s', .5, .03, .34, 0x5a2416, [0, top + .06, 0], [-.5, 0, 0]);
+    b.box('s', .22, .02, .3, COL.parchment, [-.12, top + .09, 0], [-.5, 0, .14]);
+    b.box('s', .22, .02, .3, COL.parchment, [.12, top + .09, 0], [-.5, 0, -.14]);
+    b.ball('g', .1, 0xbfe8ff, [0, top + .42, 0], [1.5, .9, .6]);
+    b.ball('s', .05, 0x0a1220, [0, top + .42, .05]);
+    b.ring('g', .16, .012, 0xbfe8ff, [0, top + .42, 0], [0, 0, 0], 24);
+    sparks(b, 0xbfe8ff, 8, .45, top + .2, top + .85, .025);
+  },
+  overclockLine(b) {
+    const top = altar(b, .28, .1), y = top + .45;
+    b.cyl('m', .26, .26, .07, 16, COL.goldDark, [0, y, 0], [Math.PI / 2, 0, 0]);
+    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; b.box('m', .08, .08, .07, COL.goldDark, [Math.sin(a) * .29, y + Math.cos(a) * .29, 0], [0, 0, -a]); }
+    b.cyl('s', .1, .1, .09, 12, COL.stoneDark, [0, y, 0], [Math.PI / 2, 0, 0]);
+    b.box('g', .07, .34, .03, 0xffe27a, [.03, y + .08, .07], [0, 0, .45]);
+    b.box('g', .07, .3, .03, 0xffe27a, [-.03, y - .14, .07], [0, 0, .45]);
+    b.box('g', .14, .05, .03, 0xffe27a, [0, y - .03, .07], [0, 0, .45]);
   },
   // --- traps -----------------------------------------------------------------
   spikeTrap(b) {
@@ -137,6 +191,8 @@ export const EMBLEMS = {
     b.cone('g', .03, .12, 6, 0xffe0a0, [.26, .12, .25]);
   },
   bearTrap(b) {
+    // Built flat, then tipped toward the viewer so the jaws read from the front.
+    const flat = new PartBuilder(); const outer = b; b = flat;
     b.cyl('m', .36, .4, .05, 16, COL.iron, [0, .025, 0]);
     b.cyl('m', .12, .12, .07, 10, COL.goldDark, [0, .06, 0]);
     // Two semicircular jaws sprung half-open in a V, teeth pointing inward.
@@ -147,9 +203,10 @@ export const EMBLEMS = {
         const t = (k + .5) / 7 * Math.PI;
         jaw.cone('m', .03, .1, 4, COL.steel, [Math.cos(t) * .3, Math.sin(t) * .3, 0], [0, 0, t + Math.PI / 2]);
       }
-      merge(b, jaw, [0, .06, 0], [s * .55, 0, 0], 1);
+      merge(b, jaw, [0, .06, 0], [s * .55, 0, 0], 1.15);
     }
     for (let i = 0; i < 5; i++) b.ring('m', .04, .012, COL.steel, [.44 + i * .07, .03, .12], [Math.PI / 2, i % 2 ? Math.PI / 2 : 0, 0], 8);
+    merge(outer, flat, [0, .12, 0], [.55, -.35, 0], 1.25);
   },
   frostRune(b) {
     b.cyl('s', .46, .5, .06, 6, COL.stoneLight, [0, .03, 0]);

@@ -25,6 +25,7 @@ import { activateBattle3Runtime, deactivateBattle3Runtime } from './battle3Runti
 import { cardArtHTML } from '../Cards/cardArtRegistry.js';
 import { testUnlockAll } from '../config/testMode.js';
 import { towerSprite2D, SPRITE_TILES_WIDE, SPRITE_ANCHOR } from '../Cards/cardArt3D.js';
+import { hasBossModel } from '../Battle3D/bossModels.js';
 import { installCardsScreen } from '../Cards/cardsScreen.js';
 import {
   ASCENSION_SAVE_VERSION,
@@ -203,7 +204,7 @@ function spawnCorpse(e){
  const golem=isGolemBoss(e);
  G.corpses.push({x:e.x,y:e.y,face:e.face||'down',golem,
   img:spriteImage(golem?golemAsset(e.golemForm||1,'Death'):enemyAsset(e.type,'Death')),
-  size:(golem?320:e.boss?240:e.mini?98:e.elite?90:78),t:0});
+  size:(golem?320:e.boss?240:e.mini?98:e.elite?90:78),t:0,boss3d:!!(e.boss&&!TOWER_MODELS_OFF&&hasBossModel(e.type)&&battle3d.active)});
  if(G.corpses.length>ENEMY_ANIM.maxCorpses)G.corpses.splice(0,G.corpses.length-ENEMY_ANIM.maxCorpses);
 }
 function corpseLife(c){return sheetCols(c.img,c.golem?128:64)/ENEMY_ANIM.deathFps}
@@ -2440,7 +2441,10 @@ function essenceUpgradeSelectedTower(stat){
 // towers on it) plus the card-wide upgrade rank. Both used to write the same
 // field, so buying an upgrade reset a merged tower back to 1 + rank.
 function cardUpgradeRank(id){const state=cardUpgradeState(id);return Math.max(state.damage||0,state.range||0,state.rate||0)}
-function refreshTowerLevel(t){t.mergeLevel=Math.max(1,t.mergeLevel||1);t.level=t.mergeLevel+cardUpgradeRank(t.id);return t.level}
+function refreshTowerLevel(t){const before=t.level||0;t.mergeLevel=Math.max(1,t.mergeLevel||1);t.level=t.mergeLevel+cardUpgradeRank(t.id);
+ // V37.5 level-up feedback: the 3D board plays a light burst and the new parts rise into place.
+ if(before&&t.level>before&&G){t.levelUpAt=G.time;floatText(t.x+.5,t.y-.2,`LEVEL ${t.level}`,'#ffe7a4');playTone(523,.12,'triangle',.05);battleDelay(()=>playTone(784,.18,'triangle',.045),110,'level-up chime');}
+ return t.level}
 function applyCardBattleUpgradesToTower(t){
  const state=cardUpgradeState(t.id);refreshTowerLevel(t);t.upgradeDamage=state.damage||0;t.upgradeRange=state.range||0;t.upgradeRate=state.rate||0;
  if(t.upgradeDamage)t.damage*=Math.pow(1.24,t.upgradeDamage);
@@ -3078,6 +3082,7 @@ function draw(){
 // hit flash) on the transparent 2D canvas above it.
 const towerRasterCache=new Map();
 const TOWER_RASTER_SCALE=1.3;
+let BOSS_UID=0;const FACE_ANGLE={down:0,up:Math.PI,left:-Math.PI/2,right:Math.PI/2};
 const TOWER_MODELS_OFF=/(?:^|[,=])nomodels(?:,|&|$)/.test(location.search);
 function rasterTower(t){
  const phase=(t.recoil||0)>.07?3:(t.flashT||0)>0?2:(t.t||0)<.22?4:(t.t||0)<.46?1:0;
@@ -3109,8 +3114,8 @@ function battleView3D(){
  const validAt=(x,y)=>placing==='trap'?validTrapTile(x,y):placing==='support'?validSupportTile(x,y):validTowerTile(x,y);
  const pads=placing&&placing!=='trap'?placementSlots(G,GRID.cols,GRID.rows).map(slot=>({x:slot.x,y:slot.y,valid:validAt(slot.x,slot.y)})):[];
  const hover=placing&&G.hoverTile&&inside(G.hoverTile.x,G.hoverTile.y)?{x:G.hoverTile.x,y:G.hoverTile.y,valid:validAt(G.hoverTile.x,G.hoverTile.y)}:null;
- const sprites=[];
- for(const c of G.corpses||[]){const cols=sheetCols(c.img,c.golem?128:64),dur=corpseLife(c),frame=Math.min(cols-1,Math.floor(c.t*ENEMY_ANIM.deathFps)),alpha=c.t<=dur?1:Math.max(0,1-(c.t-dur)/ENEMY_ANIM.corpseFade);sprites.push({img:c.img,cell:c.golem?128:64,frame,row:directionRow(c.face),x:c.x,y:c.y,size:c.size,alpha})}
+ const sprites=[],bosses=[];
+ for(const c of G.corpses||[]){if(c.boss3d)continue;const cols=sheetCols(c.img,c.golem?128:64),dur=corpseLife(c),frame=Math.min(cols-1,Math.floor(c.t*ENEMY_ANIM.deathFps)),alpha=c.t<=dur?1:Math.max(0,1-(c.t-dur)/ENEMY_ANIM.corpseFade);sprites.push({img:c.img,cell:c.golem?128:64,frame,row:directionRow(c.face),x:c.x,y:c.y,size:c.size,alpha})}
  for(const e of G.enemies){
   if(e.dead)continue;
   const points=routePoints(e.routeIndex||0),a=points[e.seg],b=points[Math.min(points.length-1,e.seg+1)]||a;let face='down';
@@ -3118,7 +3123,9 @@ function battleView3D(){
   else if(a&&b){const dx=b.x-a.x,dy=b.y-a.y;face=Math.abs(dx)>Math.abs(dy)?(dx<0?'left':'right'):(dy<0?'up':'down')}
   e.face=face;
   const isGolem=isGolemBoss(e),action=enemyActionFor(e),img=spriteImage(enemySheet(e,action)),frame=enemyFrame(e,action,img),size=isGolem?320:e.boss?240:e.mini?98:e.elite?90:78;
-  sprites.push({img,cell:isGolem?128:64,frame,row:directionRow(face),x:e.x+(e.kickX??-1)*(e.hitKick||0),y:e.y+(e.kickY??0)*(e.hitKick||0),size,tint:(e.hitFlash||0)>0?'#ffb4b4':null});
+  // V37.5: chapter bosses are 3D models on the 3D board.
+  if(e.boss&&!TOWER_MODELS_OFF&&hasBossModel(e.type)){if(!e.uid)e.uid=++BOSS_UID;bosses.push({uid:e.uid,type:e.type,x:e.x,y:e.y,attacking:!!e.attacking,hit:e.hitFlash||0,hp:Math.max(0,e.hp/(e.max||1)),speed:e.speed||.3,paused:(e.cinematicPause||0)>0||!!G.paused,faceAngle:FACE_ANGLE[face]});continue;}
+  sprites.push({img,cell:isGolem?128:64,frame,row:directionRow(face),x:e.x+(e.kickX??-1)*(e.hitKick||0),y:e.y+(e.kickY??0)*(e.hitKick||0),size,tint:(e.hitFlash||0)>0?'#ffb4b4':null,hit:Math.min(1,(e.hitFlash||0)/.11),ring:e.elite?'#ffd27a':e.mini?'#c08cff':null});
  }
  const heroLevel=currentShadowLevel(),heroAction=(G.hero.attackAnim||0)>0?'attack':(G.hero.walking?'Walk':'Idle'),heroImg=spriteImage(shadowAsset(heroLevel,heroAction)),heroFrame=Math.floor((G.hero.anim||0)*(heroAction==='Idle'?.45:1));
  sprites.push({img:heroImg,cell:64,frame:heroFrame,row:directionRow(G.hero.facing||'down'),x:G.hero.x,y:G.hero.y,size:84});
@@ -3126,7 +3133,7 @@ function battleView3D(){
  if(fam){const visual=COMPANION_BEHAVIOR_REGISTRY[fam.id]?.visual||{},orbit=((visual.orbitRadius||38)+(fam.level||1)*.35)/64;sprites.push({img:emojiSprite(fam.icon),cell:64,frame:0,row:0,x:G.hero.x+Math.cos(fam.angle||0)*orbit,y:G.hero.y+Math.sin(fam.angle||0)*orbit*.4,size:34,lift:1.05,lean:0})}
  // V37.3: the 3D board builds real tower models from this state; the canvas
  // raster is only drawn for the ?look=nomodels debug fallback.
- const towers=G.towers.filter(t=>!t.destroyed).map(t=>{const base={id:t.id,x:t.x,y:t.y,level:t.level||1,elite:!!t.elite,support:!!t.supportOnly,aimX:-(t.recX||0),aimZ:-(t.recY||0),recoil:t.recoil||0,flash:t.flashT||0,stunned:(t.stunT||0)>0};if(!TOWER_MODELS_OFF)return base;const r=rasterTower(t);return {...base,id:null,canvas:r.canvas,key:r.key,baseline:r.baseline}});
+ const towers=G.towers.filter(t=>!t.destroyed).map(t=>{const base={id:t.id,x:t.x,y:t.y,level:t.level||1,elite:!!t.elite,support:!!t.supportOnly,aimX:-(t.recX||0),aimZ:-(t.recY||0),recoil:t.recoil||0,flash:t.flashT||0,stunned:(t.stunT||0)>0,levelUpAt:t.levelUpAt??null};if(!TOWER_MODELS_OFF)return base;const r=rasterTower(t);return {...base,id:null,canvas:r.canvas,key:r.key,baseline:r.baseline}});
  const shots=G.shots.map(s=>({x:s.x,y:s.y,color:s.color,size:s.archer?.26:s.kind==='scripture'?.5:.4}));
  // Synergy links between towers, with the mote that rides each one.
  const links=[];
@@ -3137,7 +3144,7 @@ function battleView3D(){
  const rings=(G.holyRains||[]).map(r=>({x:r.x,y:r.y,radius:r.radius,color:'#8edcff',alpha:.15+.45*Math.max(0,1-r.elapsed/r.duration)}));
  if(G.roadReveal){const q=Math.max(0,G.roadReveal.life/G.roadReveal.maxLife);for(const cell of G.roadReveal.cells)rings.push({x:cell.x+.5,y:cell.y+.5,radius:.2+.5*(1-q),color:'#d1b078',alpha:.55*q})}
  const selected=G.selectedTower?{x:G.selectedTower.x,y:G.selectedTower.y,range:towerCombatRange(G.selectedTower)}:null;
- return {time:G.time,mood:G.chapter?.map||G.map?.id||'default',width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0,focus:G.camera?.focus||null},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,towers,shots,traps,particles,rings,links,lanes};
+ return {time:G.time,mood:G.chapter?.map||G.map?.id||'default',width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0,focus:G.camera?.focus||null},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,bosses,towers,shots,traps,particles,rings,links,lanes};
 }
 // V37.1 — boss telegraphs, drawn in screen space so the 2D board and the 3D
 // battlefield share one implementation; `project(x,y)` maps tile coordinates.
@@ -3200,7 +3207,19 @@ function draw3D(){
  if(G.flash){ctx.fillStyle=`rgba(220,210,255,${G.flash})`;ctx.fillRect(0,0,W,H)}
 }
 
-function renderInspector(){const el=$('#towerInspector');if(!G?.selectedTower){el.classList.add('hidden');return}const t=G.selectedTower,syn=synergyFor(t),state=cardUpgradeState(t.id),run=t.runEssenceUpgrades||{};el.classList.remove('hidden');const button=(stat,label,bonus)=>{const rank=state[stat]||0,max=towerUpgradeMax(stat),cost=towerUpgradeCost(t,stat);return `<button data-upgrade="${stat}" ${rank>=max?'disabled':''}>${label}<br><small>Lv ${rank}/${max} · ${bonus} · ${cost} pt</small></button>`},essenceButton=(stat,label)=>{const rank=run[stat]||0,max=stat==='range'?3:5,cost=essenceTowerUpgradeCost(t,stat);return `<button data-essence-upgrade="${stat}" ${rank>=max?'disabled':''}>${label}<br><small>Run Lv ${rank}/${max} · ✦ ${cost}</small></button>`};el.innerHTML=`<button id="closeInspect" class="inspect-close">×</button><h3>${t.icon} ${t.name}</h3><div>Damage <b>${Math.round(t.damage*G.globalDamage)}</b></div><div>Attack radius <b>${towerCombatRange(t).toFixed(2)} tiles</b></div><div>Attack <b>${(1/t.rate).toFixed(1)}/s</b></div><div>Spendable Essence <b>${Math.floor(G.essence)}</b></div><div class="tower-upgrade-grid essence-run-upgrades">${essenceButton('damage','✦ Damage')}${essenceButton('rate','✦ Speed')}${essenceButton('range','✦ Radius')}</div><div>Battle points <b>${G.battlePoints||0}</b></div><small class="card-wide-upgrade-note">Battle-point upgrades affect every ${t.name}; Essence reinforcements affect this tower for this hunt.</small><div class="tower-upgrade-grid">${button('damage','⚔ ATK','+24%')}${button('rate','⚡ Speed','+16%')}${button('range','◎ Radius','+0.30 tile')}</div><div>Card <b>${rarityDef(inv(t.id).rarity).name} · ${Math.round((t.permanentPower||1)*100)}%</b></div><div>Supports <b>${(t.supports||[]).map(s=>s.icon+' '+s.name).join(', ')||'None'}</b></div><div class="synergy-line">${(()=>{const ex=synergyExplain(t);if(!ex)return 'No active synergy — place this tower directly beside a partner tower (up, down, left or right) to form one.';return `✦ ${ex.names.join(' + ')}<br><small>${ex.summary}</small><br><small class="synergy-from">from ${ex.links.map(l=>l.n.name||l.n.id).join(', ')}</small>`})()}</div>`;$('#closeInspect').onclick=()=>{G.selectedTower=null;renderInspector()};el.querySelectorAll('[data-upgrade]').forEach(b=>b.onclick=()=>upgradeSelectedTower(b.dataset.upgrade));el.querySelectorAll('[data-essence-upgrade]').forEach(b=>b.onclick=()=>essenceUpgradeSelectedTower(b.dataset.essenceUpgrade))}
+function renderInspector(){const el=$('#towerInspector');if(!G?.selectedTower){el.classList.add('hidden');return}const t=G.selectedTower,syn=synergyFor(t),state=cardUpgradeState(t.id),run=t.runEssenceUpgrades||{};el.classList.remove('hidden');const button=(stat,label,bonus)=>{const rank=state[stat]||0,max=towerUpgradeMax(stat),cost=towerUpgradeCost(t,stat);return `<button data-upgrade="${stat}" ${rank>=max?'disabled':''}>${label}<br><small>Lv ${rank}/${max} · ${bonus} · ${cost} pt</small></button>`},essenceButton=(stat,label)=>{const rank=run[stat]||0,max=stat==='range'?3:5,cost=essenceTowerUpgradeCost(t,stat);return `<button data-essence-upgrade="${stat}" ${rank>=max?'disabled':''}>${label}<br><small>Run Lv ${rank}/${max} · ✦ ${cost}</small></button>`};
+ /* V37.5 inspector: portrait from the 3D model, level steps that match what the model gains, upgrade groups. */
+ const c=card(t.id)||t,item=inv(t.id),lvl=Math.max(1,Math.min(5,Math.floor(t.level||1)));
+ const steps=[['1','Base'],['2','Gold spikes'],['3','Banners + rune ring'],['4','Orbiting runes'],['5','Halo']];
+ const next=steps[lvl]?`Next level: ${steps[lvl][1].toLowerCase()}`:'Fully ascended';
+ const synEx=synergyExplain(t);
+ el.style.setProperty('--rarity',rarityDef(item.rarity).color);
+ el.innerHTML=`<button id="closeInspect" class="inspect-close" aria-label="Close">×</button>
+ <header class="ti-head"><div class="ti-portrait">${cardArtHTML(c,{level:lvl,rarity:item.rarity,elite:!!t.elite,icon:c.icon})}</div><div class="ti-title"><small>${rarityDef(item.rarity).name} · ${t.supportOnly?'Support':'Defense'}${t.elite?' · Elite':''}</small><h3>${t.name}</h3><div class="ti-steps" title="${next}">${steps.map(([n,label])=>`<i class="${Number(n)<=lvl?'on':''}" title="Level ${n}: ${label}">${n}</i>`).join('')}</div><em>${next}</em></div></header>
+ <div class="ti-stats"><span><small>Damage</small><b>${Math.round(t.damage*G.globalDamage)}</b></span><span><small>Radius</small><b>${towerCombatRange(t).toFixed(2)}</b></span><span><small>Attacks/s</small><b>${(1/t.rate).toFixed(1)}</b></span></div>
+ ${t.supportOnly?'':`<section class="ti-sec"><h4>✦ Essence reinforcement <em>${Math.floor(G.essence)} to spend</em></h4><div class="tower-upgrade-grid essence-run-upgrades">${essenceButton('damage','✦ Damage')}${essenceButton('rate','✦ Speed')}${essenceButton('range','✦ Radius')}</div><small class="card-wide-upgrade-note">This tower only, for this hunt.</small></section>
+ <section class="ti-sec"><h4>Battle points <em>${G.battlePoints||0} available</em></h4><div class="tower-upgrade-grid">${button('damage','⚔ ATK','+24%')}${button('rate','⚡ Speed','+16%')}${button('range','◎ Radius','+0.30')}</div><small class="card-wide-upgrade-note">Every ${t.name} on the board.</small></section>`}
+ <footer class="ti-foot"><div><small>Card power</small><b>${Math.round((t.permanentPower||1)*100)}%</b></div><div><small>Supports</small><b>${(t.supports||[]).map(s=>s.icon+' '+s.name).join(', ')||'None'}</b></div><div class="synergy-line">${synEx?`✦ ${synEx.names.join(' + ')}<br><small>${synEx.summary}</small><br><small class="synergy-from">from ${synEx.links.map(l=>l.n.name||l.n.id).join(', ')}</small>`:'<small>No synergy — place it directly beside a partner tower to form one.</small>'}</div></footer>`;$('#closeInspect').onclick=()=>{G.selectedTower=null;renderInspector()};el.querySelectorAll('[data-upgrade]').forEach(b=>b.onclick=()=>upgradeSelectedTower(b.dataset.upgrade));el.querySelectorAll('[data-essence-upgrade]').forEach(b=>b.onclick=()=>essenceUpgradeSelectedTower(b.dataset.essenceUpgrade))}
 
 const MAX_SIM_STEP=1/50;
 // Outside a battle every animated term in draw() reads `G?.time||0`, which is 0,

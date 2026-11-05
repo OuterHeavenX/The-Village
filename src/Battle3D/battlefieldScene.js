@@ -20,6 +20,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { battleMood } from './moods.js';
 import { createTowerFactory } from './towerModels.js';
+import { createBossFactory } from './bossModels.js';
 import { KEEP_CENTER, KEEP_LAYOUT, KEEP_ROAD_ORDER, groundHeight } from './layout.js';
 
 export const BATTLE_VIEW_SHAPE = `
@@ -528,6 +529,15 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   // tower's type, level band, elite or support state changes.
   const towerFactory = LOOK_OFF.has('nomodels') ? null : createTowerFactory({ glowTexture: glow });
   const towerModels = new Map();
+  // V37.5: chapter bosses as 3D models, keyed by enemy uid. A boss that leaves
+  // the view (killed) sinks into the ground over a second instead of popping.
+  const bossFactory = LOOK_OFF.has('nomodels') ? null : createBossFactory({ glowTexture: glow });
+  const bossModels = new Map();
+  const bossGroup = new THREE.Group();
+  scene.add(bossGroup);
+  const levelUpPillar = new THREE.CylinderGeometry(.32, .45, 1.2, 16, 1, true), levelUpRing = new THREE.RingGeometry(.42, .55, 32);
+  // Vertical fade for the level-up pillar: bright at the foot, gone at the top.
+  const pillarFade = (() => { const c = document.createElement('canvas'); c.width = 4; c.height = 64; const x = c.getContext('2d'); const g = x.createLinearGradient(0, 64, 0, 0); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.35, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 4, 64); return new THREE.CanvasTexture(c); })();
   let lastRenderTime = null;
 
   // Soft contact shadow under every sprite and tower, so they sit on the
@@ -537,6 +547,14 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   blobGeometry.rotateX(-Math.PI / 2);
   disposables.push(blobTexture, blobGeometry);
   const blobPool = [];
+  // Elite and miniboss enemies get a slowly turning coloured ring at their feet.
+  const elitePool = [], eliteGeometry = new THREE.RingGeometry(.82, 1, 24);
+  function eliteRing(i, x, y, size, color, time) {
+    let m = elitePool[i];
+    if (!m) { m = new THREE.Mesh(eliteGeometry, new THREE.MeshBasicMaterial({ transparent: true, opacity: .7, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; scene.add(m); elitePool[i] = m; }
+    m.visible = true; m.material.color.copy(cssColor(color)); m.material.opacity = .45 + .25 * Math.sin(time * 4 + i);
+    m.position.set(x, groundHeight(x, y) + .04, y); m.scale.setScalar(size); m.rotation.z = time * .8;
+  }
   function contactShadow(i, x, y, size) {
     let blob = blobPool[i];
     if (!blob) {
@@ -809,7 +827,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       rangeFill.position.set(cx, h, cy); rangeFill.scale.setScalar(range);
     }
 
-    let n = 0, blobs = 0;
+    let n = 0, blobs = 0, rings3 = 0; const now0 = view.time || 0;
     for (const sprite of view.sprites || []) {
       const img = sprite.img;
       if (!img || !img.complete || img.naturalWidth < sprite.cell) continue;
@@ -820,16 +838,46 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       mesh.material.opacity = sprite.alpha ?? 1;
       mesh.material.color.copy(sprite.tint ? cssColor(sprite.tint) : cssColor('#ffffff'));
       setFrameUV(mesh.geometry, img, sprite.cell, sprite.frame || 0, sprite.row || 0);
-      const size = sprite.size / 64;
+      const size = sprite.size / 64 * (1 + (sprite.hit || 0) * .12);
       mesh.scale.set(size, size, 1);
+      if (sprite.ring) eliteRing(rings3++, sprite.x, sprite.y, sprite.size / 64 * .42, sprite.ring, now0);
       mesh.position.set(sprite.x, groundHeight(sprite.x, sprite.y) - size * .3 + (sprite.lift || 0), sprite.y);
       orient(mesh, sprite.x, sprite.y, sprite.lean ?? SPRITE_LEAN);
     }
     spritePool.release(n);
+    for (let i = rings3; i < elitePool.length; i++) elitePool[i].visible = false;
 
     n = 0;
     const now = view.time || 0, dt = lastRenderTime == null ? 0 : Math.max(0, Math.min(.1, now - lastRenderTime));
     lastRenderTime = now;
+    if (bossFactory) {
+      const live = new Set();
+      for (const boss of view.bosses || []) {
+        live.add(boss.uid);
+        let entry = bossModels.get(boss.uid);
+        if (!entry) {
+          let model = null;
+          try { model = bossFactory.create(boss.type); } catch (error) { console.warn('[Battle3D] boss model failed', boss.type, error); }
+          if (!model) continue;
+          entry = { model }; bossModels.set(boss.uid, entry); bossGroup.add(model.root);
+        }
+        entry.last = boss; entry.dying = null;
+        entry.model.root.position.set(boss.x, groundHeight(boss.x, boss.y), boss.y);
+        entry.model.root.scale.setScalar(1);
+        entry.model.update(boss, dt, now);
+        contactShadow(blobs++, boss.x, boss.y, 1.7);
+      }
+      for (const [uid, entry] of bossModels) {
+        if (live.has(uid)) continue;
+        entry.dying = entry.dying ?? now;
+        const k = (now - entry.dying) / 1.2;
+        if (k >= 1 || k < 0) { bossGroup.remove(entry.model.root); entry.model.dispose(); bossModels.delete(uid); continue; }
+        const r = entry.model.root;
+        r.position.y = groundHeight(r.position.x, r.position.z) - k * k * 1.6;
+        r.rotation.z = k * .5;
+        entry.model.update({ ...entry.last, hit: .11 * (1 - k), attacking: false, paused: true }, dt, now);
+      }
+    }
     const seen = new Set();
     for (const tower of view.towers || []) {
       if (towerFactory && tower.id) {
@@ -838,12 +886,14 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
         let entry = towerModels.get(key);
         const want = `${tower.id}|${Math.max(1, Math.min(5, Math.floor(tower.level) || 1))}|${tower.elite ? 1 : 0}|${tower.support ? 1 : 0}`;
         if (!entry || entry.model.key !== want) {
-          if (entry) { towerGroup.remove(entry.model.root); entry.model.dispose(); }
+          const previous = entry;
+          if (entry) { towerGroup.remove(entry.model.root); entry.model.dispose(); if (entry.fx) { towerGroup.remove(entry.fx); entry.fx.traverse(o => o.material?.dispose?.()); } }
           let model;
           try { model = towerFactory.create({ id: tower.id, level: tower.level, elite: tower.elite, support: tower.support, shadows: quality.shadowMap > 0 }); }
           catch (error) { console.warn('[Battle3D] tower model failed', tower.id, error); model = null; }
           if (!model) { towerModels.delete(key); continue; }
-          entry = { model, born: now };
+          // A rebuild in place (level band changed) keeps standing and plays the level-up instead of rising again.
+          entry = previous ? { model, born: previous.born, levelUpAt: tower.levelUpAt, fxStart: now } : { model, born: now, levelUpAt: tower.levelUpAt };
           towerModels.set(key, entry);
           towerGroup.add(model.root);
         }
@@ -856,6 +906,27 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
         // Rise out of the ground over a third of a second when first placed.
         const grow = Math.min(1, (now - entry.born) / .35), ease = 1 - Math.pow(1 - grow, 3);
         root.position.set(cx, groundHeight(cx, cy) - (1 - ease) * .9, cy);
+        // Level-up: a gold pillar and ring of light, and the model bounces up into its new shape.
+        if (tower.levelUpAt != null && tower.levelUpAt !== entry.levelUpAt) { entry.levelUpAt = tower.levelUpAt; entry.fxStart = now; }
+        if (entry.fxStart != null) {
+          const k = (now - entry.fxStart) / 1.1;
+          if (k >= 1 || k < 0) { if (entry.fx) { towerGroup.remove(entry.fx); entry.fx.traverse(o => o.material?.dispose?.()); entry.fx = null; } entry.fxStart = null; root.scale.setScalar(root.userData.baseScale ?? root.scale.x); }
+          else {
+            if (!entry.fx) {
+              entry.fx = new THREE.Group();
+              const add = (geo, opacity) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffe2a0, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide })); entry.fx.add(m); return m; };
+              entry.fxPillar = add(levelUpPillar, .35); entry.fxPillar.material.map = pillarFade; entry.fxRing = add(levelUpRing, .9);
+              entry.fxRing.rotation.x = -Math.PI / 2;
+              towerGroup.add(entry.fx);
+              root.userData.baseScale = root.userData.baseScale ?? root.scale.x;
+            }
+            entry.fx.position.set(cx, groundHeight(cx, cy), cy);
+            entry.fxPillar.scale.set(1 - k * .6, 1 + k * 1.5, 1 - k * .6); entry.fxPillar.position.y = 1.2 * (1 + k * 1.5) / 2; entry.fxPillar.material.opacity = .35 * (1 - k);
+            entry.fxRing.scale.setScalar(.4 + k * 1.8); entry.fxRing.position.y = .08; entry.fxRing.material.opacity = .9 * (1 - k);
+            const b = root.userData.baseScale, bounce = k < .35 ? .82 + (k / .35) * .3 : 1.12 - Math.min(1, (k - .35) / .4) * .12;
+            root.scale.setScalar(b * bounce);
+          }
+        }
         entry.model.update(tower, dt, now);
         contactShadow(blobs++, cx, cy, 1.1);
         continue;
@@ -875,7 +946,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       orient(mesh, cx, cy, SPRITE_LEAN * .8);
     }
     towerPool.release(n);
-    for (const [key, entry] of towerModels) if (!seen.has(key)) { towerGroup.remove(entry.model.root); entry.model.dispose(); towerModels.delete(key); }
+    for (const [key, entry] of towerModels) if (!seen.has(key)) { towerGroup.remove(entry.model.root); entry.model.dispose(); if (entry.fx) { towerGroup.remove(entry.fx); entry.fx.traverse(o => o.material?.dispose?.()); } towerModels.delete(key); }
     for (let i = blobs; i < blobPool.length; i++) blobPool[i].visible = false;
 
     n = 0;
@@ -949,7 +1020,8 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); lost = true; onContextLost?.(); }, false);
 
   function dispose() {
-    for (const entry of towerModels.values()) entry.model.dispose(); towerModels.clear(); towerFactory?.dispose();
+    for (const entry of bossModels.values()) entry.model.dispose(); bossModels.clear(); bossFactory?.dispose(); for (const m of elitePool) m.material.dispose(); eliteGeometry.dispose();
+    for (const entry of towerModels.values()) entry.model.dispose(); towerModels.clear(); levelUpPillar.dispose(); levelUpRing.dispose(); pillarFade.dispose(); towerFactory?.dispose();
     spritePool.dispose(); towerPool.dispose(); linkPool.dispose(); lanePool.dispose();
     for (const s of shotPool) s.material.dispose();
     for (const d of trapPool) d.material.dispose();
