@@ -53,8 +53,8 @@ if (active) {
     el.id = 'testModeBadge';
     el.href = '?unlockall=0';
     el.title = 'Test mode: every chapter and card is unlocked on a copy of your save. Click to leave test mode and restore your real save.';
-    el.textContent = 'TEST MODE · all unlocked · tap to exit';
-    el.style.cssText = 'position:fixed;left:50%;bottom:calc(4px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:2147483000;padding:3px 10px;border-radius:999px;font:700 10px/1.4 system-ui,sans-serif;letter-spacing:.06em;color:#1a1206;background:#f3dc9c;box-shadow:0 2px 10px #000a;text-decoration:none;opacity:.85';
+    el.textContent = 'TEST MODE ✕';
+    el.style.cssText = 'position:fixed;left:50%;top:calc(2px + env(safe-area-inset-top));transform:translateX(-50%);z-index:2147483000;padding:1px 8px;border-radius:999px;white-space:nowrap;font:800 9px/1.5 system-ui,sans-serif;letter-spacing:.08em;color:#1a1206;background:#f3dc9c;box-shadow:0 2px 8px #000a;text-decoration:none;opacity:.88';
     document.body.append(el);
   };
   if (document.body) badge(); else addEventListener('DOMContentLoaded', badge);

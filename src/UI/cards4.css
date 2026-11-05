@@ -178,3 +178,10 @@ body #towerInspector{
 #towerInspector .card-wide-upgrade-note{ display:block; color:var(--rq-dim); font-size:10px; }
 #towerInspector .ti-foot{ display:grid; grid-template-columns:auto 1fr; gap:5px; margin-top:7px; }
 #towerInspector .ti-foot .synergy-line{ grid-column:1/-1; font-size:11px; color:#f0e2c8; }
+
+/* Narrow screens: the draft becomes a swipeable row instead of clipping. */
+@media (max-width:700px){
+  body.battle-mode #choices #choicesCards{ grid-auto-columns:min(78vw,280px) !important; justify-content:safe center !important; overflow-x:auto !important; scroll-snap-type:x mandatory; padding:4px 10px 10px !important; -webkit-overflow-scrolling:touch; }
+  body.battle-mode #choices #choicesCards .draft-choice-card{ scroll-snap-align:center; }
+  body.battle-mode #choices #choicesCards .draft-art{ aspect-ratio:1/.78 !important; }
+}
