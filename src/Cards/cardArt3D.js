@@ -174,7 +174,12 @@ function pump() {
     idleTimer = setTimeout(() => { if (!queue.size) releaseContext(); }, 4000);
   }
 }
-function schedule() { if (pumping) return; pumping = true; (globalThis.requestAnimationFrame || (fn => setTimeout(fn, 16)))(pump); }
+// requestAnimationFrame stops in a hidden tab or pane, so a timer races it.
+function schedule() {
+  if (pumping) return; pumping = true;
+  let ran = false; const go = () => { if (ran) return; ran = true; pump(); };
+  globalThis.requestAnimationFrame?.(go); setTimeout(go, 60);
+}
 
 function enqueue(key, job) {
   if (cache.has(key) || queue.has(key) || unsupported) return;
