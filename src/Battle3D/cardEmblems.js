@@ -144,16 +144,6 @@ export const EMBLEMS = {
     b.ring('g', .34, .014, 0x8aff9a, [0, top + .2, 0], [Math.PI / 2, 0, 0], 32);
     for (const [x, y] of [[-.3, .5], [-.12, .62], [.05, .48]]) { b.box('g', .1, .03, .03, 0x8aff9a, [x, top + y, .1]); b.box('g', .03, .1, .03, 0x8aff9a, [x, top + y, .1]); }
   },
-  fieldMerge(b) {
-    // Two small towers fusing into a star above an anvil.
-    b.box('m', .44, .12, .24, COL.iron, [0, .2, 0]);
-    b.box('m', .26, .14, .18, COL.iron, [0, .07, 0]);
-    b.cone('m', .1, .2, 4, COL.iron, [.3, .22, 0], [0, 0, -Math.PI / 2], [1, 1, .9]);
-    for (const s of [-1, 1]) { b.cyl('s', .07, .08, .26, 8, COL.stone, [s * .16, .39, 0], [0, 0, -s * .35]); b.cone('s', .09, .12, 8, COL.slate, [s * .2, .55, 0], [0, 0, -s * .35]); }
-    b.gem('g', .11, 0xffe9a8, [0, .78, 0], [1, 1.3, 1]);
-    b.ring('g', .2, .012, 0xffe9a8, [0, .78, 0], [0, 0, 0], 28);
-    sparks(b, 0xffe9a8, 10, .42, .35, .95, .028);
-  },
   battleInsight(b) {
     const top = altar(b, .3, .12);
     b.box('s', .5, .03, .34, 0x5a2416, [0, top + .06, 0], [-.5, 0, 0]);

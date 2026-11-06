@@ -2208,7 +2208,7 @@ function applyHeroUpgrade(c){
 }
 function applyTacticalChoice(c){
  if(c.id==='fieldRepair')G.hp=Math.min(G.maxHp,G.hp+Math.max(1,Math.ceil(G.maxHp*.20)));
- if(c.id==='fieldMerge'){const tower=G.towers.filter(t=>!t.supportOnly&&t.level<3).sort((a,b)=>a.level-b.level)[0];if(tower){tower.level++;tower.damage*=1.35;tower.range+=.1;save.stats.towerMerges++;}else G.battlePoints++;}
+ /* V37.7.1: Battlefield Merge removed — towers merge only from duplicate copies. */
  if(c.id==='battleInsight')G.battlePoints++;
  if(c.id==='overclockLine')for(const tower of G.towers)if(!tower.supportOnly)tower.rate=Math.max(.08,tower.rate*.92);
  burst(G.hero.x,G.hero.y,'#ffe89a',24);floatText(G.hero.x,G.hero.y-.4,c.name.toUpperCase(),'#ffe89a');showToast(`${c.name} applied for this stage`);

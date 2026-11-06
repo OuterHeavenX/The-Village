@@ -8,6 +8,12 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.7.1 MERGES COME FROM COPIES
+
+- Removed the **Battlefield Merge** draft card. It promoted your weakest tower
+  without a duplicate; a tower's merge level now only rises by placing another
+  copy of the same tower on it.
+
 ## V37.7.0 CAMPAIGN POLISH
 
 **Messages that would not go away**

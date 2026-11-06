@@ -37,7 +37,6 @@ export const EARLY_STAGE_DIFFICULTY = Object.freeze({
 
 export const TACTICAL_CHOICE_REGISTRY = Object.freeze([
   { id: 'fieldRepair', type: 'booster', tactical: true, icon: '🛡️', name: 'Field Repair', desc: 'Restore 20% of the Cathedral gate.' },
-  { id: 'fieldMerge', type: 'booster', tactical: true, icon: '✦', name: 'Battlefield Merge', desc: 'Promote the lowest-level attack tower once.' },
   { id: 'battleInsight', type: 'booster', tactical: true, icon: '📖', name: 'Battle Insight', desc: 'Gain one Battle Point for this stage.' },
   { id: 'overclockLine', type: 'booster', tactical: true, icon: '⚡', name: 'Overclock the Line', desc: 'Existing attack towers fire 8% faster this stage.' }
 ]);
