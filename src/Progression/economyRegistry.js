@@ -9,12 +9,12 @@ export const BATTLE_CHOICE_TIERS = Object.freeze({
   // The choice cap must outlast the chapter: with ten choices a bot exhausted
   // the tutorial tier at wave 6 and then played 240 s including the boss with
   // nothing to draft. The last milestones sit near a full chapter's earnings.
-  tutorial: { maxChoices: 12, minimumSeconds: 12, minimumWaves: 0, towerOfferUntil: 8, milestones: [0, 6, 12, 19, 27, 36, 46, 57, 69, 82, 96, 112] },
-  foundation: { maxChoices: 12, minimumSeconds: 15, minimumWaves: 0, towerOfferUntil: 8, milestones: [0, 9, 19, 30, 43, 58, 75, 94, 115, 138, 163, 190] },
-  early: { maxChoices: 10, minimumSeconds: 18, minimumWaves: 0, towerOfferUntil: 7, milestones: [0, 14, 30, 49, 71, 96, 124, 155, 189, 226] },
-  normal: { maxChoices: 9, minimumSeconds: 28, towerOfferUntil: 7, milestones: [0, 22, 50, 85, 125, 170, 220, 276, 338] },
-  long: { maxChoices: 10, minimumSeconds: 28, towerOfferUntil: 8, milestones: [0, 20, 45, 75, 110, 150, 195, 245, 300, 360] },
-  boss: { maxChoices: 11, minimumSeconds: 30, towerOfferUntil: 8, milestones: [0, 18, 40, 68, 100, 138, 182, 232, 288, 350, 418] }
+  tutorial: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.2, pickCurve: 1.2, milestones: [0] },
+  foundation: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.8, pickCurve: 1.2, milestones: [0] },
+  early: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.8, pickCurve: 1.2, milestones: [0] },
+  normal: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.4, pickCurve: 1.15, milestones: [0] },
+  long: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.5, pickCurve: 1.15, milestones: [0] },
+  boss: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.6, pickCurve: 1.15, milestones: [0] }
 });
 
 export const BATTLE_CHOICE_RULES = Object.freeze({
@@ -37,7 +37,7 @@ export const EARLY_STAGE_DIFFICULTY = Object.freeze({
 
 export const TACTICAL_CHOICE_REGISTRY = Object.freeze([
   { id: 'fieldRepair', type: 'booster', tactical: true, icon: '🛡️', name: 'Field Repair', desc: 'Restore 20% of the Cathedral gate.' },
-  { id: 'battleInsight', type: 'booster', tactical: true, icon: '📖', name: 'Battle Insight', desc: 'Gain one Battle Point for this stage.' },
+  { id: 'battleInsight', type: 'booster', tactical: true, icon: '📖', name: 'Battle Insight', desc: 'Draw an extra card pick straight away.' },
   { id: 'overclockLine', type: 'booster', tactical: true, icon: '⚡', name: 'Overclock the Line', desc: 'Existing attack towers fire 8% faster this stage.' }
 ]);
 
@@ -52,10 +52,12 @@ export const RARITY_PROGRESSION = Object.freeze([
 ]);
 
 export const STAGE_REWARD_TABLE = Object.freeze({
-  firstClear: { copies: 2, fragments: 4 },
-  firstBossClear: { copies: 2, fragments: 7 },
-  defeat: { copies: 0, fragments: 2 },
-  replayCopyChances: [1, .5, .25],
+  // V37.8: copies level cards (with Gold), so they come in handfuls now.
+  firstClear: { copies: 8, fragments: 4 },
+  firstBossClear: { copies: 8, fragments: 7 },
+  defeat: { copies: 2, fragments: 2 },
+  replayCopies: 5,
+  replayCopyChances: [1, 1, 1],
   replayFragments: [3, 2, 1]
 });
 
@@ -79,12 +81,12 @@ export function rarityUpgradeFor(rarity) {
 }
 
 export function rewardForStage({ firstClear = false, victory = false, replayCount = 0, boss = false } = {}) {
-  if (!victory) return { ...STAGE_REWARD_TABLE.defeat, copyChance: 0 };
+  if (!victory) return { ...STAGE_REWARD_TABLE.defeat, copyChance: 1 };
   if (firstClear) return { ...(boss ? STAGE_REWARD_TABLE.firstBossClear : STAGE_REWARD_TABLE.firstClear), copyChance: 1 };
   const index = Math.max(0, replayCount);
   return {
-    copies: index < STAGE_REWARD_TABLE.replayCopyChances.length ? 1 : 0,
-    copyChance: STAGE_REWARD_TABLE.replayCopyChances[index] || 0,
+    copies: STAGE_REWARD_TABLE.replayCopies,
+    copyChance: 1,
     fragments: STAGE_REWARD_TABLE.replayFragments[index] || 1
   };
 }

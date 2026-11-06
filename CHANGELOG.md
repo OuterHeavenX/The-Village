@@ -8,6 +8,55 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.8.0 RAID RUSH RULES
+
+The battle and card progression now follow Raid Rush.
+
+**In battle**
+
+- **Level up, pick a card, it's placed free.** Kills fill the Level bar (it
+  replaces the Essence vial). Each time it fills, the hunt pauses and three
+  cards from your deck appear; the one you pick is placed or cast for free.
+  Every hunt opens with two picks. There is nothing to buy during a hunt.
+- **Towers grow only by merging.** Drop a tower on a matching tower to merge
+  it, up to ★5 (each merge: ×1.6 damage, +0.15 radius, faster attacks). The
+  inspector shows the tower's ★ and what the next merge gives; the draft card
+  says "MERGE ★2→★3" or "NEW TOWER".
+- Removed: Essence placement costs, the reinforce card, Essence
+  reinforcement, Battle Points and the ATK/Speed/Radius upgrade window.
+  Removing a tower no longer refunds anything.
+- Towers stay in the draft once the board is full, as long as there is
+  something to merge them into; the same tower comes round again more often.
+- A new road now gives a **bonus pick** instead of Essence. Battle Insight
+  draws an extra pick. Calling a wave early gives level XP.
+- Bonuses that gave reserve Essence (Soul Reserve, Hunter Tavern, Night
+  Market, Village Tavern, Harbor Tithe, Hollow Offering) now make picks come
+  faster; ones that gave Battle Points (Dracula's Heart, Underking's Signet,
+  Star Chart) now give bonus picks at the start of a hunt.
+- Kills no longer float "+1 battle XP" and "+N essence" over every enemy.
+- **Every new road adds two structure slots.** The board fills early under
+  these rules, and late roads used to open with no slot left to cover them.
+- **Retuned for the new loop:** picks come about once per wave and a little
+  faster on deeper roads; past road 8 enemy HP now steps up 3% a road instead
+  of 5.5%, since a deck's late power now comes only from picks and merges.
+- The third road on roads 15–17 now opens after wave 9 (was 7), and on
+  18–20 after wave 8.
+- Bot playtests on the new rules (no Village bonuses): road 1 won, road 5 won
+  2 of 3, road 7 won, road 11 won (73% gate), road 15 won 1 of 2, road 20 won
+  with a full gate.
+
+**Between battles**
+
+- **Card levels come from copies + Gold.** On the Cards screen a card levels
+  up by spending duplicate copies of itself and Village Gold (level 1→2: 2
+  copies + 50 Gold; 4→5: 5 copies + 400 Gold). Its rarity sets the cap
+  (Common 3, Uncommon 5, Rare 7, Epic 9 … Mythic 20); fuse copies to raise the
+  rarity. Card XP from battles is gone; levels already earned are kept.
+- Chests carry far more copies, mostly for the cards in your deck: 8 on a first
+  clear, 5 on a replay, 2 on a defeat, plus 5% per chapter. The card bar on
+  each card now shows copies towards the next level.
+- Catacomb Rites and Abyssal Lore now give +25% chest copies (was card XP).
+
 ## V37.7.1 MERGES COME FROM COPIES
 
 - Removed the **Battlefield Merge** draft card. It promoted your weakest tower

@@ -1,4 +1,4 @@
-export const RELEASE_VERSION = '37.7.1';
+export const RELEASE_VERSION = '37.8.0';
 export const RELEASE_NAME = 'SIEGE OF THE KEEP';
 // Commit and date of this build, injected by vite.config.js; 'dev' under the dev server.
 export const BUILD_STAMP = typeof __BUILD_STAMP__ === 'string' ? __BUILD_STAMP__ : 'dev';

@@ -49,7 +49,9 @@ export function breachWavesForStage(stage = 1) {
   if (n <= 9) return [5, 10];
   if (n === 10) return [4, 9];
   if (n <= 14) return [4, 8, 13];
-  return [3, 7, 12];
+  // V37.8: road 15's third breach at wave 8 lost every bot run under the new rules.
+  if (n <= 17) return [4, 9, 14];
+  return [3, 8, 13];
 }
 
 // Same return shape as authoredRoadPlans() in roadRegistry.js so game.js can

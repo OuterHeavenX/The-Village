@@ -6,7 +6,7 @@
 	<meta charset="UTF-8">
 	<meta id="rotkViewport" name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 
-	<title>The Village — V37.7.1 Siege of the Keep</title>
+	<title>The Village — V37.8.0 Siege of the Keep</title>
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 	<link rel="stylesheet" href="/styles.css">
 	<style id="villageV17CriticalUI">
@@ -996,7 +996,7 @@
 				<div class="battle-status">
 					<div class="battle-pill gate-pill"><span>🩸</span><small>GATE</small><strong id="hpTxt">20</strong></div>
 					<div class="battle-pill wave-pill"><span>🌊</span><small>WAVE</small><strong id="waveTxt">1 / 10</strong></div>
-					<div class="battle-pill essence-pill"><span>✦</span><small>ESSENCE</small><strong id="goldTxt">40 / 40</strong><i class="essence-fill"></i></div>
+					<div class="battle-pill essence-pill"><span>✦</span><small>LEVEL</small><strong id="goldTxt">Lv 0</strong><i class="essence-fill"></i></div>
 				</div>
 
 			</div>
@@ -1017,7 +1017,7 @@
 			<button id="recenterBtn" type="button" data-native-command="center" class="marquee-command" aria-label="Recenter battlefield"><span class="command-icon">⌖</span><small>Center</small></button>
 			<button id="speedBtn" type="button" data-native-command="speed" class="marquee-command" aria-label="Change battle speed"><span class="command-icon">×1</span><small>Speed</small></button>
 			<button id="pauseBtn" type="button" data-native-command="pause" class="marquee-command" aria-label="Pause battle"><span class="command-icon">Ⅱ</span><small>Pause</small></button>
-			<button id="nextWaveBtn" type="button" data-native-command="nextWave" class="marquee-command" aria-label="Call the next wave early for bonus Essence" disabled><span class="command-icon">⏵⏵</span><small>Next Wave</small></button>
+			<button id="nextWaveBtn" type="button" data-native-command="nextWave" class="marquee-command" aria-label="Call the next wave early for bonus level XP" disabled><span class="command-icon">⏵⏵</span><small>Next Wave</small></button>
 			<button id="battleExitBtn" type="button" data-native-command="menu" class="marquee-command danger-command" aria-label="Exit battle"><span class="command-icon">×</span><small>Exit</small></button>
 		</nav>
 		<div id="battlePausePanel" class="battle-pause-panel hidden" role="dialog" aria-label="Battle paused">
@@ -1031,7 +1031,7 @@
 				</div>
 			</div>
 		</div>
-		<div id="tutorial" class="hidden"><strong>Eclipse Codex</strong><br>Defeat enemies to fill the 40-Essence Vial. When it fills, battle pauses and three random cards appear. Choose one, place or cast it, and the hunt resumes. Your hero also carries two bonus ground defenses outside the six-card deck. Path tiles extend only from the glowing road end. Merge identical towers by placing one over another. Adjacent tower combinations create hidden synergies. Enemy defeats fill the shared Battle XP bar; each new Battle Level pauses the hunt and lets you spend an Upgrade Point on a tower. Only the Axe Tower can increase attack radius. Drag empty terrain to move the camera, pinch or use the mouse wheel to zoom, and tap ⌖ to recenter. Enemies that reach the cathedral remain at the front gate and keep attacking until defeated.<br><br><strong>Tower Synergies</strong><br>Towers buff each other when placed <em>directly beside</em> one another &mdash; up, down, left or right. Diagonals do not count. Active links are drawn on the battlefield as a glowing thread, with a mote travelling <em>from</em> the partner <em>into</em> the tower being buffed, and a ring around every tower currently receiving a bonus.<br>&bull; <b>Holy Water Infusion</b> beside any tower &mdash; +42% damage, +22% fire rate, attacks become holy<br>&bull; <b>Freeze support</b> beside any tower &mdash; +30% fire rate, +14% range<br>&bull; <b>Guardian support</b> beside any tower &mdash; +22% damage, +18% fire rate<br>&bull; <b>Dagger + Holy Water</b> &mdash; +22% damage, attacks become holy<br>&bull; <b>Clock + Holy Water</b> &mdash; +18% range, +12% damage<br>&bull; <b>Axe + Bone Pillar</b> &mdash; +20% damage, attacks ignite<br>&bull; <b>Whip + Rosary Shrine</b> &mdash; +18% fire rate<br>Bonuses stack, so a tower with two partners gets both. Select any tower to see exactly what it is receiving and from whom.<br><button id="closeTut" class="btn" style="margin-top:8px">Understood</button></div>
+		<div id="tutorial" class="hidden"><strong>Eclipse Codex</strong><br>Defeat enemies to fill the Level bar. Each time it fills, battle pauses and three random cards from your deck appear. Choose one and it is placed or cast for free — there is nothing to buy during a hunt. Drop a tower on a matching tower to merge it, up to ★5; merging is the only way a tower grows in battle. Your hero also carries two bonus ground defenses outside the six-card deck. Path tiles extend only from the glowing road end. Adjacent tower combinations create hidden synergies. Between hunts, level your cards up on the Cards screen with duplicate copies and Gold. Only the Axe Tower can increase attack radius. Drag empty terrain to move the camera, pinch or use the mouse wheel to zoom, and tap ⌖ to recenter. Enemies that reach the cathedral remain at the front gate and keep attacking until defeated.<br><br><strong>Tower Synergies</strong><br>Towers buff each other when placed <em>directly beside</em> one another &mdash; up, down, left or right. Diagonals do not count. Active links are drawn on the battlefield as a glowing thread, with a mote travelling <em>from</em> the partner <em>into</em> the tower being buffed, and a ring around every tower currently receiving a bonus.<br>&bull; <b>Holy Water Infusion</b> beside any tower &mdash; +42% damage, +22% fire rate, attacks become holy<br>&bull; <b>Freeze support</b> beside any tower &mdash; +30% fire rate, +14% range<br>&bull; <b>Guardian support</b> beside any tower &mdash; +22% damage, +18% fire rate<br>&bull; <b>Dagger + Holy Water</b> &mdash; +22% damage, attacks become holy<br>&bull; <b>Clock + Holy Water</b> &mdash; +18% range, +12% damage<br>&bull; <b>Axe + Bone Pillar</b> &mdash; +20% damage, attacks ignite<br>&bull; <b>Whip + Rosary Shrine</b> &mdash; +18% fire rate<br>Bonuses stack, so a tower with two partners gets both. Select any tower to see exactly what it is receiving and from whom.<br><button id="closeTut" class="btn" style="margin-top:8px">Understood</button></div>
 		<div id="toast"></div>
 		<div id="battleUpgradeModal" class="battle-upgrade-modal hidden" aria-live="polite"></div>
 		<aside id="towerInspector" class="hidden"></aside>
@@ -1164,7 +1164,7 @@
 				</div>
 			</section>
 			<div class="home-hidden-values" aria-hidden="true"><span id="homeKingdomText"></span><span id="homeDeckText"></span><span id="homeRelicText"></span><span id="homeDecreesText"></span><span id="homeCodexText"></span></div>
-			<div class="milestone-mark village-version">THE VILLAGE · <span data-release-version data-release-prefix="V">V37.7.1</span> · SIEGE OF THE KEEP · <span data-build-stamp>build</span></div>
+			<div class="milestone-mark village-version">THE VILLAGE · <span data-release-version data-release-prefix="V">V37.8.0</span> · SIEGE OF THE KEEP · <span data-build-stamp>build</span></div>
 		</section>
 
 		<section id="moreScreen" class="screen hidden">

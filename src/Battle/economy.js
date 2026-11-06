@@ -15,8 +15,17 @@ export function choiceTier(state) {
   if (stage <= 5) return BATTLE_CHOICE_TIERS.early;
   return waves >= 24 ? BATTLE_CHOICE_TIERS.boss : waves >= 14 ? BATTLE_CHOICE_TIERS.long : BATTLE_CHOICE_TIERS.normal;
 }
+// V37.8 — Raid Rush picks: every pick is one free placement or merge, so a hunt
+// needs far more of them (about one and a third per wave). Milestones follow a
+// gentle power curve per tier instead of a short fixed list.
 export function nextChoiceMilestone(state) {
   const tier = choiceTier(state), index = Math.max(0, state?.draftsCompleted || 0);
+  if (index >= tier.maxChoices) return Infinity;
+  // Deeper roads come with more waves, heavier enemies and more roads to cover,
+  // so picks also come a little faster the further in you are (down to 76% of
+  // the XP per pick by road 19).
+  const stage = Number(state?.chapter?.number) || 1, depth = Math.max(.76, 1 - .02 * Math.max(0, stage - 7));
+  if (tier.pickScale) return index === 0 ? 0 : Math.round(tier.pickScale * depth * Math.pow(index, tier.pickCurve || 1.2));
   return tier.milestones[index] ?? Infinity;
 }
 export function essenceCapacity(state) {
@@ -38,7 +47,7 @@ export function dynamicEssenceReward(enemy, state, baseReward) {
   const meaningfulTowers = state.towers.filter(tower => !tower.supportOnly).length;
   const towerPressure = clamp((meaningfulTowers - 8) / 8, 0, 1);
   const recentDraftPressure = clamp((state.recentDrafts || []).filter(wave => state.wave - wave <= 3).length / 3, 0, 1);
-  const fillPressure = clamp((state.essence + state.pendingEssence) / Math.max(1, nextChoiceMilestone(state)), 0, 1);
+  const fillPressure = 0; // V37.8: nothing is spent any more, so a 'full vial' no longer exists
   const stage = Number(state?.chapter?.number) || 1;
   // The reward curve dips to half at the last wave, and the pressure terms cut
   // it further as towers, recent drafts and a full vial accumulate — exactly the

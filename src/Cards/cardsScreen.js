@@ -41,7 +41,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp
 
 export function installCardsScreen(deps) {
   const { root, card, inv, rarityDef, cardPower, cardHTML, miniCardHTML, cardIconHTML, CARD_POOL, HERO_GROUND_DEFENSES, groundCardById,
-    toggleFavorite, mergeCard, canPayRarityUpgrade, requestMergeAllDuplicates, sortCards, shortType, unlockChapterForCard, cardMetrics, attackPattern,
+    toggleFavorite, mergeCard, canPayRarityUpgrade, levelUpCard, cardLevelStatus, goldBalance, requestMergeAllDuplicates, sortCards, shortType, unlockChapterForCard, cardMetrics, attackPattern,
     ascensionGemDef, renderAscensionInventory, renderHeroJPPanel, HEROES, currentShadowLevel, shadowPortraitHTML, ascensionEquipmentStats,
     EQUIPMENT_SLOTS, equipmentById, saveProgress, showToast, openScreen, screens, renderHeroes, ensureVisibleCardCollection, reconcileCardUnlocks } = deps;
 
@@ -253,7 +253,7 @@ export function installCardsScreen(deps) {
     const owned = ground ? groundOwned(c.id) : isOwned(c.id), equipped = ground ? save.groundDefenseSlots.includes(c.id) : inDeck(c.id);
     const fav = !ground && save.favorites.includes(c.id), unlockAt = unlockChapterForCard(c.id);
     const compat = ground ? 'Equips to one of Shadow’s two Passive Card slots.' : c.type === 'support' ? 'Whip, Dagger, Axe, Cross, Clock, Bone, Familiar, Cannon, Rosary, Garlic, Living Word' : c.type === 'tower' ? 'Holy Water Infusion · Chrono Sigil · Guardian Ward' : '—';
-    const metrics = [...cardMetrics(c), ['Level', item.level], ['Rarity', r.name], ['Copies', item.copies], [ground ? 'Shadow' : 'Deck', equipped ? 'Equipped' : owned ? 'Reserve' : 'Locked'], ['Unlock', owned ? 'Unlocked' : unlockAt ? `Chapter ${unlockAt.number}: ${unlockAt.name}` : 'Campaign reward']];
+    const metrics = [...cardMetrics(c), ['Level', item.level], ['Rarity', r.name], ['Copies', item.copies], ['Gold', goldBalance ? goldBalance() : '—'], [ground ? 'Shadow' : 'Deck', equipped ? 'Equipped' : owned ? 'Reserve' : 'Locked'], ['Unlock', owned ? 'Unlocked' : unlockAt ? `Chapter ${unlockAt.number}: ${unlockAt.name}` : 'Campaign reward']];
     const gems = c.type === 'tower' ? `<section class="c3-gems"><h3>Permanent gem slots</h3>${item.gemSlots.map((id, index) => { const gem = ascensionGemDef(id); return `<div class="c3-gem"><span>${gem ? gem.icon : '○'}</span><div><b>${gem ? esc(gem.name) : `Gem slot ${index + 1}`}</b><small>${gem ? esc(Object.entries(gem.passiveEffects || gem.effects || {}).map(([k, v]) => `${k} +${Math.round(v * 100)}%`).join(' · ')) : 'Empty — socket one from the Gems tab.'}</small></div>${gem ? `<button type="button" data-act="remove-gem" data-index="${index}">Remove</button>` : ''}</div>`; }).join('')}</section>` : '';
     el.sheetBody.innerHTML = `
       <div class="c3-detail">
@@ -268,7 +268,8 @@ export function installCardsScreen(deps) {
       </div>
       <div class="c3-detail-actions">
         <button type="button" class="c3-btn primary" data-act="${ground ? (equipped ? 'ground-remove' : 'ground-equip') : (equipped ? 'remove' : 'equip')}" ${owned ? '' : 'disabled'}>${owned ? (equipped ? (ground ? 'Remove from Shadow' : 'Remove from deck') : (ground ? 'Add to Shadow' : 'Add to deck')) : 'Locked'}</button>
-        ${!ground && item.copies >= 3 ? `<button type="button" class="c3-btn gold" data-act="merge">Fuse 3 copies</button>` : ''}
+        ${owned && levelUpCard ? (() => { const st = cardLevelStatus(c.id); return st.cost && item.level < st.cap ? `<button type="button" class="c3-btn gold c3-levelup" data-act="levelup" ${st.ok ? '' : 'aria-disabled="true"'} title="${esc(st.ok ? `Spend ${st.cost.copies} copies and ${st.cost.gold} Gold` : st.reason)}">Level ${item.level + 1} · ${st.cost.copies} copies · ${st.cost.gold} Gold</button>` : `<button type="button" class="c3-btn" disabled>Level cap ${st.cap} — fuse to raise it</button>`; })() : ''}
+        ${!ground && item.copies >= 3 ? `<button type="button" class="c3-btn" data-act="merge">Fuse copies · raise rarity</button>` : ''}
         ${ground ? '' : `<button type="button" class="c3-btn ${fav ? 'is-on' : ''}" data-act="favorite">★ ${fav ? 'Favorited' : 'Favorite'}</button>`}
       </div>`;
     el.sheetBody.dataset.cardId = c.id;
@@ -296,6 +297,7 @@ export function installCardsScreen(deps) {
       case 'ground-remove': if (unequipGround(id)) showToast(`${c.name} removed from Shadow`); break;
       case 'favorite': toggleFavorite(id); break;
       case 'merge': mergeCard(id); break;
+      case 'levelup': levelUpCard(id); break;
       case 'remove-gem': { const item = inv(id), gemId = item.gemSlots[extra.index]; if (!gemId) return; save.ascension.gems[gemId] = (save.ascension.gems[gemId] || 0) + 1; item.gemSlots[extra.index] = null; saveProgress('gem-remove'); showToast('Gem returned to inventory'); break; }
       default: return;
     }

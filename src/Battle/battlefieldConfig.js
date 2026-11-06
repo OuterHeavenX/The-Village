@@ -20,7 +20,12 @@ export const BATTLEFIELD_VISUAL_PRESETS = Object.freeze({
 export function battlefieldLimits(stateOrStage = 1) {
   const stage = Math.max(1, Number(typeof stateOrStage === 'object' ? stateOrStage?.chapter?.number : stateOrStage) || 1);
   const tier = CAPACITY_TIERS.find(entry => stage >= entry.min && stage <= entry.max) || CAPACITY_TIERS.at(-1);
-  return { stage, towers: tier.towers, groundDefense: tier.groundDefense, total: tier.towers, attack: tier.towers, supportUtility: tier.towers };
+  // V37.8: every road that breaks open adds two structure slots. Under Raid Rush
+  // rules the board fills early, and late roads used to open with no slot left
+  // to cover them — playtests lost on the third and fourth roads with 1–2 towers on each.
+  const extraRoads = typeof stateOrStage === 'object' ? Math.max(0, (stateOrStage?.routes?.length || 1) - 1) : 0;
+  const towers = tier.towers + extraRoads * 2;
+  return { stage, towers, groundDefense: tier.groundDefense, total: towers, attack: towers, supportUtility: towers };
 }
 
 export function battlefieldVisualPreset(mapId) {

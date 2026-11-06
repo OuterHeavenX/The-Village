@@ -849,14 +849,14 @@ const HEROES=[
 ];
 const KEEP_UPGRADES=[
  {id:'walls',name:'Reinforced Keep',desc:'+1 starting gate health per rank.',max:10,cost:20},
- {id:'souls',name:'Soul Reserve',desc:'+6 reserve Essence at the start of every hunt per rank.',max:10,cost:18},
+ {id:'souls',name:'Soul Reserve',desc:'Card picks come 3% faster in every hunt per rank.',max:10,cost:18},
  {id:'hunter',name:'Hunter Training',desc:'+3% permanent hero damage per rank.',max:10,cost:25},
  {id:'fortune',name:'Relic Fortune',desc:'+0.15% card-drop chance per rank.',max:10,cost:30}
 ];
 const KINGDOM_BUILDINGS=[
  {id:'forge',name:'Royal Forge',icon:'⚒️',desc:'Improves all tower damage by 2% per level.',max:5,cost:35},
  {id:'chapel',name:'Moon Chapel',icon:'⛪',desc:'Adds 1 starting gate health per level.',max:5,cost:30},
- {id:'tavern',name:'Hunter Tavern',icon:'🍺',desc:'Adds 5 reserve Essence at the start of every hunt per level.',max:5,cost:28},
+ {id:'tavern',name:'Hunter Tavern',icon:'🍺',desc:'Card picks come 3% faster in every hunt per level.',max:5,cost:28},
  {id:'library',name:'Eclipse Library',icon:'📚',desc:'Heroes gain 3% damage per level.',max:5,cost:40},
  {id:'market',name:'Night Market',icon:'🏪',desc:'Increases enemy rewards by 3% per level.',max:5,cost:32},
  {id:'museum',name:'Relic Museum',icon:'🏛️',desc:'Relic effects gain 4% strength per level.',max:5,cost:45}
@@ -1041,6 +1041,16 @@ const ascensionGemDef=id=>gemById(id)||FUSION_REGISTRY.find(recipe=>recipe.id===
 const rarityIndex=id=>Math.max(0,RARITIES.findIndex(r=>r.id===id));
 const rarityDef=id=>RARITIES[rarityIndex(id)]||RARITIES[0];
 const inv=id=>{const item=save.inventory[id]||(save.inventory[id]={copies:0,rarity:'common',level:1,xp:0,recent:false,lastFound:0,gemSlots:[null,null]});item.xp=Math.max(0,Number(item.xp)||0);item.gemSlots=Array.isArray(item.gemSlots)?item.gemSlots.slice(0,2):[];while(item.gemSlots.length<2)item.gemSlots.push(null);item.gemSlots=item.gemSlots.map(id=>ascensionGemDef(id)?id:null);return item};
+// V37.8 — Raid Rush card levels: a card levels up by spending duplicate copies
+// of itself plus Gold (the Village's Gold), on the Cards screen. Its rarity sets
+// how high it can go; fuse copies to raise the rarity and the cap. Card XP from
+// battles is gone.
+const CARD_LEVEL_CAP={common:3,good:5,rare:7,epic:9,epicplus:11,legendary:13,legendaryplus:15,mythic:20};
+const cardLevelCap=rarity=>CARD_LEVEL_CAP[rarity]||3;
+function cardLevelCost(item){const level=Math.max(1,item.level||1);return {copies:level+1,gold:Math.round(50*Math.pow(level,1.5))}}
+function goldBalance(){return Math.floor(Number(save?.villageEconomy?.gold)||0)}
+function cardLevelStatus(id){const item=inv(id),cost=cardLevelCost(item),cap=cardLevelCap(item.rarity);if(item.level>=cap)return {ok:false,cost,cap,reason:`Level ${cap} is the most a ${rarityDef(item.rarity).name} card can reach — fuse copies to raise its rarity`};if(item.copies<cost.copies)return {ok:false,cost,cap,reason:`Needs ${cost.copies} copies (you have ${item.copies})`};if(goldBalance()<cost.gold)return {ok:false,cost,cap,reason:`Needs ${cost.gold} Gold (you have ${goldBalance()})`};return {ok:true,cost,cap}}
+function levelUpCard(id){const st=cardLevelStatus(id),c=card(id)||groundCardById(id);if(!st.ok){showToast(st.reason);return false}const item=inv(id);item.copies-=st.cost.copies;ensureVillageEconomy();save.villageEconomy.gold-=st.cost.gold;item.level++;item.recent=true;saveProgress();showToast(`${c?.name||'Card'} reached Level ${item.level}`);playTone(720,.12,'triangle',.05);return true}
 const cardPower=id=>rarityDef(inv(id).rarity).mult*(1+(Math.max(1,inv(id).level)-1)*.10);
 registerSaveProvider(()=>save);
 
@@ -1077,7 +1087,7 @@ window.VillageBattleAPI={
    const check=canCallNextWave();if(!check.ok)return check;
    const alive=G.enemies.filter(e=>!e.dead).length,bonus=3+Math.min(10,alive);
    G.essence+=bonus;G.essenceEarned=(G.essenceEarned||0)+bonus;G.lastMeaningfulDecisionAt=G.time;
-   floatText(GRID.cols/2,1.35,`+${bonus} ESSENCE · WAVE CALLED`,'#9ff0b4');playTone(720,.1,'triangle',.04);renderEssenceVial();
+   floatText(GRID.cols/2,1.35,`+${bonus} LEVEL XP · WAVE CALLED`,'#9ff0b4');playTone(720,.1,'triangle',.04);renderEssenceVial();
    battleEvent('wave-called-early',{wave:G.wave,alive,bonus});
    beginWaveTransition();syncNextWaveButton(true);
    return {ok:true,bonus};
@@ -1355,7 +1365,7 @@ function activateNextRoute(){
 // keep sends enough Essence to fortify it at once. Kept out of essenceEarned so
 // the draft cadence is unchanged.
 function breachBounty(){const stage=Math.max(1,G?.chapter?.number||1);return Math.round(8+stage*1.2);}
-function grantBreachBounty(event){if(!G)return;const amount=breachBounty();G.essence+=amount;G.breachBounties=(G.breachBounties||0)+amount;G.lastMeaningfulDecisionAt=G.time;floatText(GRID.cols/2,2.1,`+${amount} ESSENCE · SCOUTS FIRST — FORTIFY THE NEW ROAD`,'#d8c7ff');try{renderEssenceVial();}catch{}}
+function grantBreachBounty(event){if(!G)return;G.breachBounties=(G.breachBounties||0)+1;G.lastMeaningfulDecisionAt=G.time;G.bonusPicks=(G.bonusPicks||0)+1;floatText(GRID.cols/2,2.1,'NEW ROAD · BONUS PICK — SCOUTS FIRST','#d8c7ff');}
 function roadGrowthForWave(completedWave){if(completedWave<=10)return 1;if(completedWave<=15)return Math.random()<.55?2:1;return 2}
 function growRoadAfterWave(completedWave){
  const added=[];
@@ -1501,7 +1511,7 @@ function freshGame(mode='chapter',chapterId=null){
  // V37.0.2 — Soul Reserve (Keep), Hunter Tavern (Kingdom) and the Village
  // Market/Tavern promised extra starting souls but nothing read them. The bonus
  // goes into the Essence reserve, which refills the vial as you spend.
- {const startBonus=(Number(save.keepUpgrades?.souls)||0)*6+(Number(save.kingdom?.buildings?.tavern)||0)*5+(Number(villageBonus?.startingGold)||0);if(startBonus>0)G.essenceCarry=(G.essenceCarry||0)+startBonus;}
+ {G.pickXpMult=1+(Number(save.keepUpgrades?.souls)||0)*.03+(Number(save.kingdom?.buildings?.tavern)||0)*.03+(Number(villageBonus?.startingGold)||0)*.006;G.bonusPicks=1;} // V37.8: the old reserve-Essence bonuses now make card picks come faster; every hunt opens with two picks
  applyAscensionBonuses();
  $('#weatherTxt').textContent=map.name+' · '+weather.name;$('#relicTxt').textContent=G.relic?.name||'None';applyEquippedRelic();applyChapterBoons();showToast((chapter?chapter.name:map.name)+' — '+weather.name+': '+weather.desc);
  [UI.menu,UI.deck,$('#campaignScreen'),$('#relicVaultScreen'),$('#heroesScreen'),$('#upgradesScreen'),$('#forgeScreen'),$('#codexScreen'),$('#profileScreen'),$('#cardInspectScreen'),$('#kingdomScreen'),$('#achievementsScreen'),$('#moreScreen')].forEach(s=>s?.classList.add('hidden'));UI.over.classList.add('hidden');UI.choices.classList.add('hidden');UI.hud.classList.remove('hidden');setBattleMode(true);UI.tutorial.classList.add('hidden');renderHand();
@@ -1509,8 +1519,8 @@ function freshGame(mode='chapter',chapterId=null){
  battleDelay(()=>beginLivingBattle(session),450,'begin living battle');
 }
 // V37.7: permanent boons from cleared roads 9-20 (see Progression/chapterBoons.js).
-function applyChapterBoons(){if(!G)return;const b=boonTotals(save.campaign?.completed||[]);if(b.reserve)G.essenceCarry=(G.essenceCarry||0)+b.reserve;if(b.gateHp){G.hp+=b.gateHp;G.maxHp+=b.gateHp}if(b.damage)G.globalDamage*=1+b.damage;if(b.points)G.battlePoints=(G.battlePoints||0)+b.points;G.boons=b}
-function applyEquippedRelic(){if(!G?.relic)return;const attackSpeed=relicEffect('heroAttackSpeed'),points=relicEffect('startingUpgradePoints'),gateHp=relicEffect('gateHp'),heroCrit=relicEffect('heroCriticalChance'),globalDamage=relicEffect('globalDamage')+relicEffect('towerDamage');if(attackSpeed)G.hero.rate/=1+attackSpeed;if(points)G.battlePoints=(G.battlePoints||0)+points;if(gateHp){G.hp+=gateHp;G.maxHp+=gateHp}if(heroCrit)G.hero.crit+=heroCrit;if(globalDamage)G.globalDamage*=1+globalDamage}
+function applyChapterBoons(){if(!G)return;const b=boonTotals(save.campaign?.completed||[]);if(b.pickXp)G.pickXpMult=(G.pickXpMult||1)+b.pickXp;if(b.gateHp){G.hp+=b.gateHp;G.maxHp+=b.gateHp}if(b.damage)G.globalDamage*=1+b.damage;if(b.points)G.bonusPicks=(G.bonusPicks||0)+b.points;G.boons=b}
+function applyEquippedRelic(){if(!G?.relic)return;const attackSpeed=relicEffect('heroAttackSpeed'),points=relicEffect('startingUpgradePoints'),gateHp=relicEffect('gateHp'),heroCrit=relicEffect('heroCriticalChance'),globalDamage=relicEffect('globalDamage')+relicEffect('towerDamage');if(attackSpeed)G.hero.rate/=1+attackSpeed;if(points)G.bonusPicks=(G.bonusPicks||0)+points;if(gateHp){G.hp+=gateHp;G.maxHp+=gateHp}if(heroCrit)G.hero.crit+=heroCrit;if(globalDamage)G.globalDamage*=1+globalDamage}
 
 function showBattleCinematic(kicker,title,subtitle,duration=2350){
  const el=$('#battleCinematic');if(!el)return;
@@ -1797,7 +1807,7 @@ function renderAscensionInventory(box,filter){
 let cardsScreen=null;
 function cardsUI(){
  if(cardsScreen)return cardsScreen;
- cardsScreen=installCardsScreen({root:UI.deck,get save(){return save},card,inv,rarityDef,cardPower,cardHTML,miniCardHTML,cardIconHTML,CARD_POOL,HERO_GROUND_DEFENSES,groundCardById,toggleFavorite,mergeCard,canPayRarityUpgrade,requestMergeAllDuplicates,sortCards,shortType,unlockChapterForCard,cardMetrics,attackPattern,ascensionGemDef,renderAscensionInventory,renderHeroJPPanel,HEROES,currentShadowLevel,shadowPortraitHTML,ascensionEquipmentStats,EQUIPMENT_SLOTS,equipmentById,saveProgress,showToast,openScreen,screens:{menu:UI.menu,heroes:$('#heroesScreen')},renderHeroes,ensureVisibleCardCollection,reconcileCardUnlocks});
+ cardsScreen=installCardsScreen({root:UI.deck,get save(){return save},card,inv,rarityDef,cardPower,levelUpCard,cardLevelStatus,goldBalance,cardHTML,miniCardHTML,cardIconHTML,CARD_POOL,HERO_GROUND_DEFENSES,groundCardById,toggleFavorite,mergeCard,canPayRarityUpgrade,requestMergeAllDuplicates,sortCards,shortType,unlockChapterForCard,cardMetrics,attackPattern,ascensionGemDef,renderAscensionInventory,renderHeroJPPanel,HEROES,currentShadowLevel,shadowPortraitHTML,ascensionEquipmentStats,EQUIPMENT_SLOTS,equipmentById,saveProgress,showToast,openScreen,screens:{menu:UI.menu,heroes:$('#heroesScreen')},renderHeroes,ensureVisibleCardCollection,reconcileCardUnlocks});
  return cardsScreen;
 }
 function renderDeck(){cardsUI().render()}
@@ -1872,21 +1882,29 @@ function cardHTML(c,collection=false){
  const atk=c.damage?Math.max(1,Math.round(c.damage*power)):c.type==='support'?Math.round(10*power):c.type==='skill'?Math.round((c.cost||30)*power):Math.round(8*power);
  const hp=c.type==='tower'?Math.round((90+(c.cost||30)*4)*power):c.type==='support'?Math.round(120*power):c.type==='hero'?Math.round(100*power):Math.round(70*power);
  const defenseCard=c.type==='tower'||c.type==='trap';
- return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art">${cardArtHTML(c,{level:item.level,rarity:item.rarity,icon:cardIconHTML(c,item.level)})}<div class="art-sigil">${cardIconHTML(c,item.level)}</div></div><div class="card-copy"><h3>${c.name}</h3></div>${cardGemSlotsHTML(c)}<div class="ascension-card-xp" title="${Math.min(100,item.xp)}% card XP"><i style="width:${Math.min(100,item.xp)}%"></i></div><div class="card-primary-stats ${defenseCard?'defense-stats':''}"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span>${defenseCard?'':`<span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span>`}</div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
+ return `<span class="card-level">LV ${item.level}</span><span class="tag">${shortType(c.type)}</span><div class="card-art">${cardArtHTML(c,{level:item.level,rarity:item.rarity,icon:cardIconHTML(c,item.level)})}<div class="art-sigil">${cardIconHTML(c,item.level)}</div></div><div class="card-copy"><h3>${c.name}</h3></div>${cardGemSlotsHTML(c)}${(()=>{const need=cardLevelCost(item).copies,capped=item.level>=cardLevelCap(item.rarity),pct=capped?100:Math.min(100,item.copies/need*100);return `<div class="ascension-card-xp${!capped&&item.copies>=need?' is-ready':''}" title="${capped?'At this rarity\'s level cap':`${item.copies}/${need} copies for Level ${item.level+1}`}"><i style="width:${pct}%"></i></div>`})()}<div class="card-primary-stats ${defenseCard?'defense-stats':''}"><span class="atk-stat"><i>⚔</i><b>${atk}</b><small>ATK</small></span>${defenseCard?'':`<span class="hp-stat"><i>♥</i><b>${hp}</b><small>HP</small></span>`}</div><div class="card-footer"><span>${r.name}</span><span>${item.copies} copies${owned?` · ${owned} placed`:''}</span></div>`
 }
+// V37.8 — Raid Rush rules. Every level-up offers three cards from your deck;
+// whatever you pick is placed for free, and a tower only grows by merging
+// another copy of the same tower onto it (up to ★5). There is no Essence to
+// spend and no stat upgrades to buy during a hunt.
+const MERGE_MAX=5,MERGE_STEP={damage:1.7,range:.15,rate:.94};
+function mergeTargetsFor(id){return (G?.towers||[]).filter(t=>t.id===id&&!t.supportOnly&&!t.destroyed&&(t.mergeLevel||1)<MERGE_MAX)}
+function grantBonusPick(n=1,why=''){if(!G)return;G.bonusPicks=(G.bonusPicks||0)+n;if(why)floatText(GRID.cols/2,2.1,why,'#d8c7ff');battleDelay(()=>{if(G&&G.state==='play'&&!G.draftOpen&&!G.pendingCard)triggerEssenceDraft(false)},350,'bonus pick');}
 function draftCardHTML(c){
- if(c.tactical)return `<span class="draft-level">TACTICAL</span><span class="draft-type">UTILITY</span><div class="draft-art">${cardArtHTML(c,{rarity:'legendary',icon:c.icon})}<div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>IMMEDIATE EFFECT</small><p>${c.desc}</p></div><div class="draft-cost"><span>Stage choice</span><strong>NO ESSENCE COST</strong></div>`;
+ if(c.tactical)return `<span class="draft-level">TACTICAL</span><span class="draft-type">UTILITY</span><div class="draft-art">${cardArtHTML(c,{rarity:'legendary',icon:c.icon})}<div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>IMMEDIATE EFFECT</small><p>${c.desc}</p></div><div class="draft-cost"><span>Stage choice</span><strong>INSTANT</strong></div>`;
  if(c.hiddenSystem)return `<span class="draft-level">SYSTEM</span><span class="draft-type">ROAD</span><div class="draft-art"><div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>SYSTEM EFFECT</small><p>${c.desc}</p></div><div class="draft-stat-grid"><div><small>ROLE</small><b>Road</b></div><div><small>DRAW WEIGHT</small><b>${Math.round((c.drawWeight??1)*100)}%</b></div></div>`;
  const item=inv(c.id),r=rarityDef(item.rarity),power=cardPower(c.id),damage=Math.round((c.damage||0)*power),speed=c.rate?`${(1/c.rate).toFixed(2)}/sec`:'—',range=c.range?`${c.range.toFixed(1)} tiles`:'—',cost=essenceCost(c);
  const role=shortType(c.type);
  const target=c.type==='tower'?(c.id==='dagger'||c.id==='cross'?'Air + Ground':c.id==='axe'?'Ground · Armor':c.id==='scripture'?'Ground · Chain':'Ground'):c.type==='support'?'Allied Tower':'Battlefield';
  const passive=c.desc||'No passive effect.';
- return `<span class="draft-level">LV ${item.level}</span><span class="draft-type">${role}</span><div class="draft-art">${cardArtHTML(c,{level:item.level,rarity:item.rarity,elite:!!c.elite,icon:cardIconHTML(c,item.level)})}<div class="draft-icon">${cardIconHTML(c,item.level)}</div></div><h3>${c.name}</h3><div class="draft-stat-grid"><div><small>DAMAGE</small><b>${damage||'—'}</b></div><div><small>ATTACK SPEED</small><b>${speed}</b></div><div><small>RANGE</small><b>${range}</b></div><div><small>TARGETS</small><b>${target}</b></div></div><div class="draft-passive"><small>PASSIVE ABILITY</small><p>${passive}</p></div><div class="draft-cost"><span>${r.name} · Level ${item.level}</span><strong>✦ ${cost}</strong></div>`;
+ return `<span class="draft-level">LV ${item.level}</span><span class="draft-type">${role}</span><div class="draft-art">${cardArtHTML(c,{level:item.level,rarity:item.rarity,elite:!!c.elite,icon:cardIconHTML(c,item.level)})}<div class="draft-icon">${cardIconHTML(c,item.level)}</div></div><h3>${c.name}</h3><div class="draft-stat-grid"><div><small>DAMAGE</small><b>${damage||'—'}</b></div><div><small>ATTACK SPEED</small><b>${speed}</b></div><div><small>RANGE</small><b>${range}</b></div><div><small>TARGETS</small><b>${target}</b></div></div><div class="draft-passive"><small>PASSIVE ABILITY</small><p>${passive}</p></div><div class="draft-cost"><span>${r.name} · Level ${item.level}</span><strong>${c.type==='tower'?(()=>{const m=mergeTargetsFor(c.id).sort((a,b)=>(b.mergeLevel||1)-(a.mergeLevel||1))[0];return m?`MERGE ★${m.mergeLevel||1}→★${(m.mergeLevel||1)+1}`:'NEW TOWER'})():'FREE'}</strong></div>`;
 }
 
 function renderHand(){
  if(!UI.hand||!G)return;
  UI.hand.innerHTML='';
+ UI.hand.classList.add('hidden');UI.hand.setAttribute('aria-hidden','true');return; // V37.8: picks are placed once, for free
  const active=G.activeDraftCard&&!G.activeDraftCard.tactical?G.activeDraftCard:null;
  const reserve=reinforcementCard();
  if(!active&&!reserve){UI.hand.classList.add('hidden');UI.hand.setAttribute('aria-hidden','true');return;}
@@ -1908,18 +1926,18 @@ function renderHand(){
 // last attack tower placed this run stays buyable with Essence, so a new road
 // can be covered without waiting for a tower to come round in the draft.
 function reinforcementCard(){
+ return null; // V37.8: no Essence reinforcements
  const r=G?.lastTowerCard;if(!r||G.draftPlacementPending||G.draftOpen)return null;
  if(G.activeDraftCard?.id===r.id)return null;
  return r;
 }
 function selectEssenceCard(c){
- if(!G||G.state!=='play'||G.draftOpen)return;const cost=G.openingDraft&&!G.draftChoiceCommitted?0:essenceCost(c);
- if(G.essence<cost)return showToast(`Need ${cost-G.essence} more Essence`);
+ if(!G||G.state!=='play'||G.draftOpen)return;const cost=0;
  if((!G.activeDraftCard||G.activeDraftCard.id!==c.id)&&reinforcementCard()?.id!==c.id)return showToast('Fill the vial and draft a card first');
  if(c.tactical){applyTacticalChoice(c);G.activeDraftCard=null;renderEssenceVial();renderHand();return;}
  if(c.type==='hero'){applyHeroUpgrade(c);G.activeDraftCard=null;renderEssenceVial();renderHand();return;}
  if(c.type==='support'&&!G.towers.some(t=>!t.supportOnly))return showToast('Place an attack tower before a support tower');
- G.pendingCard={...c,essenceCost:cost};G.hoverTile=null;G.placementRotation=0;setPlacementUI(G.pendingCard);showToast(c.type==='trap'?`Place ${c.name} directly on the road`:c.type==='support'?`Place ${c.name} behind an attack tower`:`Place ${c.name} · costs ${cost} Essence`);renderHand();
+ G.pendingCard={...c,essenceCost:cost};G.hoverTile=null;G.placementRotation=0;setPlacementUI(G.pendingCard);showToast(c.type==='trap'?`Place ${c.name} directly on the road`:c.type==='support'?`Place ${c.name} behind an attack tower`:`Place ${c.name}`);renderHand();
 }
 
 // V32.4.2 — road-shape memoisation. G.path is append-only and G.routes only
@@ -1978,7 +1996,7 @@ function firstValidRoadPlacement(c){
  return null;
 }
 function preparePlacement(c){
- G.pendingCard={...c,essenceCost:G.openingDraft?0:essenceCost(c)};G.placementRotation=0;
+ G.pendingCard={...c,essenceCost:0};G.placementRotation=0;
  if(c.type==='roadpiece'){
   const found=firstValidRoadPlacement(c);
   if(!found)return false;
@@ -2061,10 +2079,10 @@ function handleTowerEditTap(tap){
  if(G.towerEditMode==='sell'){
   // With a ten-slot cap and random drafts a bad placement used to be permanent.
   if(!tapped||tapped.supportOnly)return showToast('Choose a placed attack tower to sell');
-  const refund=Math.max(1,Math.round(essenceCost(card(tapped.id)||tapped)*.5));// placed towers carry stats, not the card's price
-  G.towers=G.towers.filter(t=>t!==tapped);G.essence+=refund;G.essenceEarned=(G.essenceEarned||0)+refund;
+  const refund=0;// V37.8: placement is free, so removing a tower returns nothing
+  G.towers=G.towers.filter(t=>t!==tapped);
   burst(tapped.x+.5,tapped.y+.5,'#d8c3a5',22);renderEssenceVial();battleEvent('tower-sold',{id:tapped.id,refund});
-  cancelTowerEdit(`${tapped.name} sold · +${refund} Essence`);return true;
+  cancelTowerEdit(`${tapped.name} removed`);return true;
  }
  if(!G.towerEditFirst){
   if(!tapped||tapped.supportOnly)return showToast('Choose a placed attack tower');
@@ -2092,7 +2110,7 @@ function handleBattleTap(e){
   if(!validTowerTile(p.x,p.y))return showToast('Towers must touch a road or a road-connected tower');
   const existing=G.towers.find(t=>t.x===p.x&&t.y===p.y);
   const placement=placementFeedback(G,c,p.x,p.y,!!existing||validTowerTile(p.x,p.y));if(!existing&&!placement.valid)return showToast(placement.reason);
-   if(existing){if(existing.id!==c.id)return showToast('Only identical towers can merge');if((existing.mergeLevel||1)>=3)return showToast(`${existing.name} is already fully merged`);existing.mergeLevel=(existing.mergeLevel||1)+1;refreshTowerLevel(existing);existing.damage*=1.7;existing.range+=.18;save.stats.towerMerges++;burst(p.x+.5,p.y+.5,c.color,24);showToast(`Merged to level ${existing.level}`);used=true;}
+   if(existing){if(existing.id!==c.id)return showToast('Only identical towers can merge');if((existing.mergeLevel||1)>=MERGE_MAX)return showToast(`${existing.name} is already ★${MERGE_MAX}`);existing.mergeLevel=(existing.mergeLevel||1)+1;refreshTowerLevel(existing);existing.damage*=MERGE_STEP.damage;existing.range+=MERGE_STEP.range;existing.rate=Math.max(.18,existing.rate*MERGE_STEP.rate);if(c.elite&&!existing.elite){existing.elite=true}save.stats.towerMerges++;burst(p.x+.5,p.y+.5,c.color,30);showToast(`${existing.name} merged · ★${existing.mergeLevel}`);used=true;}
    else {const tower={...c,x:p.x,y:p.y,level:1,t:0,upgradeDamage:0,upgradeRange:0,upgradeRate:0,elite:!!c.elite,permanentPower:cardPower(c.id),supports:[]};applyCardBattleUpgradesToTower(tower);G.towers.push(tower);save.stats.towersPlaced++;used=true;}
  } else if(c.type==='support'){
    const placement=placementFeedback(G,c,p.x,p.y,validSupportTile(p.x,p.y));if(!placement.valid)return showToast(placement.reason);
@@ -2144,16 +2162,13 @@ function finishCardPlacement(){
  // Essence" and nothing could ever be earned to pay it: a permanent softlock,
  // reproduced twice by a bot. The draft is the purchase — its first placement
  // is always affordable. Extra copies of the same card still cost full price.
- const rawCost=Math.max(0,Number(placed?.essenceCost)||0);
- const cost=G.draftPlacementPending?Math.min(rawCost,G.essence):rawCost;
- if(cost>G.essence)return showToast(`Need ${cost-G.essence} more Essence`);
- G.draftPlacementPending=false;
- G.essence-=cost;G.essenceSpent=(G.essenceSpent||0)+cost;G.lastMeaningfulDecisionAt=G.time;
+ G.draftPlacementPending=false;G.lastMeaningfulDecisionAt=G.time;
  commitDraftChoice(placed);
  if(placed?.type==='tower'){const{essenceCost:_ec,...base}=placed;G.lastTowerCard=base;}
  G.openingDraft=false;G.maxEssence=essenceCapacity(G);
  G.pendingCard=null;G.selected=null;G.hoverTile=null;setPlacementUI(null);G.draftOpen=false;G.paused=false;G.pendingWave=false;renderEssenceVial();renderHand();
- if(placed&&G.activeDraftCard?.id===placed.id){const cost=essenceCost(placed);showToast(G.essence>=cost?`${G.essence} Essence left · tap ${placed.name} to place another`:`${placed.name} cycle complete · refill the vial`);}
+ G.activeDraftCard=null;renderHand();
+ if((G.bonusPicks||0)>0)battleDelay(()=>{if(G&&G.state==='play'&&!G.draftOpen&&!G.pendingCard)triggerEssenceDraft(false)},300,'bonus pick');
 }
 
 const HOLY_WATER_RADIUS=2.35;
@@ -2209,7 +2224,7 @@ function applyHeroUpgrade(c){
 function applyTacticalChoice(c){
  if(c.id==='fieldRepair')G.hp=Math.min(G.maxHp,G.hp+Math.max(1,Math.ceil(G.maxHp*.20)));
  /* V37.7.1: Battlefield Merge removed — towers merge only from duplicate copies. */
- if(c.id==='battleInsight')G.battlePoints++;
+ if(c.id==='battleInsight')G.bonusPicks=(G.bonusPicks||0)+1;
  if(c.id==='overclockLine')for(const tower of G.towers)if(!tower.supportOnly)tower.rate=Math.max(.08,tower.rate*.92);
  burst(G.hero.x,G.hero.y,'#ffe89a',24);floatText(G.hero.x,G.hero.y-.4,c.name.toUpperCase(),'#ffe89a');showToast(`${c.name} applied for this stage`);
 }
@@ -2424,7 +2439,7 @@ function spawnEssencePickup(e,amount){
  const canvasRect=canvas.getBoundingClientRect(),c=cameraTransform(),sx=canvasRect.left+(c.x+e.x*GRID.tile*c.worldScale)*(canvasRect.width/W),sy=canvasRect.top+(c.y+e.y*GRID.tile*c.worldScale)*(canvasRect.height/H),target=document.querySelector('.essence-pill')?.getBoundingClientRect();
  const mote=document.createElement('span');mote.className='essence-fly';mote.textContent=amount>=10?'✦':'•';mote.style.left=sx+'px';mote.style.top=sy+'px';document.body.append(mote);G.pendingEssence+=amount;
  requestAnimationFrame(()=>{mote.style.transform=`translate(${(target?target.left+target.width/2:sx)-sx}px,${(target?target.top+target.height/2:20)-sy}px) scale(.45)`;mote.style.opacity='0'});
- battleDelay(()=>{mote.remove();if(!G||G.state!=='play'||G.completionStarted)return;G.pendingEssence=Math.max(0,G.pendingEssence-amount);G.essence+=amount;G.essenceEarned=(G.essenceEarned||0)+amount;renderEssenceVial();playTone(610,.045,'triangle',.018);if(canTriggerChoice(G))triggerEssenceDraft(false)},430,'essence pickup');
+ battleDelay(()=>{mote.remove();if(!G||G.state!=='play'||G.completionStarted)return;G.pendingEssence=Math.max(0,G.pendingEssence-amount);G.essence+=amount;G.essenceEarned=(G.essenceEarned||0)+amount;renderEssenceVial();playTone(610,.045,'triangle',.018);triggerEssenceDraft(false)},430,'essence pickup');
 }
 function towerTags(t){return {holy:['holy','cross','rosary','garlic','scripture'].includes(t.id),fire:['holy','bone'].includes(t.id),lightning:['clock','scripture'].includes(t.id)};}
 function synergyFor(t){let damage=1,range=1,rate=1,holy=false,ignite=false;for(const n of G.towers){if(n===t)continue;const d=Math.abs(n.x-t.x)+Math.abs(n.y-t.y);if(d!==1)continue;if(n.supportOnly){const effect=n.supportEffect||SUPPORT_EFFECT_REGISTRY[n.id]||{};damage*=1+(Number(effect.damage)||0);rate*=1+(Number(effect.attackSpeed)||0);range*=1+(Number(effect.range)||0);holy=holy||!!effect.holy;continue;}if(t.id==='dagger'&&n.id==='holy'){holy=true;damage*=1.22}if(t.id==='clock'&&n.id==='holy'){range*=1.18;damage*=1.12}if(t.id==='axe'&&n.id==='bone'){ignite=true;damage*=1.2}if(t.id==='whip'&&n.id==='rosary'){rate*=1.18}}
@@ -2445,6 +2460,7 @@ function towerUpgradeCost(t,stat){const state=cardUpgradeState(t.id),rank=Number
 function towerUpgradeMax(stat){return stat==='range'?3:5}
 function essenceTowerUpgradeCost(t,stat){const rank=Number(t?.runEssenceUpgrades?.[stat]||0);return 8+rank*6+(stat==='range'?3:0)}
 function essenceUpgradeSelectedTower(stat){
+ return; // V37.8: no Essence reinforcement under Raid Rush rules
  const t=G?.selectedTower;if(!t||t.supportOnly)return;const upgrades=t.runEssenceUpgrades||(t.runEssenceUpgrades={damage:0,rate:0,range:0}),rank=upgrades[stat]||0,max=stat==='range'?3:5,cost=essenceTowerUpgradeCost(t,stat);
  if(rank>=max)return showToast('This run upgrade is already complete');if(G.essence<cost)return showToast(`Need ${cost-G.essence} more Essence`);
  G.essence-=cost;G.essenceSpent=(G.essenceSpent||0)+cost;G.lastMeaningfulDecisionAt=G.time;upgrades[stat]=rank+1;
@@ -2483,8 +2499,9 @@ function renderBattleUpgradeMenu(forceOpen=false){
 }
 
 function openBattleUpgradeMenu(){if(!G)return;if((G.battlePoints||0)<=0)return showToast('Earn Battle XP to gain an Upgrade Point');renderBattleUpgradeMenu(true)}
-function grantBattleXp(amount=1){const mult=G.weather.id==='blood'?1.4:1;G.xp+=amount*mult;let earned=0;while(G.xp>=G.xpNeed){G.xp-=G.xpNeed;G.level++;G.battlePoints=(G.battlePoints||0)+1;earned++;G.xpNeed=Math.ceil(G.xpNeed*1.32);showToast(`Battle Level ${G.level} — choose a card-wide upgrade`);floatText(GRID.cols/2,1.35,'+1 UPGRADE POINT','#ffe28a');playTone(690,.12,'triangle',.04)}if(earned){const session=battleSessionId;setTimeout(()=>{if(session===battleSessionId&&G&&G.state==='play'&&document.body.classList.contains('battle-mode')&&G.towers.some(t=>!t.supportOnly&&!t.destroyed))renderBattleUpgradeMenu(true)},120)}}
+function grantBattleXp(amount=1){const mult=G.weather.id==='blood'?1.4:1;G.xp+=amount*mult;let earned=0;while(G.xp>=G.xpNeed){G.xp-=G.xpNeed;G.level++;earned++;G.xpNeed=Math.ceil(G.xpNeed*1.32)}if(false&&earned){const session=battleSessionId;setTimeout(()=>{if(session===battleSessionId&&G&&G.state==='play'&&document.body.classList.contains('battle-mode')&&G.towers.some(t=>!t.supportOnly&&!t.destroyed))renderBattleUpgradeMenu(true)},120)}}
 function upgradeSelectedTower(stat,showDetails=true){
+ return; // V37.8: no Battle Point upgrades under Raid Rush rules
  const t=G?.selectedTower;if(!t||t.supportOnly)return;const state=cardUpgradeState(t.id),max=towerUpgradeMax(stat),rank=Number(state[stat]||0);if(rank>=max)return showToast(`${stat==='range'?'Radius':stat==='rate'?'Speed':'ATK'} is already Level ${max}`);const cost=towerUpgradeCost(t,stat);if((G.battlePoints||0)<cost)return showToast(`Need ${cost} Upgrade Point${cost===1?'':'s'}`);
  G.battlePoints-=cost;state[stat]=rank+1;
  const affected=G.towers.filter(x=>!x.supportOnly&&!x.destroyed&&x.id===t.id);
@@ -2508,6 +2525,7 @@ const DIFFICULTY={
  perWave:0.19,         // how much each wave adds within a road
  waveEase:1.08,        // >1 makes later waves ramp faster than early ones
  perChapter:1.055,     // progression-aware step-up; authored enemy pools add later pressure
+ lateChapter:1.03,     // V37.8: gentler step after road 8
  perChapterDamage:0.04 // enemies also hit slightly harder each chapter
 };
 // [type, weight, first wave] for Chapter 11 onward; leftover weight stays skeletons.
@@ -2529,7 +2547,10 @@ function spawnEnemy(){
  //   waveCurve    : slightly eased early so a fresh deck can find its feet
  // Both live in DIFFICULTY so the whole campaign can be retuned from one place.
  const chapterNum=Math.max(1,G.chapter?.number||1);
- const chapterCurve=Math.pow(DIFFICULTY.perChapter,chapterNum-1);
+ // V37.8: past road 8 the step eases to 3% a road. Without Essence and Battle
+ // Point upgrades a deck's late power comes only from picks and merges, and
+ // bot runs collapsed mid-chapter on roads 15 and 20 at the old 5.5% rate.
+ const chapterCurve=Math.pow(DIFFICULTY.perChapter,Math.min(chapterNum,8)-1)*Math.pow(DIFFICULTY.lateChapter,Math.max(0,chapterNum-8));
  const waveCurve=1+Math.pow(Math.max(0,G.wave-1),DIFFICULTY.waveEase)*DIFFICULTY.perWave;
  const onboardingHealth=boss?(EARLY_STAGE_DIFFICULTY[chapterNum]?.bossHealth||1):(EARLY_STAGE_DIFFICULTY[chapterNum]?.enemyHealth||1);
  let hp=base*waveCurve*chapterCurve*(G.weather.id==='blood'?1.18:1)*(boss?DIFFICULTY.bossBaseline:DIFFICULTY.baseline)*(1+relicEffect('enemyHealth'))*onboardingHealth;
@@ -2539,7 +2560,7 @@ function spawnEnemy(){
  // road 11. Bot runs reached the boss on roads 15 and 20 with gate to spare
  // and could not dent it. From road 12 on, bosses grow 11% per road from the
  // road-11 figure instead (road 15 ≈ 67k, road 20 ≈ 93k).
- if(boss&&chapterNum>11){const ref=(CHAPTERS[10]?.boss?.hp||3750)*(1+Math.pow(20,DIFFICULTY.waveEase)*DIFFICULTY.perWave)*Math.pow(DIFFICULTY.perChapter,10),cur=base*waveCurve*chapterCurve,target=ref*(1+.11*(chapterNum-11));if(cur>target)hp*=target/cur;}
+ if(boss&&chapterNum>11){const ref=(CHAPTERS[10]?.boss?.hp||3750)*(1+Math.pow(20,DIFFICULTY.waveEase)*DIFFICULTY.perWave)*Math.pow(DIFFICULTY.perChapter,7)*Math.pow(DIFFICULTY.lateChapter,3),cur=base*waveCurve*chapterCurve,target=ref*(1+.11*(chapterNum-11));if(cur>target)hp*=target/cur;}
  // Enemies also hit a little harder as the roads darken.
  const damageCurve=1+(chapterNum-1)*DIFFICULTY.perChapterDamage;
  const elite=!boss&&!mini&&G.wave>=3&&Math.random()<Math.min(.25,.06+G.wave*.014);if(elite){hp*=1.65;speed*=1.10;reward=Math.round(reward*1.70);name='Elite '+name;}
@@ -2686,8 +2707,8 @@ function enemyEssenceReward(e){
 // door until the run ended — playtests lost full gates to one elite ghost that
 // only holy damage could hurt — so one leak now costs a few gate points, while
 // a crowd at the door is still a disaster.
-function hit(e,d,shot=null){e.hitFlash=.11;if(!e.boss&&!e.attacking&&!e.dead)e.hurtT=ENEMY_ANIM.hurt;e.hitKick=Math.min(.16,(e.hitKick||0)+.055);const rawDamage=Math.max(0,Number(d)||0);if(e.vulnerable>0)d*=1.25;if(e.guardT>0&&e.guard!=null)d*=e.guard;/* V37.1 boss guards (Aegis, burrow) *//* V37.0.2: Holy Banner mark */if(e.holyOnly&&!shot?.holy)d*=.22;if(e.armor&&!shot?.holy)d*=1-e.armor*(relicEffect('enemyArmorMultiplier')||1);if(e.air)d*=1+relicEffect('flyingDamage');if(e.boss)d*=1+relicEffect('bossDamage');const crit=!shot?.noCrit&&shot?.source==null&&G.hero&&Math.random()<G.hero.crit;if(crit){const critFloor=Math.max(8,rawDamage*.85,(G.hero.damage||10)*.55);d=Math.max(d*(G.hero.critDamage||1.9),critFloor);G.flash=Math.max(G.flash,.08);hitPause(48)}d=Math.max(shot?.skill?(shot?.holy?5:3):0,d);e.hp-=d;if(e.hp<=0&&e.boss&&G)G.lastBossDeath={x:e.x,y:e.y,form:e.golemForm||1,type:e.type,name:e.name};impactFeedback(e,d,crit,shot);if(e.hp<=0&&!e.dead){e.dead=true;spawnCorpse(e);deathBurst(e);if((e.boss||e.elite)&&navigator.vibrate)navigator.vibrate(e.boss?[35,30,55]:25);G.kills++;grantFamiliarXp(e.boss?18:e.elite?5:2);G.killChain++;G.comboTimer=2.4;G.comboBest=Math.max(G.comboBest||0,G.killChain);const essenceGain=enemyEssenceReward(e);spawnEssencePickup(e,essenceGain);
- const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);floatText(e.x,e.y,`+${battleXp} battle XP`,'#ffe28a');floatText(e.x,e.y+.18,'+'+essenceGain+' essence','#d8c7ff');playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);G.relicKillCount=(G.relicKillCount||0)+1;for(const b of [...G.enemies])if(b!==e&&b.boss&&!b.dead)bossPower(b)?.onEnemyDeath?.(b,e,BOSS_CTX);if(e.boss&&e.type==='eclipselord')G.bossDarkness=0;const slowEvery=relicEffect('globalSlowEvery');if(slowEvery&&G.relicKillCount%slowEvery===0){for(const o of G.enemies)if(!o.dead)o.slow=Math.min(o.slow??1,.55);floatText(GRID.cols/2,1.6,'THE DROWNED BELL TOLLS','#9fd6ff');playTone(220,.4,'sine',.04)}/* V37.0.2: Bell of the Drowned */const explosionEvery=relicEffect('killExplosionEvery');if(explosionEvery&&G.relicKillCount%explosionEvery===0){burst(e.x,e.y,'#ffe7a4',32);floatText(e.x,e.y-.25,'RELIC EXPLOSION','#ffe7a4');playTone(190,.12,'sawtooth',.04);for(const o of [...G.enemies])if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)hit(o,24,{holy:true,noCrit:true,kind:'ringExplosion'})}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
+function hit(e,d,shot=null){e.hitFlash=.11;if(!e.boss&&!e.attacking&&!e.dead)e.hurtT=ENEMY_ANIM.hurt;e.hitKick=Math.min(.16,(e.hitKick||0)+.055);const rawDamage=Math.max(0,Number(d)||0);if(e.vulnerable>0)d*=1.25;if(e.guardT>0&&e.guard!=null)d*=e.guard;/* V37.1 boss guards (Aegis, burrow) *//* V37.0.2: Holy Banner mark */if(e.holyOnly&&!shot?.holy)d*=.22;if(e.armor&&!shot?.holy)d*=1-e.armor*(relicEffect('enemyArmorMultiplier')||1);if(e.air)d*=1+relicEffect('flyingDamage');if(e.boss)d*=1+relicEffect('bossDamage');const crit=!shot?.noCrit&&shot?.source==null&&G.hero&&Math.random()<G.hero.crit;if(crit){const critFloor=Math.max(8,rawDamage*.85,(G.hero.damage||10)*.55);d=Math.max(d*(G.hero.critDamage||1.9),critFloor);G.flash=Math.max(G.flash,.08);hitPause(48)}d=Math.max(shot?.skill?(shot?.holy?5:3):0,d);e.hp-=d;if(e.hp<=0&&e.boss&&G)G.lastBossDeath={x:e.x,y:e.y,form:e.golemForm||1,type:e.type,name:e.name};impactFeedback(e,d,crit,shot);if(e.hp<=0&&!e.dead){e.dead=true;spawnCorpse(e);deathBurst(e);if((e.boss||e.elite)&&navigator.vibrate)navigator.vibrate(e.boss?[35,30,55]:25);G.kills++;grantFamiliarXp(e.boss?18:e.elite?5:2);G.killChain++;G.comboTimer=2.4;G.comboBest=Math.max(G.comboBest||0,G.killChain);const essenceGain=Math.max(1,Math.round(enemyEssenceReward(e)*(G.pickXpMult||1)));spawnEssencePickup(e,essenceGain);
+ const comboNames={2:'DOUBLE KILL',3:'TRIPLE KILL',5:'HOLY PURGE',8:'UNDEAD SLAUGHTER',12:'NIGHT CLEANSER'};if(comboNames[G.killChain]){floatText(GRID.cols/2,1.7,comboNames[G.killChain],'#ffe28a');playTone(420+G.killChain*18,.12,'triangle',.045)}const battleXp=e.boss?6:e.mini?4:e.elite?2:1;grantBattleXp(battleXp);playTone(120+Math.random()*45,.05,'square',.018);rollCardDrop(e);enemyDeath(e);G.relicKillCount=(G.relicKillCount||0)+1;for(const b of [...G.enemies])if(b!==e&&b.boss&&!b.dead)bossPower(b)?.onEnemyDeath?.(b,e,BOSS_CTX);if(e.boss&&e.type==='eclipselord')G.bossDarkness=0;const slowEvery=relicEffect('globalSlowEvery');if(slowEvery&&G.relicKillCount%slowEvery===0){for(const o of G.enemies)if(!o.dead)o.slow=Math.min(o.slow??1,.55);floatText(GRID.cols/2,1.6,'THE DROWNED BELL TOLLS','#9fd6ff');playTone(220,.4,'sine',.04)}/* V37.0.2: Bell of the Drowned */const explosionEvery=relicEffect('killExplosionEvery');if(explosionEvery&&G.relicKillCount%explosionEvery===0){burst(e.x,e.y,'#ffe7a4',32);floatText(e.x,e.y-.25,'RELIC EXPLOSION','#ffe7a4');playTone(190,.12,'sawtooth',.04);for(const o of [...G.enemies])if(!o.dead&&o!==e&&Math.hypot(o.x-e.x,o.y-e.y)<1.5)hit(o,24,{holy:true,noCrit:true,kind:'ringExplosion'})}if(e.mini){G.miniBossDefeated=true;awardRelic()}}}
 function weightedChoices(pool,count=3){
  const available=[...pool],out=[];
  while(out.length<count&&available.length){
@@ -2701,12 +2722,15 @@ function weightedChoices(pool,count=3){
 function renderEssenceVial(){
  if(!G)return;
  const next=nextChoiceMilestone(G),previous=G.recentDraftMilestone||0,done=!Number.isFinite(next);
- $('#goldTxt').textContent=done?`${Math.floor(G.essence)} TO SPEND`:`${Math.floor(G.essence)} · ${Math.floor(G.essenceEarned||0)}/${next}`;
+ $('#goldTxt').textContent=done?`Lv ${G.draftsCompleted||0} · MAX`:`Lv ${G.draftsCompleted||0} · ${Math.max(0,Math.floor((G.essenceEarned||0)-previous))}/${Math.max(1,next-previous)}`;{const lab=document.querySelector('.essence-pill small');if(lab&&lab.textContent!=='LEVEL')lab.textContent='LEVEL';}
  const ef=document.querySelector('.essence-fill');if(ef)ef.style.width=`${done?100:Math.min(100,100*Math.max(0,(G.essenceEarned||0)-previous)/Math.max(1,next-previous))}%`;
  const pill=document.querySelector('.essence-pill');if(pill)pill.classList.toggle('vial-full',!done&&(G.essenceEarned||0)>=next);
 }
 function triggerEssenceDraft(opening=false){
- if(!G||G.state!=='play'||G.draftOpen||!canTriggerChoice(G,opening))return;
+ if(!G||G.state!=='play'||G.draftOpen||G.pendingCard)return;
+ const earned=!opening&&canTriggerChoice(G,false),bonus=!opening&&!earned&&(G.bonusPicks||0)>0;
+ if(!(opening?canTriggerChoice(G,true):earned||bonus))return;
+ G.currentDraftBonus=bonus;if(bonus)G.bonusPicks--;
  G.draftOpen=true;renderEssenceVial();
  showWaveReward(G.wave,opening);
 }
@@ -2722,8 +2746,8 @@ function showWaveReward(completedWave,opening=false,choicesOverride=null){
  const choices=choicesOverride||baseChoices.map(c=>{const choice=Math.random()<.16&&c.type==='tower'?{...c,elite:true,name:'Elite '+c.name,desc:c.desc+' Deploys with +50% damage.'}:({...c});choice._resolved=choice.id==='roadSystem'?{...ROAD_PIECES[Math.floor(Math.random()*ROAD_PIECES.length)]}:null;return choice});
  G.draftChoices=choices;G.draftChoiceCommitted=false;G.openingDraft=opening;
  const box=$('#choicesCards');box.innerHTML='';
- $('#rewardTitle').textContent=opening?'Choose Your Opening Defense':'Essence Vial Full';
- $('#rewardText').textContent=opening?`Choose your first tower. This road supports up to ${limits.total} structures.`:'Choose one card. New structures remain available while useful positions and capacity remain.';
+ $('#rewardTitle').textContent=opening?'Choose Your Opening Defense':G.currentDraftBonus?'Bonus Pick':`Level ${(G.draftsCompleted||0)+1} — Choose a Card`;
+ $('#rewardText').textContent=opening?`Choose your first tower. This road holds up to ${limits.total} structures.`:'Pick one — it is placed for free. Drop a tower on a matching tower to merge it (up to ★5).';
  choices.forEach(c=>{
   c.drawWeight=G.drawWeights[c.id]??1;
   const el=document.createElement('button');const rewardRarity=c.hiddenSystem||c.tactical?'common':inv(c.id).rarity;el.className=`card portrait-card draft-choice-card rarity-${rewardRarity}${c.elite?' elite-card':''}`;el.innerHTML=draftCardHTML(c);
@@ -2744,8 +2768,8 @@ function commitDraftChoice(choice){
  if(!G||G.draftChoiceCommitted||!choice)return;
  const original=(G.draftChoices||[]).find(c=>c.id===choice.id||c._resolved?.id===choice.id)||choice;
  G.pickCounts[original.id]=(G.pickCounts[original.id]||0)+1;
- G.drawWeights[original.id]=Math.max(.015625,(G.drawWeights[original.id]??1)/2);
- G.recentDraftMilestone=nextChoiceMilestone(G);registerCompletedDraft(G);G.lastMeaningfulDecisionAt=G.time;
+ G.drawWeights[original.id]=Math.max(.4,(G.drawWeights[original.id]??1)*.75); // V37.8: gentle, so the same tower can come round again to merge
+ if(G.currentDraftBonus){G.lastDraftTime=G.time;G.currentDraftBonus=false}else{G.recentDraftMilestone=nextChoiceMilestone(G);registerCompletedDraft(G)}G.lastMeaningfulDecisionAt=G.time;
  G.draftChoiceCommitted=true;G.draftChoices=null;
 }
 function reopenDraftChoices(){
@@ -2787,8 +2811,8 @@ function update(dt,syncHud=true,visualDt=dt){
  G.time+=dt;if(G.comboTimer>0){G.comboTimer-=dt;if(G.comboTimer<=0)G.killChain=0;}G.shake*=Math.exp(-7.67*dt);G.flash=Math.max(0,G.flash-dt);G.cameraPulse=Math.max(0,(G.cameraPulse||0)-dt*2.2);for(const a of G.ambient||[]){a.x+=a.v*dt;if(a.x>GRID.cols+1)a.x=-1;a.phase+=dt*(.5+a.v)}
  const economyLimits=battlefieldLimits(G),activeCost=G.activeDraftCard?essenceCost(G.activeDraftCard):Infinity,activeCapacity=G.activeDraftCard?.type==='trap'?G.traps.length<economyLimits.groundDefense:G.towers.length<economyLimits.towers;
  const canPlaceActive=!!G.activeDraftCard&&activeCapacity&&G.essence>=activeCost,canUpgradeTower=G.towers.some(t=>!t.supportOnly&&['damage','rate','range'].some(stat=>(t.runEssenceUpgrades?.[stat]||0)<(stat==='range'?3:5)&&G.essence>=essenceTowerUpgradeCost(t,stat)));
- if(G.essence>=24&&!canPlaceActive&&!canUpgradeTower&&!G.draftOpen)G.economyDeadEndTime=(G.economyDeadEndTime||0)+dt;else G.economyDeadEndTime=0;
- if(canTriggerChoice(G)){triggerEssenceDraft(false);return;}
+ G.economyDeadEndTime=0; // V37.8: nothing to spend, so no economic dead end
+ if(canTriggerChoice(G)||((G.bonusPicks||0)>0&&!G.draftOpen&&!G.pendingCard)){triggerEssenceDraft(false);if(G.draftOpen)return;}
  updateHolyWaterRains(dt);
  if(G.weather.id==='rain'){G.rainSplashTimer=(G.rainSplashTimer||0)-dt;if(G.rainSplashTimer<=0){G.rainSplashTimer=.055+Math.random()*.09;const rx=Math.random()*GRID.cols,ry=Math.random()*GRID.rows;G.particles.push({x:rx,y:ry,vx:0,vy:0,life:.22,color:'#b9dcff',kind:'splash',size:3+Math.random()*4});}}
  syncNextWaveButton();G.spawnTimer-=dt;if(G.spawnLeft>0&&G.spawnTimer<=0){spawnEnemy();G.spawnLeft--;G.spawnTimer=Math.max(.24,(1.15-G.wave*.025)*.88)}
@@ -2887,7 +2911,8 @@ function grantEndChest(victory,firstClear=false){
  const stageId=G.chapter?.id||'endless',replayCount=save.campaign.replayClears[stageId]||0,policy=rewardForStage({victory,firstClear,replayCount,boss:!!G.chapter});
  const quality=firstClear?'First-Clear Reliquary':victory?'Road Replay Cache':'Recovered Fragments',rewards=[],pool=CARD_POOL.filter(c=>save.unlocked.includes(c.id)&&inv(c.id).copies>0);
  let copies=0,fragments=0;
- for(let i=0;i<policy.copies;i++){if(Math.random()>policy.copyChance||!pool.length)continue;const minimum=Math.min(...pool.map(c=>rarityIndex(inv(c.id).rarity))),eligible=pool.filter(c=>rarityIndex(inv(c.id).rarity)<=minimum+1),c=eligible[Math.floor(Math.random()*eligible.length)];inv(c.id).copies++;inv(c.id).recent=true;inv(c.id).lastFound=Date.now();G.runDrops.push(c.id);save.stats.totalCards++;copies++;rewards.push(`Card copy · ${c.name}`)}
+ // V37.8: copies are now what levels cards, so chests carry many more, mostly for the deck you played.
+ {const boost=(1+(victory?(boonTotals(save.campaign?.completed||[]).copies||0):0))*(1+.05*Math.max(0,(G.chapter?.number||1)-1)),n=policy.copies*boost,count=Math.floor(n)+(Math.random()<n%1?1:0),deckPool=pool.filter(c=>save.deck.includes(c.id)),got={};for(let i=0;i<count;i++){if(Math.random()>policy.copyChance||!pool.length)continue;const from=deckPool.length&&Math.random()<.75?deckPool:pool,c=from[Math.floor(Math.random()*from.length)];inv(c.id).copies++;inv(c.id).recent=true;inv(c.id).lastFound=Date.now();G.runDrops.push(c.id);save.stats.totalCards++;copies++;got[c.name]=(got[c.name]||0)+1}for(const [name,k] of Object.entries(got))rewards.push(`${k}× ${name} card`)}
  for(let i=0;i<policy.fragments;i++){if(!pool.length)break;const c=pool[Math.floor(Math.random()*pool.length)];save.cardFragments[c.id]=(save.cardFragments[c.id]||0)+1;fragments++;}
  if(fragments)rewards.push(`${fragments} targeted card fragment${fragments===1?'':'s'}`);if(!rewards.length)rewards.push('No permanent card copies — battle resources retained');telemetryReward({copies,fragments});return {quality,rewards,copies,fragments};
 }
@@ -2966,7 +2991,6 @@ function finalizeChapterClear(uniqueShadowRewardOverride=false){
  for(const c of repaired)if(!newlyUnlocked.some(x=>x.id===c.id))newlyUnlocked.push(c);
   const stageId=G.chapter?.id;const jpEarned=firstClear&&stageId&&!save.jpAwardedStages.includes(stageId)?1:0;if(jpEarned){save.jpAwardedStages.push(stageId);save.heroJP[save.selectedHero]=(save.heroJP[save.selectedHero]||0)+1;save.stats.jpEarned++;}
  if(earnedStars===3)save.stats.perfectVictories++;
- const xpCh=G.chapter?.number||1,cardXp=firstClear?(xpCh<=5?24+xpCh:40):6+Math.floor(xpCh/2),cardLevelsGained=grantDeckCardXp(cardXp);
  const newBoon=firstClear&&G.chapter?boonForChapter(G.chapter.id):null;
  const ascensionRewards=grantAscensionBossLoot(firstClear);
  const chest=grantEndChest(true,firstClear);
@@ -2976,12 +3000,12 @@ function finalizeChapterClear(uniqueShadowRewardOverride=false){
  const unlockHtml=newlyUnlocked.length?`<br><br><strong>NEW CARDS UNLOCKED</strong><br>${newlyUnlocked.map(c=>`${c.icon} ${c.name}`).join('<br>')}`:'<br><br><em>Chapter rewards already owned — duplicate cards added to your chest.</em>';
  const uniqueHtml=uniqueShadowReward?`<br><br><strong>UNIQUE CHAPTER RELIC</strong><br>🦷 Dracula's Tooth · Shadow Level II awakened.<br><em>This relic is permanent and can only be earned once.</em>`:'';
  $('#endTitle').textContent=(G.chapter?.boss.name||'The Eclipse Warden')+' Has Fallen';
- $('#endStats').innerHTML=`Waves survived: <strong>${G.wave}</strong><br>Monsters slain: <strong>${G.kills}</strong><br>Blood Essence: <strong>+${earned}</strong><br>Village supplies: <strong>+${G.villageLoot?.gold||0} Gold · +${G.villageLoot?.food||0} Food · +${G.villageLoot?.wood||0} Wood · +${G.villageLoot?.stone||0} Stone · +${G.villageLoot?.iron||0} Iron</strong><br>Run drops: <strong>${G.runDrops.length}</strong><br>Mission rating: <strong>${'★'.repeat(earnedStars)}${'☆'.repeat(3-earnedStars)}</strong><br>Job Points: <strong>+${jpEarned} JP</strong>${unlockHtml}${newBoon?`<br><br><strong>NEW CHAPTER BOON</strong><br>${newBoon.icon} ${newBoon.name} · ${newBoon.desc}<br><em>Permanent — active in every hunt from now on.</em>`:''}${cardLevelsGained?`<br><br><strong>DECK CARDS LEVELED UP</strong><br>+${cardLevelsGained} card level${cardLevelsGained>1?'s':''} across your deck`:''}${uniqueHtml}<br><br><strong>ASCENSION BOSS LOOT</strong><br>${ascensionRewards.join('<br>')}<br><br><strong>${chest.quality}</strong><br>${chest.rewards.join('<br>')}`;
+ $('#endStats').innerHTML=`Waves survived: <strong>${G.wave}</strong><br>Monsters slain: <strong>${G.kills}</strong><br>Blood Essence: <strong>+${earned}</strong><br>Village supplies: <strong>+${G.villageLoot?.gold||0} Gold · +${G.villageLoot?.food||0} Food · +${G.villageLoot?.wood||0} Wood · +${G.villageLoot?.stone||0} Stone · +${G.villageLoot?.iron||0} Iron</strong><br>Run drops: <strong>${G.runDrops.length}</strong><br>Mission rating: <strong>${'★'.repeat(earnedStars)}${'☆'.repeat(3-earnedStars)}</strong><br>Job Points: <strong>+${jpEarned} JP</strong>${unlockHtml}${newBoon?`<br><br><strong>NEW CHAPTER BOON</strong><br>${newBoon.icon} ${newBoon.name} · ${newBoon.desc}<br><em>Permanent — active in every hunt from now on.</em>`:''}${uniqueHtml}<br><br><strong>ASCENSION BOSS LOOT</strong><br>${ascensionRewards.join('<br>')}<br><br><strong>${chest.quality}</strong><br>${chest.rewards.join('<br>')}`;
  UI.over.classList.remove('hidden');
  if(newlyUnlocked.length)setTimeout(()=>showToast(`Unlocked: ${newlyUnlocked.map(c=>c.name).join(' + ')}`),500);
  burst(GRID.cols/2,GRID.rows/2,'#ffe7a4',120);
 }
-function endGame(){battleEvent('battle-defeat',{session:battleSessionId,stage:G.chapter?.number,wave:G.wave,timers:[...battleTimers.values()]});AUDIO.setState('defeat',true);AUDIO.sting('defeat');G.state='over';G.previousOutcome='defeat';G.paused=true;G.flash=0;G.weatherFlash=0;G.gateHurt=0;G.roadReveal=null;UI.hud.classList.add('hidden');$('#bossWrap').classList.add('hidden');const earned=Math.floor(G.kills/3),chest=grantEndChest(false);const lossXp=G.chapter&&G.wave>=3?Math.min(20,4+Math.floor(G.wave*.75)):0,lossLevels=lossXp?grantDeckCardXp(lossXp):0;recordRun('defeat',earned,chest);$('#endTitle').textContent='The Last Keep Has Fallen';$('#endStats').innerHTML=`Wave reached: <strong>${G.wave}</strong><br>Monsters slain: <strong>${G.kills}</strong><br>Blood Essence: <strong>+${earned}</strong><br>Run drops: <strong>${G.runDrops.length}</strong>${lossXp?`<br>Deck card XP: <strong>+${lossXp}</strong>${lossLevels?` · ${lossLevels} level-up${lossLevels>1?'s':''}`:''}`:''}<br><br><strong>${chest.quality}</strong><br>${chest.rewards.join('<br>')}`;UI.over.classList.remove('hidden');mgsGameOverCry()}
+function endGame(){battleEvent('battle-defeat',{session:battleSessionId,stage:G.chapter?.number,wave:G.wave,timers:[...battleTimers.values()]});AUDIO.setState('defeat',true);AUDIO.sting('defeat');G.state='over';G.previousOutcome='defeat';G.paused=true;G.flash=0;G.weatherFlash=0;G.gateHurt=0;G.roadReveal=null;UI.hud.classList.add('hidden');$('#bossWrap').classList.add('hidden');const earned=Math.floor(G.kills/3),chest=grantEndChest(false);recordRun('defeat',earned,chest);$('#endTitle').textContent='The Last Keep Has Fallen';$('#endStats').innerHTML=`Wave reached: <strong>${G.wave}</strong><br>Monsters slain: <strong>${G.kills}</strong><br>Blood Essence: <strong>+${earned}</strong><br>Run drops: <strong>${G.runDrops.length}</strong><br><br><strong>${chest.quality}</strong><br>${chest.rewards.join('<br>')}`;UI.over.classList.remove('hidden');mgsGameOverCry()}
 function drawScenery(map,gw,gh){
  const t=G?.time||0;
  if(map.id==='cemetery'){
@@ -3257,8 +3281,7 @@ function renderInspector(){const el=$('#towerInspector');if(!G?.selectedTower){e
  el.innerHTML=`<button id="closeInspect" class="inspect-close" aria-label="Close">×</button>
  <header class="ti-head"><div class="ti-portrait">${cardArtHTML(c,{level:lvl,rarity:item.rarity,elite:!!t.elite,icon:c.icon})}</div><div class="ti-title"><small>${rarityDef(item.rarity).name} · ${t.supportOnly?'Support':'Defense'}${t.elite?' · Elite':''}</small><h3>${t.name}</h3><div class="ti-steps" title="${next}">${steps.map(([n,label])=>`<i class="${Number(n)<=lvl?'on':''}" title="Level ${n}: ${label}">${n}</i>`).join('')}</div><em>${next}</em></div></header>
  <div class="ti-stats"><span><small>Damage</small><b>${Math.round(t.damage*G.globalDamage)}</b></span><span><small>Radius</small><b>${towerCombatRange(t).toFixed(2)}</b></span><span><small>Attacks/s</small><b>${(1/t.rate).toFixed(1)}</b></span></div>
- ${t.supportOnly?'':`<section class="ti-sec"><h4>✦ Essence reinforcement <em>${Math.floor(G.essence)} to spend</em></h4><div class="tower-upgrade-grid essence-run-upgrades">${essenceButton('damage','✦ Damage')}${essenceButton('rate','✦ Speed')}${essenceButton('range','✦ Radius')}</div><small class="card-wide-upgrade-note">This tower only, for this hunt.</small></section>
- <section class="ti-sec"><h4>Battle points <em>${G.battlePoints||0} available</em></h4><div class="tower-upgrade-grid">${button('damage','⚔ ATK','+24%')}${button('rate','⚡ Speed','+16%')}${button('range','◎ Radius','+0.30')}</div><small class="card-wide-upgrade-note">Every ${t.name} on the board.</small></section>`}
+ ${t.supportOnly?'':`<section class="ti-sec"><h4>★ Merge <em>★${Math.min(MERGE_MAX,t.mergeLevel||1)} / ${MERGE_MAX}</em></h4><small class="card-wide-upgrade-note">${(t.mergeLevel||1)>=MERGE_MAX?'Fully merged.':`Draft another ${t.name} and drop it on this tower to merge: ×${MERGE_STEP.damage} damage, +${MERGE_STEP.range} radius, faster attacks.`}</small></section>`}
  <footer class="ti-foot"><div><small>Card power</small><b>${Math.round((t.permanentPower||1)*100)}%</b></div><div><small>Supports</small><b>${(t.supports||[]).map(s=>s.icon+' '+s.name).join(', ')||'None'}</b></div><div class="synergy-line">${synEx?`✦ ${synEx.names.join(' + ')}<br><small>${synEx.summary}</small><br><small class="synergy-from">from ${synEx.links.map(l=>l.n.name||l.n.id).join(', ')}</small>`:'<small>No synergy — place it directly beside a partner tower to form one.</small>'}</div></footer>`;$('#closeInspect').onclick=()=>{G.selectedTower=null;renderInspector()};el.querySelectorAll('[data-upgrade]').forEach(b=>b.onclick=()=>upgradeSelectedTower(b.dataset.upgrade));el.querySelectorAll('[data-essence-upgrade]').forEach(b=>b.onclick=()=>essenceUpgradeSelectedTower(b.dataset.essenceUpgrade))}
 
 const MAX_SIM_STEP=1/50;
@@ -3344,7 +3367,7 @@ function renderCampaign(){
  const totalStars=Object.values(save.campaign.stars||{}).reduce((a,b)=>a+(Number(b)||0),0);
  $('#campaignProgress').textContent=`${Math.min(save.campaign.unlocked,CHAPTERS.length)} / ${CHAPTERS.length} · ${totalStars} ★`;
  box.innerHTML='<div class="campaign-map-title"><span>THE KINGDOM ROADS</span><strong>Choose the next cursed road</strong></div>';
- {const boons=earnedBoons(save.campaign.completed||[]);const tot=boonTotals(save.campaign.completed||[]);const parts=[tot.damage&&`+${Math.round(tot.damage*100)}% tower damage`,tot.gateHp&&`+${tot.gateHp} gate health`,tot.reserve&&`+${tot.reserve} reserve Essence`,tot.points&&`+${tot.points} Battle Point${tot.points>1?'s':''}`,tot.cardXp&&`+${Math.round(tot.cardXp*100)}% card XP`].filter(Boolean);const el=document.createElement('div');el.className='campaign-boons';el.innerHTML=`<span class="section-kicker">CHAPTER BOONS · ${boons.length} / ${Object.keys(CHAPTER_BOONS).length}</span><div class="campaign-boon-row">${Object.entries(CHAPTER_BOONS).map(([id,b])=>`<i class="${boons.some(x=>x.id===id)?'on':''}" title="${b.name}: ${b.desc}">${b.icon}</i>`).join('')}</div><small>${parts.length?'Active in every hunt: '+parts.join(' · '):'Clear Chapter 9 and beyond to earn permanent boons for every hunt.'}</small>`;box.append(el);}
+ {const boons=earnedBoons(save.campaign.completed||[]);const tot=boonTotals(save.campaign.completed||[]);const parts=[tot.damage&&`+${Math.round(tot.damage*100)}% tower damage`,tot.gateHp&&`+${tot.gateHp} gate health`,tot.pickXp&&`picks ${Math.round(tot.pickXp*100)}% faster`,tot.points&&`+${tot.points} bonus pick${tot.points>1?'s':''}`,tot.copies&&`+${Math.round(tot.copies*100)}% card copies`].filter(Boolean);const el=document.createElement('div');el.className='campaign-boons';el.innerHTML=`<span class="section-kicker">CHAPTER BOONS · ${boons.length} / ${Object.keys(CHAPTER_BOONS).length}</span><div class="campaign-boon-row">${Object.entries(CHAPTER_BOONS).map(([id,b])=>`<i class="${boons.some(x=>x.id===id)?'on':''}" title="${b.name}: ${b.desc}">${b.icon}</i>`).join('')}</div><small>${parts.length?'Active in every hunt: '+parts.join(' · '):'Clear Chapter 9 and beyond to earn permanent boons for every hunt.'}</small>`;box.append(el);}
  CHAPTERS.forEach((ch,index)=>{
   const unlocked=ch.number<=save.campaign.unlocked,done=save.campaign.completed.includes(ch.id),relic=RELICS.find(r=>r.id===ch.relic),stars=Number(save.campaign.stars?.[ch.id])||0;
   const el=document.createElement('article');

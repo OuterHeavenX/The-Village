@@ -15,7 +15,7 @@ export const COMPANION_REGISTRY = Object.freeze([
   {id:'sword',name:'Giant Sword',icon:'⚔️',role:'Heavy slashes',color:'#dcecff',rate:3.0,damage:16,range:2.2,passive:'Heavy strikes ignore part of enemy armor.',active:'Moon Cleave',cooldown:12,ai:'armored',aiDescription:'Prioritizes armored and elite enemies.',scaling:{damagePerLevel:.14,armorPenetrationPerLevel:.008}},
   {id:'demon',name:'Demon',icon:'👹',role:'Burning blasts',color:'#ff785f',rate:3.8,damage:22,range:3.5,passive:'Attacks inflict a stacking burn.',active:'Infernal Burst',cooldown:14,ai:'clustered',aiDescription:'Prioritizes clustered enemies.',scaling:{damagePerLevel:.13,burnPerLevel:.012}},
   {id:'ghost',name:'Ghost',icon:'👻',role:'Slows enemies',color:'#cbbcff',rate:3.2,damage:10,range:3.8,passive:'Attacks slow enemies.',active:'Haunting Stillness',cooldown:16,ai:'progress',aiDescription:'Prioritizes enemies nearest the Cathedral.',scaling:{damagePerLevel:.08,slowPerLevel:.008}},
-  {id:'faerie',name:'Faerie',icon:'🧚',role:'Radiant support',color:'#fff2a6',rate:4.0,damage:7,range:3.0,passive:'Increases Essence rewards and nearby tower range.',active:'Radiant Guidance',cooldown:18,ai:'support',aiDescription:'Supports the densest tower group.',scaling:{damagePerLevel:.06,rewardPerLevel:.005}}
+  {id:'faerie',name:'Faerie',icon:'🧚',role:'Radiant support',color:'#fff2a6',rate:4.0,damage:7,range:3.0,passive:'Increases level XP from kills and nearby tower range.',active:'Radiant Guidance',cooldown:18,ai:'support',aiDescription:'Supports the densest tower group.',scaling:{damagePerLevel:.06,rewardPerLevel:.005}}
 ]);
 
 export const RELIC_REGISTRY = Object.freeze([
@@ -23,13 +23,13 @@ export const RELIC_REGISTRY = Object.freeze([
   {id:'candle',name:"Dracula's Rib",icon:'🦴',image:'assets/relics/draculas_rib.png',desc:'A bone that resonates with holy defenses.',lore:'A rib from the sealed body, curved like the arch of a ruined chapel.',transformationLevel:3,researchTag:'dracula-bloodline',unique:true,effect:{holyTowerRange:.20,holyTowerDamage:.20}},
   {id:'chalice',name:"Dracula's Nail",icon:'◆',desc:'A black nail that restores the last gate after every wave.',lore:'Neither iron nor bone, the nail refuses every forge.',transformationLevel:4,researchTag:'dracula-bloodline',unique:true,effect:{waveGateHealing:2}},
   {id:'ring',name:"Dracula's Eye",icon:'👁',desc:'The eye marks every fifth fallen enemy for destruction.',lore:'It watches from the reliquary even while the lid is closed.',transformationLevel:5,researchTag:'dracula-bloodline',unique:true,effect:{killExplosionEvery:5}},
-  {id:'thorn',name:"Dracula's Heart",icon:'🫀',desc:'The silent heart begins each hunt with a bonus Upgrade Point.',lore:'Cold and motionless, yet every road beats around it.',transformationLevel:6,researchTag:'dracula-bloodline',unique:true,effect:{startingUpgradePoints:1}},
+  {id:'thorn',name:"Dracula's Heart",icon:'🫀',desc:'The silent heart begins each hunt with a bonus card pick.',lore:'Cold and motionless, yet every road beats around it.',transformationLevel:6,researchTag:'dracula-bloodline',unique:true,effect:{startingUpgradePoints:1}},
   {id:'banner',name:'Banner of Blackstone',icon:'🚩',desc:'The gate begins with +5 health.',effect:{gateHp:5}},
   {id:'moon',name:'Moon Oracle Lens',icon:'🔭',desc:'Hero critical chance +12%.',effect:{heroCriticalChance:.12}},
   {id:'bloodseal',name:'Royal Blood Seal',icon:'🩸',desc:'All damage +12%, but enemies gain 8% health.',effect:{globalDamage:.12,enemyHealth:.08}},
   {id:'tidebell',name:'Bell of the Drowned',icon:'🔔',desc:'Every tenth kill briefly slows all enemies.',effect:{globalSlowEvery:10}},
   {id:'ashcenser',name:'Ashen Censer',icon:'🏺',desc:'Burn effects last 35% longer.',effect:{burnDuration:.35}},
-  {id:'underkey',name:'Key of the Underking',icon:'🗝️',desc:'Elite enemies award 30% more Essence.',effect:{eliteEssence:.30}},
+  {id:'underkey',name:'Key of the Underking',icon:'🗝️',desc:'Elite enemies give 30% more level XP.',effect:{eliteEssence:.30}},
   {id:'graveseal',name:'Grave Seal',icon:'⚰️',desc:'Restore 3 gate HP after every wave.',effect:{waveGateHealing:3}},
   {id:'voideye',name:'The Void Eye',icon:'👁️',desc:'Flying enemies take 30% more damage.',effect:{flyingDamage:.30}},
   {id:'rotcrown',name:'Crown of Rot',icon:'🥀',desc:'Blood Essence gained is increased by 20%.',effect:{essenceGain:.20}},

@@ -44,8 +44,8 @@ export const VILLAGE_BUILDINGS = Object.freeze({
   quarry:      { cat:'production', name:'Quarry', icon:'⛏️', cost:125, costs:{gold:125,wood:45}, production:'+8 Stone / h', description:'Extracts stone for fortifications and civic works.' },
   tannery:     { cat:'production', name:'Tannery', icon:'🧵', cost:245, production:'+1 Iron / h', description:'Processes hides for armor and trade.' },
 
-  market:      { cat:'commerce', name:'Night Market', icon:'🏪', cost:300, production:'+12 Gold / h · +5 reserve Essence · +3% battle rewards', description:'Generates village Gold from trade.' },
-  tavern:      { cat:'commerce', name:'Hunter Tavern', icon:'🍺', cost:260, production:'+5 Gold / h · +2 Morale · +3 reserve Essence', description:'Attracts hunters, rumors, and paying travelers.' },
+  market:      { cat:'commerce', name:'Night Market', icon:'🏪', cost:300, production:'+12 Gold / h · card picks 3% faster · +3% battle rewards', description:'Generates village Gold from trade.' },
+  tavern:      { cat:'commerce', name:'Hunter Tavern', icon:'🍺', cost:260, production:'+5 Gold / h · +2 Morale · card picks 2% faster', description:'Attracts hunters, rumors, and paying travelers.' },
   storehouse:  { cat:'commerce', name:'Warehouse', icon:'📦', cost:225, costs:{gold:225,wood:90,stone:80}, production:'+500 Storage', description:'Expands offline resource storage.' },
   stable:      { cat:'commerce', name:'Stables', icon:'🐴', cost:285, production:'+4 Gold / h · Shadow walks 10% faster', description:'Supports caravans and district travel.' },
 
