@@ -3455,3 +3455,7 @@ body:not(.battle-mode) #menu .village-message{bottom:max(238px,calc(var(--bottom
 }
 .hand-card.reserve{outline:1px dashed #b9a6ff;opacity:.92;}
 .hand-card.reserve .hlvl{color:#cbb8ff;}
+/* V37.9.3 — suggested deck level on each open road */
+.chapter-meta .chapter-suggest{ border-radius:999px; padding:2px 8px; font-weight:700; }
+.chapter-node .chapter-meta span.chapter-suggest.ok{ color:#8fe39b !important; background:rgba(143,227,155,.12) !important; border-color:rgba(143,227,155,.35) !important; }
+.chapter-node .chapter-meta span.chapter-suggest.low{ color:#ffb48a !important; background:rgba(255,140,90,.14) !important; border-color:rgba(255,140,90,.4) !important; }

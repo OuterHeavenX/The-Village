@@ -12,9 +12,9 @@ export const BATTLE_CHOICE_TIERS = Object.freeze({
   tutorial: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.2, pickCurve: 1.2, milestones: [0] },
   foundation: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.8, pickCurve: 1.2, milestones: [0] },
   early: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.8, pickCurve: 1.2, milestones: [0] },
-  normal: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.4, pickCurve: 1.15, milestones: [0] },
-  long: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.5, pickCurve: 1.15, milestones: [0] },
-  boss: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.6, pickCurve: 1.15, milestones: [0] }
+  normal: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.4, pickCurve: 1.22, milestones: [0] },
+  long: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.5, pickCurve: 1.22, milestones: [0] },
+  boss: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.6, pickCurve: 1.22, milestones: [0] }
 });
 
 export const BATTLE_CHOICE_RULES = Object.freeze({
@@ -36,11 +36,24 @@ export const EARLY_STAGE_DIFFICULTY = Object.freeze({
 });
 
 // V37.9.2 — per-road enemy health trim from a full campaign simulation on a
-// fresh save (cards levelled with copies + Gold as a player would). Most roads
-// were won with the gate untouched; roads 5, 7, 15 and 17 were the hard ones,
-// so they keep their health and the easy roads get tougher.
+// fresh save (cards levelled with copies + Gold as a player would).
+// V37.9.3 — a second run still won roads 1-14 first try, most with the gate
+// untouched, so every road from 3 on gets tougher. Roads 5, 7, 15 and 17 were
+// already the hard ones and move least. A third run then put road 9 and
+// roads 11-12 at a loss or a near-loss and road 10 untouched, so those were
+// evened out. Bosses take only half of each road's trim, since the losses
+// all came at the boss wave.
 export const STAGE_ENEMY_HEALTH = Object.freeze({
-  6: 1.2, 8: 1.25, 9: 1.25, 10: 1.25, 11: 1.2, 12: 1.25, 13: 1.25, 14: 1.25, 16: 1.25, 18: 1.25, 19: 1.25, 20: 1.25
+  3: 1.1, 4: 1.1, 5: 1.05, 6: 1.35, 7: 1.12, 8: 1.4, 9: 1.28, 10: 1.4, 11: 1.3, 12: 1.3, 13: 1.38, 14: 1.4,
+  15: 1.15, 16: 1.4, 17: 1.05, 18: 1.4, 19: 1.4, 20: 1.4
+});
+
+// V37.9.3 — average deck level a road is tuned around, read off the full
+// campaign simulation (a careful player levelling every card it can). The
+// Campaign screen shows it beside your own deck's average.
+export const SUGGESTED_DECK_LEVEL = Object.freeze({
+  1: 1, 2: 1, 3: 1.5, 4: 1.5, 5: 2, 6: 2, 7: 2, 8: 2.5, 9: 2.5, 10: 3,
+  11: 3, 12: 3.5, 13: 3.5, 14: 4, 15: 4.5, 16: 4.5, 17: 5, 18: 5, 19: 5.5, 20: 6
 });
 
 export const TACTICAL_CHOICE_REGISTRY = Object.freeze([

@@ -8,6 +8,38 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.9.3 QUARTERMASTER AND CAMPAIGN CURVE
+
+**Battle Deck**
+- **Quartermaster**: a daily shop above the collection with four offers of
+  copies of cards you own, paid in Village Gold. The first offer is a free
+  gift each day; offers note when they would unlock a level. New offers at
+  local midnight. Gold had been piling up because copies, not Gold, held
+  card levels back.
+- The Upgrade section now shows what the next level buys ("▲ Damage 34 →
+  37", or card power for non-towers).
+- A card's Damage in its details now includes its level and rarity, so it
+  matches the ATK on the card.
+- The card preview in the iPad side panel is full size instead of a
+  squashed thumbnail; passive slot names fit their tiles; the hunter line
+  hides Faith and Bravery while they are 0.
+
+**Campaign**
+- Each open road shows a **suggested deck level** beside your deck's
+  average (green when you're there, orange when you're under).
+- Harder from road 3 on. A full campaign simulation of V37.9.2 won roads
+  1–14 first try with the gate mostly untouched. Every road from 3 gets
+  more enemy health (most by 30–40%; roads 5, 7, 15 and 17, already the
+  hard ones, by 5–15%). Bosses take half of that, because the losses in
+  testing all came at the boss wave.
+- Late roads hand out fewer card picks: the pick-XP curve is steeper on
+  normal, long and boss roads, and the "faster picks deeper in" discount
+  stops at 90% instead of 76%.
+- Simulated result: roads 1–4 stay easy (onboarding); roads 5–8 were won
+  with 38–88% of the gate left; roads 10–13, rechecked after the boss
+  change, were won first try with 24–100% left; late roads (15–19) were
+  mostly won with 83–100% left, with an occasional retry.
+
 ## V37.9.2 CARD UPGRADES AND CAMPAIGN TUNING
 
 **Bug fix**

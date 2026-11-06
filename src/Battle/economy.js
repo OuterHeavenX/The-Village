@@ -22,9 +22,10 @@ export function nextChoiceMilestone(state) {
   const tier = choiceTier(state), index = Math.max(0, state?.draftsCompleted || 0);
   if (index >= tier.maxChoices) return Infinity;
   // Deeper roads come with more waves, heavier enemies and more roads to cover,
-  // so picks also come a little faster the further in you are (down to 76% of
-  // the XP per pick by road 19).
-  const stage = Number(state?.chapter?.number) || 1, depth = Math.max(.76, 1 - .02 * Math.max(0, stage - 7));
+  // so picks also come a little faster the further in you are (down to 90% of
+  // the XP per pick by road 12). V37.9.3: the old 76% floor let late roads
+  // hand out 65 picks a battle, enough to take every tower to ★5.
+  const stage = Number(state?.chapter?.number) || 1, depth = Math.max(.9, 1 - .02 * Math.max(0, stage - 7));
   if (tier.pickScale) return index === 0 ? 0 : Math.round(tier.pickScale * depth * Math.pow(index, tier.pickCurve || 1.2));
   return tier.milestones[index] ?? Infinity;
 }

@@ -12,6 +12,8 @@
 // `groundDefenseSlots`, `ui.cardFilter`, `ui.cardSort` — the same ones the
 // previous screen used, with the same meanings.
 
+import { ensureQuartermaster, msUntilNextDay } from './quartermaster.js';
+
 const FILTERS = [
   { id: 'all', icon: '✦', label: 'All' },
   { id: 'tower', icon: '♜', label: 'Defense' },
@@ -41,7 +43,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp
 
 export function installCardsScreen(deps) {
   const { root, card, inv, rarityDef, cardPower, cardHTML, miniCardHTML, cardIconHTML, CARD_POOL, HERO_GROUND_DEFENSES, groundCardById,
-    toggleFavorite, mergeCard, canPayRarityUpgrade, deckRuleProblem, fuseStatus, levelUpCard, cardLevelStatus, goldBalance, requestMergeAllDuplicates, sortCards, shortType, unlockChapterForCard, cardMetrics, attackPattern,
+    toggleFavorite, mergeCard, canPayRarityUpgrade, deckRuleProblem, fuseStatus, levelUpCard, cardLevelStatus, goldBalance, spendGold, requestMergeAllDuplicates, sortCards, shortType, unlockChapterForCard, cardMetrics, attackPattern,
     ascensionGemDef, renderAscensionInventory, renderHeroJPPanel, HEROES, currentShadowLevel, shadowPortraitHTML, ascensionEquipmentStats,
     EQUIPMENT_SLOTS, equipmentById, saveProgress, showToast, openScreen, screens, renderHeroes, ensureVisibleCardCollection, reconcileCardUnlocks } = deps;
 
@@ -75,6 +77,7 @@ export function installCardsScreen(deps) {
         <span class="c3-hero-copy"><small>Selected hunter</small><strong id="c3HeroName">Shadow</strong><em id="c3HeroLevel">Lv 1</em><span id="c3HeroGear" class="c3-hero-gear"></span></span>
         <span class="c3-hero-passives"><small>Passive ground defenses</small><span id="c3GroundSlots" class="c3-ground-slots"></span></span>
       </button>
+      <section id="c3Shop" class="c3-shop" aria-label="Quartermaster: today's card offers"></section>
       <div id="cardsCollection" class="c3-collection" aria-live="polite"></div>
     </div>
     <aside class="c3-deck" aria-label="Six-card battle deck">
@@ -217,7 +220,7 @@ export function installCardsScreen(deps) {
     const hero = HEROES.find(h => h.id === save.selectedHero) || HEROES[0], level = Math.max(1, save.heroLevels?.[hero.id] || 1), stats = ascensionEquipmentStats();
     root.querySelector('#c3HeroPortrait').innerHTML = shadowPortraitHTML(currentShadowLevel());
     root.querySelector('#c3HeroName').textContent = hero.name;
-    root.querySelector('#c3HeroLevel').textContent = `Lv ${level} · ${save.heroJP[hero.id] || 0} JP · Faith ${Math.round(stats.faith || 0)} · Bravery ${Math.round(stats.bravery || 0)}`;
+    root.querySelector('#c3HeroLevel').textContent = [`Lv ${level}`, `${save.heroJP[hero.id] || 0} JP`, stats.faith ? `Faith ${Math.round(stats.faith)}` : '', stats.bravery ? `Bravery ${Math.round(stats.bravery)}` : ''].filter(Boolean).join(' · ');
     root.querySelector('#c3HeroGear').innerHTML = EQUIPMENT_SLOTS.map(slot => { const item = equipmentById(save.ascension.equipped[slot]); return `<span title="${esc(slot)}: ${esc(item?.name || 'Empty')}"${item ? ' class="is-set"' : ''}>${item?.icon || '◇'}</span>`; }).join('');
     const ground = root.querySelector('#c3GroundSlots');
     ground.innerHTML = '';
@@ -229,6 +232,41 @@ export function installCardsScreen(deps) {
       else slot.innerHTML = `<b>+</b><small>Slot ${i + 1}</small>`;
       ground.append(slot);
     }
+  }
+
+  // V37.9.3 — Quartermaster: daily copies of owned cards for Gold.
+  function shopContext() {
+    const owned = CARD_POOL.filter(c => isOwned(c.id)).map(c => c.id);
+    return { deckIds: save.deck.filter(isOwned), ownedIds: owned.filter(id => !inDeck(id)), rarityOf: id => inv(id).rarity };
+  }
+  function renderShop() {
+    const box = root.querySelector('#c3Shop'); if (!box) return;
+    const grid = !ASCENSION_FILTERS.includes(filter()) && filter() !== 'heroProfile' && filter() !== 'ground';
+    if (!spendGold || !grid || !save.deck.length) { box.hidden = true; return; }
+    box.hidden = false;
+    const qm = ensureQuartermaster(deps.save, shopContext()), gold = goldBalance ? goldBalance() : 0;
+    const h = Math.floor(msUntilNextDay() / 3600000), m = Math.floor(msUntilNextDay() / 60000) % 60;
+    box.innerHTML = `<header><span class="c3-kicker">Quartermaster</span><small>Copies of your cards for Gold · new offers in ${h}h ${m}m</small></header><div class="c3-shop-row">${qm.offers.map((o, i) => {
+      const c = card(o.id); if (!c) return '';
+      const it = inv(o.id), st = cardLevelStatus(o.id), spare = Math.max(0, it.copies - 1), afford = gold >= o.price;
+      const helps = !st.ok && it.level < st.cap && spare < st.cost.copies && spare + o.copies >= st.cost.copies;
+      const label = o.bought ? 'Bought' : o.free ? 'Claim' : `${o.price} Gold`;
+      return `<button type="button" class="c3-offer rarity-${esc(it.rarity)}${o.bought ? ' is-bought' : ''}${o.free ? ' is-free' : ''}" data-offer="${i}" style="--rarity:${esc(rarityDef(it.rarity).color)}" ${o.bought ? 'aria-disabled="true"' : ''} title="${esc(`${o.copies} ${c.name} cop${o.copies > 1 ? 'ies' : 'y'}${o.free ? ' — free today' : ` for ${o.price} Gold`}`)}">
+        <span class="c3-offer-icon">${cardIconHTML(c, it.level)}</span>
+        <span class="c3-offer-copy"><b>${esc(c.name)}</b><small>+${o.copies} cop${o.copies > 1 ? 'ies' : 'y'}${inDeck(o.id) ? ' · in deck' : ''}${helps ? ' · unlocks a level' : ''}</small></span>
+        <span class="c3-offer-price${!o.bought && !o.free && !afford ? ' is-short' : ''}">${o.free && !o.bought ? 'Free' : esc(label)}</span>
+      </button>`;
+    }).join('')}</div>`;
+  }
+  function buyOffer(index) {
+    const qm = ensureQuartermaster(deps.save, shopContext()), o = qm.offers[index], c = o && card(o.id);
+    if (!o || !c) return;
+    if (o.bought) { showToast('Already bought today — new offers tomorrow'); return; }
+    if (o.price > 0 && !spendGold(o.price)) { showToast(`Needs ${o.price} Gold (you have ${goldBalance ? goldBalance() : 0})`); return; }
+    inv(o.id).copies += o.copies; inv(o.id).recent = true; o.bought = true;
+    saveProgress();
+    showToast(`+${o.copies} ${c.name} cop${o.copies > 1 ? 'ies' : 'y'}${cardLevelStatus(o.id).ok ? ' — ready to level up' : ''}`);
+    render();
   }
 
   function renderTools() {
@@ -251,7 +289,7 @@ export function installCardsScreen(deps) {
     const repaired = reconcileCardUnlocks();
     if (repaired.length) setTimeout(() => showToast(`Recovered unlocks: ${repaired.map(c => c.name).join(' + ')}`), 100);
     el.shell.dataset.mode = desktopQuery.matches ? 'desktop' : 'touch';
-    renderHero(); renderSlots(); renderTools(); renderCollection();
+    renderHero(); renderShop(); renderSlots(); renderTools(); renderCollection();
     if (state.detail) { const c = anyCard(state.detail); if (c) renderDetail(c); else closeDetail(); }
   }
 
@@ -284,13 +322,19 @@ export function installCardsScreen(deps) {
   }
   // V37.9.2 — one place that explains a card's progression: level (spare
   // copies + Gold, up to the rarity's cap) and fusing (raises rarity and cap).
+  // What the next level buys: card power is the rarity multiplier × (1 + 10% per level).
+  function nextGain(c, item) {
+    const now = cardPower(c.id), next = now * (1 + item.level * .1) / (1 + (item.level - 1) * .1);
+    const stat = c.damage ? `Damage ${Math.round(c.damage * now)} → ${Math.round(c.damage * next)}` : `Power ${Math.round(now * 100)}% → ${Math.round(next * 100)}%`;
+    return `<small class="c3u-gain">▲ ${esc(stat)}</small>`;
+  }
   function upgradeSection(c, item) {
     const st = cardLevelStatus(c.id), fs = fuseStatus ? fuseStatus(c.id) : null, spare = Math.max(0, item.copies - 1), capped = item.level >= st.cap;
     const pct = capped ? 100 : Math.min(100, spare / st.cost.copies * 100);
     const gold = goldBalance ? goldBalance() : 0;
     const levelRow = capped
       ? `<div class="c3u-row"><div><b>Level ${item.level} / ${st.cap}</b><small>At the ${esc(rarityDef(item.rarity).name)} cap — fuse to go higher.</small></div></div>`
-      : `<div class="c3u-row"><div><b>Level ${item.level} → ${item.level + 1}</b><small>${spare}/${st.cost.copies} spare copies · ${st.cost.gold} Gold (you have ${gold})</small><i class="c3u-bar"><em style="width:${pct}%"></em></i></div><button type="button" class="c3-btn gold" data-act="levelup" ${st.ok ? '' : 'aria-disabled="true"'} title="${esc(st.ok ? 'Level up' : st.reason)}">${st.ok ? 'Level up' : 'Not yet'}</button></div>${st.ok ? '' : `<p class="c3u-why">${esc(st.reason)}</p>`}`;
+      : `<div class="c3u-row"><div><b>Level ${item.level} → ${item.level + 1}</b><small>${spare}/${st.cost.copies} spare copies · ${st.cost.gold} Gold (you have ${gold})</small>${nextGain(c, item)}<i class="c3u-bar"><em style="width:${pct}%"></em></i></div><button type="button" class="c3-btn gold" data-act="levelup" ${st.ok ? '' : 'aria-disabled="true"'} title="${esc(st.ok ? 'Level up' : st.reason)}">${st.ok ? 'Level up' : 'Not yet'}</button></div>${st.ok ? '' : `<p class="c3u-why">${esc(st.reason)}</p>`}`;
     const fuseRow = !fs || !fs.rule ? '' : `<div class="c3u-row"><div><b>Fuse → <span style="color:${fs.toColor}">${esc(fs.toName)}</span></b><small>${esc(fs.needs)} · cap rises to ${fs.newCap}</small></div><button type="button" class="c3-btn" data-act="merge" ${fs.ok ? '' : 'aria-disabled="true"'} title="${esc(fs.ok ? 'Fuse' : fs.reason)}">${fs.ok ? 'Fuse' : 'Locked'}</button></div>${fs.ok ? '' : `<p class="c3u-why">${esc(fs.reason)}</p>`}`;
     return `<section class="c3-upgrade"><h3>Upgrade</h3>${levelRow}${fuseRow}<p class="c3u-note">One copy always stays with the card; the rest are spare copies for upgrades.</p></section>`;
   }
@@ -339,6 +383,7 @@ export function installCardsScreen(deps) {
     if (hit('#c3Save')) { if (save.deck.length !== DECK_SIZE) showToast('Choose exactly six cards'); else if (deckRuleProblem && deckRuleProblem()) showToast(deckRuleProblem()); else { saveProgress(); showToast('Deck saved'); } return true; }
     if (hit('#c3LevelAll')) { let done = 0; for (let guard = 0; guard < 60; guard++) { const ready = save.deck.filter(id => cardLevelStatus(id).ok).sort((x, y) => cardLevelStatus(x).cost.gold - cardLevelStatus(y).cost.gold); if (!ready.length) break; if (levelUpCard(ready[0])) done++; else break; } if (done) showToast(`${done} level-up${done > 1 ? 's' : ''} across your deck`); render(); return true; }
     if (hit('#c3MergeAll')) { requestMergeAllDuplicates(); return true; }
+    const offer = hit('.c3-offer'); if (offer) { buyOffer(Number(offer.dataset.offer)); return true; }
     if (hit('.c3-sheet-close') || hit('.c3-scrim')) { closeDetail(); return true; }
     const sheetAct = hit('.c3-sheet [data-act]'); if (sheetAct) { act(sheetAct.dataset.act, el.sheetBody.dataset.cardId, { index: Number(sheetAct.dataset.index) }); return true; }
     if (hit('#c3Hero') && !hit('.c3-ground-slot')) { openScreen(screens.heroes); renderHeroes(); return true; }
