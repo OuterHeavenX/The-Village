@@ -8,6 +8,11 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.9.1 MERGE LABELS
+
+- "MERGE ★2→★3" tags on towers standing next to each other no longer
+  overlap; they stack.
+
 ## V37.9.0 DECKS, DRAFT CARDS, CALMER PLACEMENT, BATTLE DECK SCREEN
 
 **Deck rules**
