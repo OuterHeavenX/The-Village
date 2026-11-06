@@ -231,7 +231,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   let terrain = null, keepWalls = null, grass = null, stones = null;
   const keepMaterials = [];
   const padMaterials = {
-    valid: new THREE.MeshLambertMaterial({ color: 0x3a4a34, emissive: 0x8f7a2a, emissiveIntensity: .55 }),
+    valid: new THREE.MeshLambertMaterial({ color: 0x2c3a2a, emissive: 0x6f5e22, emissiveIntensity: .32, transparent: true, opacity: .55 }), // V37.9: quieter, so the board reads
     hover: new THREE.MeshLambertMaterial({ color: 0x6d8a4a, emissive: 0xffe58a, emissiveIntensity: .95 }),
     blocked: new THREE.MeshLambertMaterial({ color: 0x3a2a2a, emissive: 0x7a2a2a, emissiveIntensity: .4 })
   };
@@ -819,8 +819,13 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     if (view.placing && view.placing !== 'trap') for (const slot of view.pads || []) {
       const pad = pads.get(`${slot.x},${slot.y}`);
       if (!pad) continue;
-      pad.visible = true;
+      // V37.9: only spots you can actually use are shown (blocked ones were half
+      // the board's worth of red and cream discs), and they sit smaller.
       const hovered = view.hover && view.hover.x === slot.x && view.hover.y === slot.y;
+      if (!slot.valid && !hovered) continue;
+      pad.visible = true;
+      if (pad.userData.baseScale === undefined) pad.userData.baseScale = pad.scale.x;
+      pad.scale.setScalar(pad.userData.baseScale * (hovered ? 1 : .72));
       pad.material = hovered ? padMaterials.hover : slot.valid ? padMaterials.valid : padMaterials.blocked;
     }
     hoverRing.visible = !!(view.placing && view.hover);
@@ -855,6 +860,8 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
       orient(mesh, sprite.x, sprite.y, sprite.lean ?? SPRITE_LEAN);
     }
     spritePool.release(n);
+    // V37.9: while a tower card is held, every tower it can merge into wears a gold ring.
+    for (const m of view.mergeTargets || []) eliteRing(rings3++, m.x + .5, m.y + .5, .62 + .06 * Math.sin(now0 * 5), '#ffd86e', now0);
     for (let i = rings3; i < elitePool.length; i++) elitePool[i].visible = false;
 
     n = 0;

@@ -214,3 +214,63 @@ body #towerInspector{
 
 /* V37.8.1 — the battle command bar sat on top of the draft cards' footers */
 body:has(#choices:not(.hidden)) #battleControlMarquee{ display:none !important; }
+
+/* V37.9 — level-up draft cards (dc2): one line saying what the pick does,
+   only the stats that matter for that kind of card, sized to fit a phone. */
+body.battle-mode #choices #choicesCards .draft-choice-card.dc2{
+  display:flex !important; flex-direction:column !important; gap:7px !important; padding:10px !important; text-align:left !important;
+  min-height:0 !important; height:auto !important; position:relative; overflow:hidden; cursor:pointer;
+}
+body.battle-mode #choices #choicesCards .dc2-top{ display:flex; justify-content:space-between; align-items:center; gap:6px; font:800 10px/1 system-ui,sans-serif; letter-spacing:.12em; text-transform:uppercase; }
+body.battle-mode #choices #choicesCards .dc2-kind{ padding:5px 9px; border-radius:999px; color:#2a1a08; background:linear-gradient(180deg,#f8e4a8,#c9a24a 60%,#8f6c2c); border:1px solid #fff0c0; }
+body.battle-mode #choices #choicesCards .dc2-meta{ padding:5px 9px; border-radius:999px; color:#f3dc9c; background:#08060ad0; border:1px solid color-mix(in srgb,var(--rarity,#c9a24a) 70%,#000); }
+body.battle-mode #choices #choicesCards .dc2-art{ position:relative; overflow:hidden; border-radius:10px; aspect-ratio:16/11; max-height:min(30vh,210px); width:100%;
+  background:radial-gradient(80% 70% at 50% 40%,color-mix(in srgb,var(--rarity,#8c8c95) 30%,#120e16),#060508); box-shadow:0 0 0 1px rgba(243,220,156,.35), inset 0 0 18px #000; }
+body.battle-mode #choices #choicesCards .dc2-art>*{ width:100%; height:100%; }
+body.battle-mode #choices #choicesCards .dc2-art img,body.battle-mode #choices #choicesCards .dc2-art canvas{ width:100% !important; height:100% !important; object-fit:cover; }
+body.battle-mode #choices #choicesCards .dc2-glyph{ display:grid; place-items:center; font-size:56px; }
+body.battle-mode #choices #choicesCards .dc2-name{ display:block; font:700 clamp(18px,2.2vw,24px)/1.1 Georgia,"Times New Roman",serif; color:#f8e8c4; text-align:center; text-shadow:0 1px 2px #000; }
+body.battle-mode #choices #choicesCards .dc2-action{ text-align:center; padding:7px 8px; border-radius:8px; font:800 12px/1.2 system-ui,sans-serif; letter-spacing:.06em; text-transform:uppercase; color:#f3dc9c; background:#1a1310; border:1px solid rgba(243,220,156,.3); }
+body.battle-mode #choices #choicesCards .dc2-action.is-merge{ color:#2a1a08; background:linear-gradient(180deg,#ffe9a8,#d9a83c); border-color:#fff0c0; box-shadow:0 0 14px rgba(255,214,110,.45); }
+body.battle-mode #choices #choicesCards .dc2-action.is-new{ color:#d9f5d0; background:#14251a; border-color:#5bbf6f80; }
+body.battle-mode #choices #choicesCards .dc2-action.is-attach{ color:#e2d6ff; background:#1d1630; border-color:#9b7cff80; }
+body.battle-mode #choices #choicesCards .dc2-action.is-cast{ color:#d6f0ff; background:#10202c; border-color:#6fc3ff80; }
+body.battle-mode #choices #choicesCards .dc2-action.is-instant{ color:#fff1c8; background:#2a2010; border-color:#f3d47a80; }
+body.battle-mode #choices #choicesCards .dc2-stats{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; }
+body.battle-mode #choices #choicesCards .dc2-stats span{ display:grid; grid-template-columns:auto 1fr; grid-template-rows:auto auto; column-gap:5px; align-items:center; padding:5px 7px; border-radius:7px; background:linear-gradient(180deg,#1c1518,#0c0a0d); border:1px solid rgba(243,220,156,.2); }
+body.battle-mode #choices #choicesCards .dc2-stats i{ grid-row:1/3; font-style:normal; font-size:15px; }
+body.battle-mode #choices #choicesCards .dc2-stats b{ font:800 14px/1.1 system-ui,sans-serif; color:#fff2d6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+body.battle-mode #choices #choicesCards .dc2-stats small{ font:700 9px/1.1 system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase; color:#c9a24a; }
+body.battle-mode #choices #choicesCards .dc2-desc{ margin:0; font:13px/1.35 Georgia,serif; color:#d8c8a8; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+body.battle-mode #choices #choicesCards .draft-choice-card.dc2::after{ display:none !important; }
+@media (max-height:520px){ body.battle-mode #choices #choicesCards .dc2-art{ max-height:22vh; } body.battle-mode #choices #choicesCards .dc2-desc{ -webkit-line-clamp:1; } }
+
+/* V37.9 — "Card ready": picks earned mid-wave wait here instead of pausing the fight */
+#pickReadyBtn{ position:fixed; left:50%; bottom:calc(104px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:60;
+  display:flex; align-items:center; gap:10px; padding:10px 18px 10px 12px; border-radius:999px; cursor:pointer;
+  color:#2a1a08; background:linear-gradient(180deg,#ffe9a8,#d9a83c); border:2px solid #fff0c0;
+  box-shadow:0 8px 24px rgba(0,0,0,.6), 0 0 0 0 rgba(255,214,110,.7); animation:prPulse 1.6s ease-out infinite; font-family:Georgia,serif; }
+#pickReadyBtn.hidden{ display:none !important; }
+#pickReadyBtn .pr-glyph{ width:30px; height:30px; display:grid; place-items:center; border-radius:50%; background:#2a1a08; color:#ffd86e; font-size:16px; }
+#pickReadyBtn b{ font-size:16px; letter-spacing:.02em; }
+#pickReadyBtn small{ font:700 11px/1 system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase; opacity:.75; }
+@keyframes prPulse{ 0%{ box-shadow:0 8px 24px rgba(0,0,0,.6),0 0 0 0 rgba(255,214,110,.65) } 70%{ box-shadow:0 8px 24px rgba(0,0,0,.6),0 0 0 16px rgba(255,214,110,0) } 100%{ box-shadow:0 8px 24px rgba(0,0,0,.6),0 0 0 0 rgba(255,214,110,0) } }
+body:not(.battle-mode) #pickReadyBtn, body:has(#choices:not(.hidden)) #pickReadyBtn, body:has(#gameOver:not(.hidden)) #pickReadyBtn{ display:none !important; }
+
+/* V37.9 — Battle Deck screen: compact hunter row, level-up badges */
+#deckScreen .c3-card .c3-ready{ position:absolute; left:50%; bottom:8px; transform:translateX(-50%); z-index:6; padding:3px 9px; border-radius:999px;
+  font:800 10px/1.3 system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase; color:#12240f; background:linear-gradient(180deg,#b8f5a0,#5bbf6f); border:1px solid #e4ffd8; box-shadow:0 0 12px rgba(120,230,120,.5); white-space:nowrap; }
+#deckScreen .ascension-card-xp.is-ready i{ background:linear-gradient(90deg,#5bbf6f,#b8f5a0) !important; }
+#deckScreen .c3-hero{ padding:8px 12px !important; gap:10px !important; }
+#deckScreen .c3-hero .c3-hero-portrait{ width:48px !important; height:48px !important; }
+#deckScreen .c3-hero .c3-hero-copy small,#deckScreen .c3-hero .c3-hero-gear{ display:none !important; }
+#deckScreen .c3-hero .c3-hero-passives > small{ font-size:9px !important; }
+#deckScreen .c3-hero .c3-ground-slots > *{ width:54px !important; height:54px !important; min-height:0 !important; font-size:8px !important; }
+#deckScreen .c3-detail-actions .c3-levelup[aria-disabled="true"]{ opacity:.55; filter:saturate(.4); }
+@media (max-width:700px){
+  #deckScreen .c3-hero{ grid-template-columns:44px minmax(0,1fr) auto !important; }
+  #deckScreen .c3-hero .c3-hero-portrait{ width:44px !important; height:44px !important; }
+  #deckScreen .c3-hero .c3-hero-passives{ display:flex; align-items:center; gap:6px; }
+  #deckScreen .c3-hero .c3-hero-passives > small{ display:none; }
+  #deckScreen .c3-hero .c3-ground-slots > *{ width:44px !important; height:44px !important; }
+}

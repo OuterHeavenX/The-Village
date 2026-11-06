@@ -41,14 +41,14 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp
 
 export function installCardsScreen(deps) {
   const { root, card, inv, rarityDef, cardPower, cardHTML, miniCardHTML, cardIconHTML, CARD_POOL, HERO_GROUND_DEFENSES, groundCardById,
-    toggleFavorite, mergeCard, canPayRarityUpgrade, levelUpCard, cardLevelStatus, goldBalance, requestMergeAllDuplicates, sortCards, shortType, unlockChapterForCard, cardMetrics, attackPattern,
+    toggleFavorite, mergeCard, canPayRarityUpgrade, deckRuleProblem, levelUpCard, cardLevelStatus, goldBalance, requestMergeAllDuplicates, sortCards, shortType, unlockChapterForCard, cardMetrics, attackPattern,
     ascensionGemDef, renderAscensionInventory, renderHeroJPPanel, HEROES, currentShadowLevel, shadowPortraitHTML, ascensionEquipmentStats,
     EQUIPMENT_SLOTS, equipmentById, saveProgress, showToast, openScreen, screens, renderHeroes, ensureVisibleCardCollection, reconcileCardUnlocks } = deps;
 
   // game.js declares `save` with let and may replace it (cloud restore, reset);
   // reading through deps each time keeps this screen on the live object.
   const save = new Proxy({}, { get: (_, key) => deps.save[key], set: (_, key, value) => { deps.save[key] = value; return true; }, has: (_, key) => key in deps.save });
-  const desktopQuery = matchMedia('(min-width: 1024px) and (pointer: fine)');
+  const desktopQuery = matchMedia('(min-width: 1024px) and (pointer: fine), (min-width: 820px) and (orientation: landscape)'); // V37.9: iPad landscape gets the two-column layout too
   const state = { mergeOnly: false, detail: null, swapFor: null, drag: null };
 
   root.innerHTML = `
@@ -64,7 +64,7 @@ export function installCardsScreen(deps) {
       </div>
       <div class="c3-tools">
         <select id="c3Sort" class="c3-select" aria-label="Sort collection">${SORTS.map(([v, l]) => `<option value="${v}">Sort: ${l}</option>`).join('')}</select>
-        <label class="c3-toggle"><input id="c3MergeOnly" type="checkbox"><span>Merge ready</span></label>
+        <label class="c3-toggle"><input id="c3MergeOnly" type="checkbox"><span>Upgrade ready</span></label>
         <button id="c3MergeAll" class="c3-merge" type="button" disabled>Rarity upgrades</button>
       </div>
     </header>
@@ -152,6 +152,7 @@ export function installCardsScreen(deps) {
     article.setAttribute('aria-label', `${c.name}${equipped ? ', equipped' : owned ? '' : ', locked'}`);
     article.innerHTML = isolate(cardHTML(c, true))
       + `<span class="c3-type" title="${esc(shortType(c.type))}">${TYPE_GLYPH[c.type] || '◆'}</span>`
+      + (owned && cardLevelStatus && cardLevelStatus(c.id).ok ? `<span class="c3-ready" title="Enough copies and Gold to level up">▲ Level up</span>` : '')
       + (ground ? '' : `<button type="button" class="c3-fav${fav ? ' is-on' : ''}" data-act="favorite" aria-label="${fav ? 'Unfavorite' : 'Favorite'}">★</button>`)
       + (owned ? `<button type="button" class="c3-quick" data-act="${equipped ? 'remove' : 'equip'}" aria-label="${equipped ? 'Remove from deck' : 'Add to deck'}">${equipped ? '−' : '+'}</button>` : '')
       + (owned ? `<span class="c3-status">${equipped ? (ground ? 'ON SHADOW' : 'IN DECK') : `${item.copies} ${item.copies === 1 ? 'copy' : 'copies'}`}</span>`
@@ -168,10 +169,12 @@ export function installCardsScreen(deps) {
     else {
       box.className = 'c3-collection is-grid';
       const cards = f === 'ground' ? HERO_GROUND_DEFENSES
-        : sortCards(CARD_POOL.filter(c => (f === 'all' || c.type === f) && (!state.mergeOnly || canPayRarityUpgrade(inv(c.id), c.id))), sort());
+        : sortCards(CARD_POOL.filter(c => (f === 'all' || c.type === f) && (!state.mergeOnly || canPayRarityUpgrade(inv(c.id), c.id) || (cardLevelStatus && cardLevelStatus(c.id).ok))), sort())
+          // V37.9: cards you own come first, cards ready to level up lead them, locked ones go last.
+          .map((c, i) => ({ c, i, rank: !isOwned(c.id) ? 2 : (cardLevelStatus && cardLevelStatus(c.id).ok ? 0 : 1) })).sort((a, b) => a.rank - b.rank || a.i - b.i).map(x => x.c);
       const fragment = document.createDocumentFragment();
       for (const c of cards) fragment.append(collectionCard(c, { ground: f === 'ground' }));
-      if (!cards.length) { const empty = document.createElement('p'); empty.className = 'c3-empty'; empty.textContent = state.mergeOnly ? 'No card is ready for a rarity upgrade yet.' : 'Nothing here yet.'; fragment.append(empty); }
+      if (!cards.length) { const empty = document.createElement('p'); empty.className = 'c3-empty'; empty.textContent = state.mergeOnly ? 'No card is ready to level up or fuse yet.' : 'Nothing here yet.'; fragment.append(empty); }
       box.append(fragment);
     }
     el.body.scrollTop = scrollTop;
@@ -201,9 +204,9 @@ export function installCardsScreen(deps) {
     const d = save.deck.map(card).filter(Boolean);
     const count = type => d.filter(c => c.type === type).length;
     const notes = [];
-    if (!count('tower')) notes.push('<i class="warn">no defense</i>');
-    if (!count('support')) notes.push('<i class="warn">no support</i>');
-    el.analysis.innerHTML = `Defense ${count('tower')} · Support ${count('support')} · Skills ${count('skill')} · Upgrades ${count('hero')}${notes.length ? ' · ' + notes.join(' · ') : ''}`;
+    const rule = deckRuleProblem ? deckRuleProblem() : '';
+    if (rule) notes.push(`<i class="warn">${esc(rule)}</i>`);
+    el.analysis.innerHTML = `Towers ${count('tower')}/6 (min 4) · Support ${count('support')} · Skills ${count('skill')} · Upgrades ${count('hero')}${notes.length ? ' · ' + notes.join(' · ') : ''}`;
   }
 
   function renderHero() {
@@ -316,7 +319,7 @@ export function installCardsScreen(deps) {
     const hit = sel => t.closest(sel);
     const chip = hit('.c3-chip'); if (chip) { ui().cardFilter = chip.dataset.filter; saveProgress(); render(); el.body.scrollTop = 0; return true; }
     if (hit('#c3Back')) { closeDetail(); openScreen(screens.menu); return true; }
-    if (hit('#c3Save')) { if (save.deck.length !== DECK_SIZE) showToast('Choose exactly six cards'); else { saveProgress(); showToast('Deck saved'); } return true; }
+    if (hit('#c3Save')) { if (save.deck.length !== DECK_SIZE) showToast('Choose exactly six cards'); else if (deckRuleProblem && deckRuleProblem()) showToast(deckRuleProblem()); else { saveProgress(); showToast('Deck saved'); } return true; }
     if (hit('#c3MergeAll')) { requestMergeAllDuplicates(); return true; }
     if (hit('.c3-sheet-close') || hit('.c3-scrim')) { closeDetail(); return true; }
     const sheetAct = hit('.c3-sheet [data-act]'); if (sheetAct) { act(sheetAct.dataset.act, el.sheetBody.dataset.cardId, { index: Number(sheetAct.dataset.index) }); return true; }

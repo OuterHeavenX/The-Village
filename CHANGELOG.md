@@ -8,6 +8,46 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.9.0 DECKS, DRAFT CARDS, CALMER PLACEMENT, BATTLE DECK SCREEN
+
+**Deck rules**
+- A deck needs at least **4 towers** (six slots: four towers + two of
+  anything). Towers are what you merge, and the old starter deck had two.
+  Saves with fewer get topped up with your strongest towers, the Battle Deck
+  screen shows "Towers 4/6 (min 4)", and Save Deck refuses a deck below it.
+- New hunters start with Whip, Dagger, Axe and Crossbow towers plus Holy Water
+  Infusion and Cross Storm (Holy Water Barrage and Chrono Sigil are owned
+  too). The Axe and Crossbow moved out of the Chapter 1 reward.
+
+**Draft cards**
+- Rebuilt level-up cards: a type badge, rarity and level, the 3D art, the
+  name, then one line saying exactly what picking it does — "Merge ★2 → ★3",
+  "New tower · 5/10 slots", "Attach beside a tower", "Cast it on the
+  battlefield", "On the road · 1/4 traps" — and only the stats that matter
+  for that kind of card (supports show their bonuses, skills their power and
+  cooldown, traps their damage). No more empty "Damage —" rows.
+- Sized for phones (cards swipe sideways) and iPad (three across).
+
+**Calmer placement**
+- A pick earned mid-wave no longer stops the fight. A glowing **Card ready**
+  button waits above the controls (with ×2, ×3 when several are waiting); tap
+  it when it suits you. Anything still waiting opens by itself when the wave
+  is cleared. The opening two picks still come straight away.
+- While you hold a tower card, every tower it can merge into wears a gold
+  ring with a "MERGE ★2→★3" tag.
+- Placement spots are quieter: blocked spots are no longer shown, and the
+  usable ones are smaller and dimmer.
+
+**Battle Deck screen**
+- On iPad in landscape (and other wide screens) the screen now splits in two:
+  the collection on the left, the six-card loadout on the right. The
+  collection used to be squeezed to a sliver between the hunter banner and
+  the loadout.
+- Cards you own come first, cards ready to level up lead them with a green
+  "Level up" badge, locked cards go last. The "Merge ready" filter is now
+  "Upgrade ready" and includes cards you can level up.
+- The hunter banner is a slim row.
+
 ## V37.8.1 DRAFT ONLY OFFERS WHAT FITS
 
 - The level-up draft now only offers cards you can actually use. At a full

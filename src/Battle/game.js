@@ -892,7 +892,15 @@ const HIDDEN_ACHIEVEMENTS=[
  {id:'hidden-vampire-killer',name:'Bloodline Remembered',desc:'An ancient command awakened the night.',reward:75,complete:()=>VK.on,cosmetic:'dogTag'},
  {id:'hidden-codec',name:'The Frequency',desc:'A forbidden transmission reached the Village.',reward:75,complete:()=>MGS.greeted,cosmetic:'dogTag'}
 ];
-const DEFAULT_DECK=['whip','holy','dagger','waterSkill','freeze','crossSkill'];
+// V37.9 — Raid Rush decks: towers are what you merge, so a deck needs at least
+// four of them (six slots: four towers + two of anything). New hunters start
+// with four towers; the Axe and Crossbow moved from the Chapter 1 reward.
+const DEFAULT_DECK=['whip','dagger','axe','crossbow','holy','crossSkill'];
+const STARTER_CARDS=['whip','dagger','axe','crossbow','holy','waterSkill','freeze','crossSkill'];
+const MIN_DECK_TOWERS=4;
+function deckTowerMinimum(){return Math.min(MIN_DECK_TOWERS,CARD_POOL.filter(c=>c.type==='tower'&&save.unlocked.includes(c.id)&&inv(c.id).copies>0).length)}
+function deckRuleProblem(deck=save.deck){const towers=deck.filter(id=>card(id)?.type==='tower').length,min=deckTowerMinimum();return towers<min?`Your deck needs at least ${min} towers (it has ${towers}).`:''}
+function enforceDeckRule(){const min=deckTowerMinimum();let towers=save.deck.filter(id=>card(id)?.type==='tower');if(towers.length>=min)return false;const spare=CARD_POOL.filter(c=>c.type==='tower'&&save.unlocked.includes(c.id)&&inv(c.id).copies>0&&!save.deck.includes(c.id)).sort((a,b)=>cardPower(b.id)-cardPower(a.id));let changed=false;while(save.deck.filter(id=>card(id)?.type==='tower').length<min&&spare.length){const add=spare.shift().id;const drop=[...save.deck].reverse().find(id=>card(id)?.type!=='tower');if(save.deck.length<6)save.deck.push(add);else if(drop)save.deck[save.deck.indexOf(drop)]=add;else break;changed=true}return changed}
 const ESSENCE_COSTS={dagger:5,whip:7,holy:8,freeze:8,guardian:9,garlic:7,axe:10,cross:11,clock:11,bone:10,familiar:12,rosary:10,silver:15,scripture:18,waterSkill:8,crossSkill:11,summon:12,axeRain:10,grandCross:16};
 const HERO_GROUND_DEFENSES=[
  {id:'spikeTrap',name:'Road Spikes',type:'trap',icon:'🔺',rarity:'common',essenceCost:4,desc:'Repeatedly wounds enemies crossing the tile.',damage:11,rate:.55,color:'#b9a27f',effect:'damage'},
@@ -909,7 +917,7 @@ function essenceCost(c){return c?.essenceCost??ESSENCE_COSTS[c?.id]??Math.max(4,
 const CHAPTER_CARD_UNLOCKS={
  // V32.1 — the withheld traps, garlic and scripture now arrive across the
  // campaign instead of all being handed over on the first launch.
- cemetery:['axe','crossbow','bone','garlic','bearTrap'],
+ cemetery:['bone','garlic','bearTrap'], // V37.9: Axe and Crossbow are starter cards now
  forest:['ballista','rosary','guardian','frostRune'],
  village:['arcane','cross','axeRain','poisonFog'],
  cathedral:['clock','soulPact','scripture'],
@@ -921,7 +929,7 @@ const CHAPTER_CARD_UNLOCKS={
 };
 for(const support of SUPPORT_REGISTRY){if(support.unlockChapter)(CHAPTER_CARD_UNLOCKS[support.unlockChapter]||=[]).push(support.id)}
 const unlockChapterForCard=id=>CHAPTERS.find(ch=>(CHAPTER_CARD_UNLOCKS[ch.id]||[]).includes(id));
-const progressionUnlockedIds=completed=>{const ids=new Set(DEFAULT_DECK);for(const chapterId of completed||[])for(const id of CHAPTER_CARD_UNLOCKS[chapterId]||[])ids.add(id);return [...ids]};
+const progressionUnlockedIds=completed=>{const ids=new Set(STARTER_CARDS);for(const chapterId of completed||[])for(const id of CHAPTER_CARD_UNLOCKS[chapterId]||[])ids.add(id);return [...ids]};
 
 // V32.0 — campaign-driven Village progression backbone.
 function villageCompletedStage(){return Math.max(0,...(save.campaign?.completed||[]).map(id=>CHAPTERS.find(c=>c.id===id)?.number||0));}
@@ -972,7 +980,7 @@ function quarantineDamagedSave(reason,raw){
  }
  loadedSave=parsed;
 }
-function defaultInventory(){return Object.fromEntries(CARD_POOL.map((c,i)=>[c.id,{copies:DEFAULT_DECK.includes(c.id)?2:0,rarity:String(c.rarity||'common').toLowerCase(),level:1,xp:0,recent:DEFAULT_DECK.includes(c.id)&&i<3,lastFound:0,gemSlots:[null,null]}]));}
+function defaultInventory(){return Object.fromEntries(CARD_POOL.map((c,i)=>[c.id,{copies:STARTER_CARDS.includes(c.id)?2:0,rarity:String(c.rarity||'common').toLowerCase(),level:1,xp:0,recent:STARTER_CARDS.includes(c.id)&&i<3,lastFound:0,gemSlots:[null,null]}]));}
 // V33.0.1 — save safety: never erase an existing Village save on startup.
 // Older builds used a one-time fresh-start token that removed campaign, card,
 // tower, plot, and Village keys. Keep the token only as historical metadata.
@@ -1021,11 +1029,11 @@ const progressionIds=progressionUnlockedIds(save.campaign.completed);
 // Never erase legitimate unlocks from an existing save. Merge them with progression rewards.
 save.unlocked=[...new Set([...(Array.isArray(save.unlocked)?save.unlocked:[]),...progressionIds])].filter(id=>CARD_POOL.some(c=>c.id===id));
 // Milestone 9D: starter cards are always real, visible, and usable.
-for(const id of DEFAULT_DECK){if(!save.unlocked.includes(id))save.unlocked.push(id);const item=save.inventory[id]||(save.inventory[id]={copies:0,rarity:'common',level:1,recent:false,lastFound:0});if(item.copies<1)item.copies=2;}
+for(const id of STARTER_CARDS){if(!save.unlocked.includes(id))save.unlocked.push(id);const item=save.inventory[id]||(save.inventory[id]={copies:0,rarity:'common',level:1,recent:false,lastFound:0});if(item.copies<1)item.copies=2;}
 if(previousSaveVersion<6){save.deck=[...DEFAULT_DECK];}
 save.deck=Array.isArray(save.deck)?save.deck.filter(id=>save.unlocked.includes(id)&&CARD_POOL.some(c=>c.id===id)).slice(0,6):[...DEFAULT_DECK];
 while(save.deck.length<6){const id=[...DEFAULT_DECK,...save.unlocked].find(x=>CARD_POOL.some(c=>c.id===x)&&((save.inventory[x]||{}).copies||0)>0&&!save.deck.includes(x));if(!id)break;save.deck.push(id)}
-for(const id of save.unlocked){const item=save.inventory[id]||(save.inventory[id]={copies:0,rarity:'common',level:1,recent:false,lastFound:0});if(item.copies<1)item.copies=DEFAULT_DECK.includes(id)?2:1;}
+for(const id of save.unlocked){const item=save.inventory[id]||(save.inventory[id]={copies:0,rarity:'common',level:1,recent:false,lastFound:0});if(item.copies<1)item.copies=STARTER_CARDS.includes(id)?2:1;}
 save.favorites=Array.isArray(save.favorites)?save.favorites.filter(id=>CARD_POOL.some(c=>c.id===id)):[];
 if((save.campaign?.completed||[]).includes('cemetery')&&!save.unlocked.includes('garlic'))save.unlocked.push('garlic');const garlicItem=save.inventory.garlic||(save.inventory.garlic={copies:0,rarity:'common',level:1,recent:false,lastFound:0});if((save.campaign?.completed||[]).includes('cemetery')&&garlicItem.copies<2)garlicItem.copies=2;
 // V15.3 Scripture Tower preview: grant the new signature defense to every existing kingdom.
@@ -1052,6 +1060,7 @@ function goldBalance(){return Math.floor(Number(save?.villageEconomy?.gold)||0)}
 function cardLevelStatus(id){const item=inv(id),cost=cardLevelCost(item),cap=cardLevelCap(item.rarity);if(item.level>=cap)return {ok:false,cost,cap,reason:`Level ${cap} is the most a ${rarityDef(item.rarity).name} card can reach — fuse copies to raise its rarity`};if(item.copies<cost.copies)return {ok:false,cost,cap,reason:`Needs ${cost.copies} copies (you have ${item.copies})`};if(goldBalance()<cost.gold)return {ok:false,cost,cap,reason:`Needs ${cost.gold} Gold (you have ${goldBalance()})`};return {ok:true,cost,cap}}
 function levelUpCard(id){const st=cardLevelStatus(id),c=card(id)||groundCardById(id);if(!st.ok){showToast(st.reason);return false}const item=inv(id);item.copies-=st.cost.copies;ensureVillageEconomy();save.villageEconomy.gold-=st.cost.gold;item.level++;item.recent=true;saveProgress();showToast(`${c?.name||'Card'} reached Level ${item.level}`);playTone(720,.12,'triangle',.05);return true}
 const cardPower=id=>rarityDef(inv(id).rarity).mult*(1+(Math.max(1,inv(id).level)-1)*.10);
+try{enforceDeckRule()}catch(error){console.warn('[Deck] rule check failed',error)} // V37.9: saves with fewer than four towers get them topped up
 registerSaveProvider(()=>save);
 
 let G;
@@ -1484,6 +1493,7 @@ function beginWaveTransition(){
 }
 
 function freshGame(mode='chapter',chapterId=null){
+ try{if(enforceDeckRule())showToast('Your deck needs at least 4 towers — added the strongest ones you own')}catch(_){}
  resize(); // A new run receives a clean Canvas backing surface and state stack.
  const session=resetBattleVisualState('stage initialization');
  resetBattlePointerGesture();
@@ -1685,7 +1695,7 @@ function reconcileCardUnlocks(){
  const before=new Set(save.unlocked||[]), repaired=[];
  for(const id of progressionUnlockedIds(save.campaign?.completed||[])){
   if(!before.has(id)){save.unlocked.push(id);repaired.push(id)}
-  const item=inv(id);if(item.copies<1)item.copies=DEFAULT_DECK.includes(id)?2:1;
+  const item=inv(id);if(item.copies<1)item.copies=STARTER_CARDS.includes(id)?2:1;
  }
  save.unlocked=[...new Set(save.unlocked)].filter(id=>CARD_POOL.some(c=>c.id===id));
  if(repaired.length)saveProgress();
@@ -1718,7 +1728,7 @@ function ensureVisibleCardCollection(){
  // Keep starter cards available, but never auto-refill the active deck here.
  // Auto-refilling on every render made an intentionally removed card immediately
  // reappear, which broke both Remove and Add/replace deck management.
- for(const id of DEFAULT_DECK){
+ for(const id of STARTER_CARDS){
   if(!save.unlocked.includes(id))save.unlocked.push(id);
   const item=inv(id);if(item.copies<1)item.copies=2;
  }
@@ -1807,7 +1817,7 @@ function renderAscensionInventory(box,filter){
 let cardsScreen=null;
 function cardsUI(){
  if(cardsScreen)return cardsScreen;
- cardsScreen=installCardsScreen({root:UI.deck,get save(){return save},card,inv,rarityDef,cardPower,levelUpCard,cardLevelStatus,goldBalance,cardHTML,miniCardHTML,cardIconHTML,CARD_POOL,HERO_GROUND_DEFENSES,groundCardById,toggleFavorite,mergeCard,canPayRarityUpgrade,requestMergeAllDuplicates,sortCards,shortType,unlockChapterForCard,cardMetrics,attackPattern,ascensionGemDef,renderAscensionInventory,renderHeroJPPanel,HEROES,currentShadowLevel,shadowPortraitHTML,ascensionEquipmentStats,EQUIPMENT_SLOTS,equipmentById,saveProgress,showToast,openScreen,screens:{menu:UI.menu,heroes:$('#heroesScreen')},renderHeroes,ensureVisibleCardCollection,reconcileCardUnlocks});
+ cardsScreen=installCardsScreen({root:UI.deck,get save(){return save},card,inv,deckRuleProblem,rarityDef,cardPower,levelUpCard,cardLevelStatus,goldBalance,cardHTML,miniCardHTML,cardIconHTML,CARD_POOL,HERO_GROUND_DEFENSES,groundCardById,toggleFavorite,mergeCard,canPayRarityUpgrade,requestMergeAllDuplicates,sortCards,shortType,unlockChapterForCard,cardMetrics,attackPattern,ascensionGemDef,renderAscensionInventory,renderHeroJPPanel,HEROES,currentShadowLevel,shadowPortraitHTML,ascensionEquipmentStats,EQUIPMENT_SLOTS,equipmentById,saveProgress,showToast,openScreen,screens:{menu:UI.menu,heroes:$('#heroesScreen')},renderHeroes,ensureVisibleCardCollection,reconcileCardUnlocks});
  return cardsScreen;
 }
 function renderDeck(){cardsUI().render()}
@@ -1905,13 +1915,42 @@ function canOfferNow(c){
 }
 function grantBonusPick(n=1,why=''){if(!G)return;G.bonusPicks=(G.bonusPicks||0)+n;if(why)floatText(GRID.cols/2,2.1,why,'#d8c7ff');battleDelay(()=>{if(G&&G.state==='play'&&!G.draftOpen&&!G.pendingCard)triggerEssenceDraft(false)},350,'bonus pick');}
 function draftCardHTML(c){
- if(c.tactical)return `<span class="draft-level">TACTICAL</span><span class="draft-type">UTILITY</span><div class="draft-art">${cardArtHTML(c,{rarity:'legendary',icon:c.icon})}<div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>IMMEDIATE EFFECT</small><p>${c.desc}</p></div><div class="draft-cost"><span>Stage choice</span><strong>INSTANT</strong></div>`;
- if(c.hiddenSystem)return `<span class="draft-level">SYSTEM</span><span class="draft-type">ROAD</span><div class="draft-art"><div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>SYSTEM EFFECT</small><p>${c.desc}</p></div><div class="draft-stat-grid"><div><small>ROLE</small><b>Road</b></div><div><small>DRAW WEIGHT</small><b>${Math.round((c.drawWeight??1)*100)}%</b></div></div>`;
- const item=inv(c.id),r=rarityDef(item.rarity),power=cardPower(c.id),damage=Math.round((c.damage||0)*power),speed=c.rate?`${(1/c.rate).toFixed(2)}/sec`:'—',range=c.range?`${c.range.toFixed(1)} tiles`:'—',cost=essenceCost(c);
- const role=shortType(c.type);
- const target=c.type==='tower'?(c.id==='dagger'||c.id==='cross'?'Air + Ground':c.id==='axe'?'Ground · Armor':c.id==='scripture'?'Ground · Chain':'Ground'):c.type==='support'?'Allied Tower':'Battlefield';
- const passive=c.desc||'No passive effect.';
- return `<span class="draft-level">LV ${item.level}</span><span class="draft-type">${role}</span><div class="draft-art">${cardArtHTML(c,{level:item.level,rarity:item.rarity,elite:!!c.elite,icon:cardIconHTML(c,item.level)})}<div class="draft-icon">${cardIconHTML(c,item.level)}</div></div><h3>${c.name}</h3><div class="draft-stat-grid"><div><small>DAMAGE</small><b>${damage||'—'}</b></div><div><small>ATTACK SPEED</small><b>${speed}</b></div><div><small>RANGE</small><b>${range}</b></div><div><small>TARGETS</small><b>${target}</b></div></div><div class="draft-passive"><small>PASSIVE ABILITY</small><p>${passive}</p></div><div class="draft-cost"><span>${r.name} · Level ${item.level}</span><strong>${c.type==='tower'?(()=>{const m=mergeTargetsFor(c.id).sort((a,b)=>(b.mergeLevel||1)-(a.mergeLevel||1))[0];return m?`MERGE ★${m.mergeLevel||1}→★${(m.mergeLevel||1)+1}`:'NEW TOWER'})():'FREE'}</strong></div>`;
+ // V37.9 — level-up cards show only what matters for each kind of card, with
+ // one clear line saying what picking it will do.
+ const esc=t=>String(t??'').replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+ const chip=(icon,value,label)=>`<span><i>${icon}</i><b>${value}</b><small>${label}</small></span>`;
+ const pct=v=>`+${Math.round((Number(v)||0)*100)}%`;
+ const lim=G?battlefieldLimits(G):{towers:10,groundDefense:4};
+ let kind='',meta='',action='',actionClass='',stats=[],art='',desc=c.desc||'';
+ if(c.tactical){kind='Tactic';meta='Instant';action='Takes effect now';actionClass='is-instant';art=cardArtHTML(c,{rarity:'legendary',icon:c.icon});}
+ else if(c.hiddenSystem){kind='Road';meta='System';action='Reshapes the road';art=`<div class="dc2-glyph">${c.icon}</div>`;}
+ else{
+  const item=inv(c.id),r=rarityDef(item.rarity),power=cardPower(c.id);
+  meta=`${r.name} · Lv ${item.level}`;art=cardArtHTML(c,{level:item.level,rarity:item.rarity,elite:!!c.elite,icon:cardIconHTML(c,item.level)});
+  if(c.type==='tower'){
+   kind=c.elite?'Elite tower':'Tower';
+   const m=mergeTargetsFor(c.id).sort((a,b)=>(b.mergeLevel||1)-(a.mergeLevel||1))[0],used=G?G.towers.length:0;
+   if(m&&used>=lim.towers){action=`Merge ★${m.mergeLevel||1} → ★${(m.mergeLevel||1)+1}`;actionClass='is-merge';}
+   else if(m){action=`New tower or merge ★${m.mergeLevel||1}→★${(m.mergeLevel||1)+1}`;actionClass='is-merge';}
+   else{action=`New tower · ${used}/${lim.towers} slots`;actionClass='is-new';}
+   const target=['dagger','cross'].includes(c.id)?'Air + ground':c.id==='axe'?'Armour':c.id==='scripture'?'Chains':'Ground';
+   stats=[chip('⚔',Math.max(1,Math.round((c.damage||0)*power*(c.elite?1.5:1))),'damage'),chip('⚡',c.rate?(1/c.rate).toFixed(1):'—','per sec'),chip('◎',c.range?c.range.toFixed(1):'—','range'),chip('🎯',target,'hits')];
+  }else if(c.type==='support'){
+   kind='Support';action='Attach beside a tower';actionClass='is-attach';
+   const e=c.supportEffect||SUPPORT_EFFECT_REGISTRY[c.id]||{};
+   if(e.damage)stats.push(chip('⚔',pct(e.damage),'damage'));if(e.attackSpeed)stats.push(chip('⚡',pct(e.attackSpeed),'speed'));if(e.range)stats.push(chip('◎',pct(e.range),'range'));if(e.slow)stats.push(chip('❄',`${Math.round((1-e.slow)*100)}%`,'slow'));if(e.holy)stats.push(chip('✝','Holy','attacks'));if(e.waveGateHealing)stats.push(chip('♥',`+${e.waveGateHealing}`,'gate/wave'));
+   stats=stats.slice(0,4);
+  }else if(c.type==='skill'){
+   kind='Skill';action='Cast it on the battlefield';actionClass='is-cast';
+   stats=[chip('✦',Math.round((c.cost||30)*power),'power'),chip('⏳',c.cool?`${c.cool}s`:'—','cooldown')];
+  }else if(c.type==='trap'){
+   kind='Trap';const used=G?G.traps.length:0;action=`On the road · ${used}/${lim.groundDefense} traps`;actionClass='is-attach';
+   stats=[chip('⚔',Math.max(1,Math.round((c.damage||0)*power)),'damage'),chip('⚡',c.rate?(1/c.rate).toFixed(1):'—','per sec')];if(c.slow)stats.push(chip('❄',`${Math.round((1-c.slow)*100)}%`,'slow'));
+  }else if(c.type==='hero'){kind='Hero boon';action="Boosts Shadow for this hunt";actionClass='is-instant';}
+  else if(c.type==='roadpiece'){kind='Road';action='Extends the road';}
+  else kind=shortType(c.type);
+ }
+ return `<div class="dc2-top"><span class="dc2-kind">${esc(kind)}</span><span class="dc2-meta">${esc(meta)}</span></div><div class="dc2-art">${art}</div><b class="dc2-name">${esc(c.name)}</b><div class="dc2-action ${actionClass}">${esc(action)}</div>${stats.length?`<div class="dc2-stats">${stats.join('')}</div>`:''}<p class="dc2-desc">${esc(desc)}</p>`;
 }
 
 function renderHand(){
@@ -2181,7 +2220,9 @@ function finishCardPlacement(){
  G.openingDraft=false;G.maxEssence=essenceCapacity(G);
  G.pendingCard=null;G.selected=null;G.hoverTile=null;setPlacementUI(null);G.draftOpen=false;G.paused=false;G.pendingWave=false;renderEssenceVial();renderHand();
  G.activeDraftCard=null;renderHand();
- if((G.bonusPicks||0)>0)battleDelay(()=>{if(G&&G.state==='play'&&!G.draftOpen&&!G.pendingCard)triggerEssenceDraft(false)},300,'bonus pick');
+ if((G.draftsCompleted||0)<=1&&(G.bonusPicks||0)>0)G.forceNextPick=true; // the hunt's second opening pick follows straight on
+ renderPickReady();
+ if((G.bonusPicks||0)>0||earnedPickReady())battleDelay(()=>{if(G&&G.state==='play'&&!G.draftOpen&&!G.pendingCard)triggerEssenceDraft(false)},300,'next pick');
 }
 
 const HOLY_WATER_RADIUS=2.35;
@@ -2735,16 +2776,25 @@ function weightedChoices(pool,count=3){
 function renderEssenceVial(){
  if(!G)return;
  const next=nextChoiceMilestone(G),previous=G.recentDraftMilestone||0,done=!Number.isFinite(next);
- $('#goldTxt').textContent=done?`Lv ${G.draftsCompleted||0} · MAX`:`Lv ${G.draftsCompleted||0} · ${Math.max(0,Math.floor((G.essenceEarned||0)-previous))}/${Math.max(1,next-previous)}`;{const lab=document.querySelector('.essence-pill small');if(lab&&lab.textContent!=='LEVEL')lab.textContent='LEVEL';}
+ $('#goldTxt').textContent=done?`Lv ${G.draftsCompleted||0} · MAX`:((G.essenceEarned||0)>=next?`Lv ${G.draftsCompleted||0} · CARD READY`:`Lv ${G.draftsCompleted||0} · ${Math.max(0,Math.floor((G.essenceEarned||0)-previous))}/${Math.max(1,next-previous)}`);{const lab=document.querySelector('.essence-pill small');if(lab&&lab.textContent!=='LEVEL')lab.textContent='LEVEL';}
  const ef=document.querySelector('.essence-fill');if(ef)ef.style.width=`${done?100:Math.min(100,100*Math.max(0,(G.essenceEarned||0)-previous)/Math.max(1,next-previous))}%`;
  const pill=document.querySelector('.essence-pill');if(pill)pill.classList.toggle('vial-full',!done&&(G.essenceEarned||0)>=next);
 }
-function triggerEssenceDraft(opening=false){
+// V37.9 — calmer picks: a pick earned mid-wave no longer stops the fight. It
+// waits behind a glowing "Card ready" button; tap it when you like, and any
+// picks still waiting open by themselves as soon as the wave is cleared.
+function battleWaveActive(){return !!G&&(G.spawnLeft>0||G.enemies.some(e=>!e.dead))}
+function earnedPickReady(){if(!G)return false;const next=nextChoiceMilestone(G);return Number.isFinite(next)&&(G.essenceEarned||0)>=next}
+function picksWaiting(){if(!G)return 0;let n=G.bonusPicks||0,k=G.draftsCompleted||0;for(let i=0;i<9;i++){const m=nextChoiceMilestone({chapter:G.chapter,chapterWaves:G.chapterWaves,draftsCompleted:k+i});if(!Number.isFinite(m)||(G.essenceEarned||0)<m)break;n++}return n}
+function renderPickReady(){let el=document.getElementById('pickReadyBtn');if(!el){el=document.createElement('button');el.id='pickReadyBtn';el.type='button';el.className='pick-ready hidden';el.innerHTML='<span class="pr-glyph">✦</span><b>Card ready</b><small></small>';el.addEventListener('click',()=>triggerEssenceDraft(false,true));document.body.append(el)}const n=G&&G.state==='play'&&!G.draftOpen&&!G.pendingCard?picksWaiting():0;const key=String(n);if(el.dataset.n===key)return;el.dataset.n=key;el.classList.toggle('hidden',!n);el.querySelector('small').textContent=n>1?`×${n} · tap to choose`:'tap to choose';}
+function triggerEssenceDraft(opening=false,manual=false){
  if(!G||G.state!=='play'||G.draftOpen||G.pendingCard)return;
- const earned=!opening&&canTriggerChoice(G,false),bonus=!opening&&!earned&&(G.bonusPicks||0)>0;
- if(!(opening?canTriggerChoice(G,true):earned||bonus))return;
+ const earned=!opening&&(manual?earnedPickReady():canTriggerChoice(G,false)),bonus=!opening&&!earned&&(G.bonusPicks||0)>0;
+ if(!(opening?canTriggerChoice(G,true):earned||bonus)){renderPickReady();return;}
+ if(!opening&&!manual&&!G.forceNextPick&&battleWaveActive()){renderPickReady();return;}
+ G.forceNextPick=false;
  G.currentDraftBonus=bonus;if(bonus)G.bonusPicks--;
- G.draftOpen=true;renderEssenceVial();
+ G.draftOpen=true;renderEssenceVial();renderPickReady();
  showWaveReward(G.wave,opening);
 }
 function showWaveReward(completedWave,opening=false,choicesOverride=null){
@@ -2764,7 +2814,7 @@ function showWaveReward(completedWave,opening=false,choicesOverride=null){
  {const used=G.towers.length,full=used>=limits.towers;$('#rewardText').textContent=opening?`Choose your first tower. This road holds up to ${limits.total} structures.`:full?`Structures ${used}/${limits.towers} — the board is full, so new towers and supports are not offered. Merges, skills, traps and tactics still are.`:`Structures ${used}/${limits.towers} · pick one, it is placed for free. Drop a tower on a matching tower to merge it (up to ★5).`;}
  choices.forEach(c=>{
   c.drawWeight=G.drawWeights[c.id]??1;
-  const el=document.createElement('button');const rewardRarity=c.hiddenSystem||c.tactical?'common':inv(c.id).rarity;el.className=`card portrait-card draft-choice-card rarity-${rewardRarity}${c.elite?' elite-card':''}`;el.innerHTML=draftCardHTML(c);
+  const el=document.createElement('button');const rewardRarity=c.hiddenSystem||c.tactical?'common':inv(c.id).rarity;el.className=`card portrait-card draft-choice-card dc2 rarity-${rewardRarity}${c.elite?' elite-card':''}`;el.style.setProperty('--rarity',c.tactical||c.hiddenSystem?'#c9a24a':rarityDef(inv(c.id).rarity).color);el.innerHTML=draftCardHTML(c);
   el.addEventListener('click',()=>{
    UI.choices.classList.add('hidden');playTone(c.elite?520:390,.12,'triangle',.05);
    const chosen=c._resolved?{...c._resolved}:c;
@@ -3222,7 +3272,8 @@ function battleView3D(){
  const rings=(G.holyRains||[]).map(r=>({x:r.x,y:r.y,radius:r.radius,color:'#8edcff',alpha:.15+.45*Math.max(0,1-r.elapsed/r.duration)}));
  if(G.roadReveal){const q=Math.max(0,G.roadReveal.life/G.roadReveal.maxLife);for(const cell of G.roadReveal.cells)rings.push({x:cell.x+.5,y:cell.y+.5,radius:.2+.5*(1-q),color:'#d1b078',alpha:.55*q})}
  const selected=G.selectedTower?{x:G.selectedTower.x,y:G.selectedTower.y,range:towerCombatRange(G.selectedTower)}:null;
- return {time:G.time,mood:G.chapter?.map||G.map?.id||'default',width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0,focus:G.camera?.focus||null},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,bosses,towers,shots,traps,particles,rings,links,lanes};
+ const mergeTargets=G.pendingCard?.type==='tower'?mergeTargetsFor(G.pendingCard.id).map(t=>({x:t.x,y:t.y,star:t.mergeLevel||1})):[];
+ return {mergeTargets,time:G.time,mood:G.chapter?.map||G.map?.id||'default',width:W,height:H,camera:{zoom:G.camera?.zoom||1,panX:G.camera?.panX||0,panY:G.camera?.panY||0,focus:G.camera?.focus||null},openRoutes:G.routes.length,keepHp:Math.max(0,G.hp/G.maxHp),placing,pads,hover,selected,sprites,bosses,towers,shots,traps,particles,rings,links,lanes};
 }
 // V37.1 — boss telegraphs, drawn in screen space so the 2D board and the 3D
 // battlefield share one implementation; `project(x,y)` maps tile coordinates.
@@ -3274,6 +3325,7 @@ function draw3D(){
  }
  if(G.time<=MGS.alertUntil){const left=MGS.alertUntil-G.time,pop=Math.min(1,(1.45-left)*7),rise=(1-Math.min(1,left/1.45))*.3,p=battle3d.project(MGS.alertX,MGS.alertY,groundHeight(MGS.alertX,MGS.alertY)+1.9+rise);if(p.visible){ctx.save();ctx.globalAlpha=Math.min(1,left*3.2);ctx.translate(p.x,p.y);ctx.scale(.7+pop*.45,.7+pop*.45);ctx.font='bold 46px Georgia, serif';ctx.lineWidth=6;ctx.strokeStyle='#160d12';ctx.strokeText('!',0,0);ctx.fillStyle='#ffe14d';ctx.fillText('!',0,0);ctx.restore()}}
  drawBossOverlay((x,y)=>battle3d.project(x,y,groundHeight(x,y)+.6));
+ if(G.pendingCard?.type==='tower'){ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';for(const t of mergeTargetsFor(G.pendingCard.id)){const p=battle3d.project(t.x+.5,t.y+.5,groundHeight(t.x+.5,t.y+.5)+2.3);if(!p.visible)continue;const label=`MERGE ★${t.mergeLevel||1}→★${(t.mergeLevel||1)+1}`;ctx.font='bold 13px system-ui, sans-serif';const w=ctx.measureText(label).width+16;ctx.globalAlpha=.92;ctx.fillStyle='#2a1a08';ctx.strokeStyle='#ffd86e';ctx.lineWidth=2;ctx.beginPath();ctx.roundRect?ctx.roundRect(p.x-w/2,p.y-11,w,22,11):ctx.rect(p.x-w/2,p.y-11,w,22);ctx.fill();ctx.stroke();ctx.fillStyle='#ffe9a8';ctx.fillText(label,p.x,p.y+1)}ctx.restore();ctx.globalAlpha=1}
  for(const f of G.floaters){
   const p=battle3d.project(f.x,f.y,groundHeight(f.x,f.y)+.9);if(!p.visible)continue;
   const pop=1+.55*(1-Math.pow(1-(f.pop??1),3))-.55,sz=Math.round((f.size||12)*(.55+.45*(f.pop??1))*(1+.18*pop));
