@@ -9,12 +9,12 @@ export const BATTLE_CHOICE_TIERS = Object.freeze({
   // The choice cap must outlast the chapter: with ten choices a bot exhausted
   // the tutorial tier at wave 6 and then played 240 s including the boss with
   // nothing to draft. The last milestones sit near a full chapter's earnings.
-  tutorial: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.2, pickCurve: 1.2, milestones: [0] },
-  foundation: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.8, pickCurve: 1.2, milestones: [0] },
-  early: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.8, pickCurve: 1.2, milestones: [0] },
-  normal: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.4, pickCurve: 1.15, milestones: [0] },
-  long: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.5, pickCurve: 1.15, milestones: [0] },
-  boss: { maxChoices: 60, minimumSeconds: 6, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.6, pickCurve: 1.15, milestones: [0] }
+  tutorial: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.2, pickCurve: 1.2, milestones: [0] },
+  foundation: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.8, pickCurve: 1.2, milestones: [0] },
+  early: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.8, pickCurve: 1.2, milestones: [0] },
+  normal: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.4, pickCurve: 1.15, milestones: [0] },
+  long: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.5, pickCurve: 1.15, milestones: [0] },
+  boss: { maxChoices: 60, minimumSeconds: 9, minimumWaves: 0, towerOfferUntil: 8, pickScale: 3.6, pickCurve: 1.15, milestones: [0] }
 });
 
 export const BATTLE_CHOICE_RULES = Object.freeze({

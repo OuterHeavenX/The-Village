@@ -1890,6 +1890,19 @@ function cardHTML(c,collection=false){
 // spend and no stat upgrades to buy during a hunt.
 const MERGE_MAX=5,MERGE_STEP={damage:1.7,range:.15,rate:.94};
 function mergeTargetsFor(id){return (G?.towers||[]).filter(t=>t.id===id&&!t.supportOnly&&!t.destroyed&&(t.mergeLevel||1)<MERGE_MAX)}
+// V37.8.1 — the draft only offers cards that can actually be used right now:
+// at a full board (e.g. 10/10) no new towers, supports or extra traps — only
+// towers that can merge, skills, tactics and anything else that still fits.
+function canOfferNow(c){
+ if(!G||!c)return false;
+ if(c.tactical)return c.id==='fieldRepair'?G.hp<G.maxHp:true;
+ const lim=battlefieldLimits(G),full=G.towers.length>=lim.towers;
+ if(c.type==='tower')return full?mergeTargetsFor(c.id).length>0:true;
+ if(c.type==='support'){if(full||!G.towers.some(t=>!t.supportOnly))return false;for(let y=0;y<GRID.rows;y++)for(let x=0;x<GRID.cols;x++)if(validSupportTile(x,y))return true;return false}
+ if(c.type==='trap')return G.traps.length<lim.groundDefense&&(G.path||[]).some(p=>validTrapTile(p.x,p.y));
+ if(c.type==='roadpiece'&&!c.hiddenSystem)return !!firstValidRoadPlacement(c);
+ return true;
+}
 function grantBonusPick(n=1,why=''){if(!G)return;G.bonusPicks=(G.bonusPicks||0)+n;if(why)floatText(GRID.cols/2,2.1,why,'#d8c7ff');battleDelay(()=>{if(G&&G.state==='play'&&!G.draftOpen&&!G.pendingCard)triggerEssenceDraft(false)},350,'bonus pick');}
 function draftCardHTML(c){
  if(c.tactical)return `<span class="draft-level">TACTICAL</span><span class="draft-type">UTILITY</span><div class="draft-art">${cardArtHTML(c,{rarity:'legendary',icon:c.icon})}<div class="draft-icon">${c.icon}</div></div><h3>${c.name}</h3><div class="draft-passive"><small>IMMEDIATE EFFECT</small><p>${c.desc}</p></div><div class="draft-cost"><span>Stage choice</span><strong>INSTANT</strong></div>`;
@@ -2739,15 +2752,16 @@ function showWaveReward(completedWave,opening=false,choicesOverride=null){
  // Opening draft must establish a real defense: all three choices are placeable towers.
  // Support, skill, hero, and road-system cards return on later Essence drafts.
  const openingPool=G.hand.filter(c=>c.type==='tower');
- const limits=battlefieldLimits(G),draftPool=weightedDraftPool(G.hand,G,TACTICAL_CHOICE_REGISTRY,limits);
+ const limits=battlefieldLimits(G),draftPool=weightedDraftPool(G.hand,G,TACTICAL_CHOICE_REGISTRY,limits).filter(canOfferNow);
  let baseChoices=choicesOverride||weightedChoices(opening?openingPool:draftPool,3);
+ if(!baseChoices.length){G.draftOpen=false;G.paused=false;G.pendingWave=false;if(G.currentDraftBonus)G.currentDraftBonus=false;else registerCompletedDraft(G);showToast('Board complete — nothing left to place or merge');renderEssenceVial();return;}
  const towerOfferTarget=Math.min(limits.attack,choiceTier(G).towerOfferUntil||4);
- if(!choicesOverride&&!opening&&G.towers.filter(t=>!t.supportOnly).length<towerOfferTarget&&!baseChoices.some(c=>c.type==='tower')){const tower=weightedChoices(G.hand.filter(c=>c.type==='tower'&&!baseChoices.some(choice=>choice.id===c.id)),1)[0];if(tower)baseChoices[baseChoices.length-1]=tower;}
+ if(!choicesOverride&&!opening&&G.towers.filter(t=>!t.supportOnly).length<towerOfferTarget&&!baseChoices.some(c=>c.type==='tower')){const tower=weightedChoices(G.hand.filter(c=>c.type==='tower'&&canOfferNow(c)&&!baseChoices.some(choice=>choice.id===c.id)),1)[0];if(tower)baseChoices[baseChoices.length-1]=tower;}
  const choices=choicesOverride||baseChoices.map(c=>{const choice=Math.random()<.16&&c.type==='tower'?{...c,elite:true,name:'Elite '+c.name,desc:c.desc+' Deploys with +50% damage.'}:({...c});choice._resolved=choice.id==='roadSystem'?{...ROAD_PIECES[Math.floor(Math.random()*ROAD_PIECES.length)]}:null;return choice});
  G.draftChoices=choices;G.draftChoiceCommitted=false;G.openingDraft=opening;
  const box=$('#choicesCards');box.innerHTML='';
  $('#rewardTitle').textContent=opening?'Choose Your Opening Defense':G.currentDraftBonus?'Bonus Pick':`Level ${(G.draftsCompleted||0)+1} — Choose a Card`;
- $('#rewardText').textContent=opening?`Choose your first tower. This road holds up to ${limits.total} structures.`:'Pick one — it is placed for free. Drop a tower on a matching tower to merge it (up to ★5).';
+ {const used=G.towers.length,full=used>=limits.towers;$('#rewardText').textContent=opening?`Choose your first tower. This road holds up to ${limits.total} structures.`:full?`Structures ${used}/${limits.towers} — the board is full, so new towers and supports are not offered. Merges, skills, traps and tactics still are.`:`Structures ${used}/${limits.towers} · pick one, it is placed for free. Drop a tower on a matching tower to merge it (up to ★5).`;}
  choices.forEach(c=>{
   c.drawWeight=G.drawWeights[c.id]??1;
   const el=document.createElement('button');const rewardRarity=c.hiddenSystem||c.tactical?'common':inv(c.id).rarity;el.className=`card portrait-card draft-choice-card rarity-${rewardRarity}${c.elite?' elite-card':''}`;el.innerHTML=draftCardHTML(c);

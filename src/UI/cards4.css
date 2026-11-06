@@ -211,3 +211,6 @@ body #towerInspector{
 .campaign-boon-row i.on{ filter:none; opacity:1; border-color:#f3d47a; box-shadow:0 0 10px #f3d47a55; }
 .campaign-boons small{ color:#d8c8a8; font-size:.74rem; }
 @media (max-width:700px){ .chapter-rewards span{ font-size:.68rem; padding:3px 7px; } .campaign-boon-row i{ width:26px; height:26px; font-size:13px; } }
+
+/* V37.8.1 — the battle command bar sat on top of the draft cards' footers */
+body:has(#choices:not(.hidden)) #battleControlMarquee{ display:none !important; }

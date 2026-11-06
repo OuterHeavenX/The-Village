@@ -8,6 +8,21 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.8.1 DRAFT ONLY OFFERS WHAT FITS
+
+- The level-up draft now only offers cards you can actually use. At a full
+  board (e.g. 10/10 structures) it no longer offers new towers or supports —
+  only towers that can still merge, skills, traps (they have their own slots)
+  and tactics. Fully merged ★5 towers drop out, and Field Repair only appears
+  when the gate is damaged. If nothing at all fits, the pick is skipped.
+- The draft header shows the structure count ("Structures 10/10").
+- Traps no longer count towards the structure board when the draft decides
+  whether the board is full.
+- The battle command bar (Center / Speed / Pause …) is hidden while the draft
+  is open; it covered the bottom of the cards.
+- Earned picks are at least 9 seconds apart (was 6), so they come in fewer
+  back-to-back bursts.
+
 ## V37.8.0 RAID RUSH RULES
 
 The battle and card progression now follow Raid Rush.
