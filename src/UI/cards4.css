@@ -274,3 +274,26 @@ body:not(.battle-mode) #pickReadyBtn, body:has(#choices:not(.hidden)) #pickReady
   #deckScreen .c3-hero .c3-hero-passives > small{ display:none; }
   #deckScreen .c3-hero .c3-ground-slots > *{ width:44px !important; height:44px !important; }
 }
+
+/* V37.9.2 — card detail "Upgrade" section */
+#deckScreen .c3-upgrade{ margin-top:10px; padding:10px 12px; border-radius:12px; background:linear-gradient(180deg,#1a1412,#0d0a0c); border:1px solid rgba(243,220,156,.25); }
+#deckScreen .c3-upgrade h3{ margin:0 0 8px; font:800 11px/1 system-ui,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#d9b56a; }
+#deckScreen .c3u-row{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 0; border-top:1px solid rgba(243,220,156,.12); }
+#deckScreen .c3u-row:first-of-type{ border-top:0; }
+#deckScreen .c3u-row b{ display:block; font:700 15px/1.2 Georgia,serif; color:#f8e8c4; }
+#deckScreen .c3u-row small{ display:block; margin-top:3px; font:12px/1.35 system-ui,sans-serif; color:#cdbb98; }
+#deckScreen .c3u-bar{ display:block; height:6px; margin-top:6px; border-radius:99px; background:#0008; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(243,220,156,.2); }
+#deckScreen .c3u-bar em{ display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#5bbf6f,#b8f5a0); }
+#deckScreen .c3u-row .c3-btn{ min-width:92px; }
+#deckScreen .c3u-row .c3-btn[aria-disabled="true"]{ opacity:.5; filter:saturate(.3); }
+#deckScreen .c3u-why{ margin:-2px 0 4px; font:12px/1.3 system-ui,sans-serif; color:#ffb48a; }
+#deckScreen .c3u-note{ margin:6px 0 0; font:11px/1.3 system-ui,sans-serif; color:#a8987c; }
+#deckScreen .c3-slot .c3-slot-ready{ position:absolute; right:4px; bottom:4px; z-index:5; width:20px; height:20px; display:grid; place-items:center; border-radius:50%; font-size:11px; color:#12240f; background:linear-gradient(180deg,#b8f5a0,#5bbf6f); box-shadow:0 0 8px rgba(120,230,120,.6); }
+@media (max-width:520px){ #deckScreen .c3-detail{ grid-template-columns:92px minmax(0,1fr) !important; gap:10px !important; } #deckScreen .c3u-row{ grid-template-columns:1fr; } #deckScreen .c3u-row .c3-btn{ width:100%; } }
+#deckScreen .c3-upgrade .c3u-why{ color:#ffb48a !important; }
+#deckScreen .c3-deck-summary{ display:none; }
+#deckScreen .c3[data-mode="desktop"] .c3-deck-summary{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+#deckScreen .c3-deck-summary > div{ padding:9px 11px; border-radius:10px; background:linear-gradient(180deg,#1a1412,#0d0a0c); border:1px solid rgba(243,220,156,.2); }
+#deckScreen .c3-deck-summary small{ display:block; font:700 9px/1.2 system-ui,sans-serif; letter-spacing:.12em; text-transform:uppercase; color:#c9a24a; }
+#deckScreen .c3-deck-summary b{ display:block; margin-top:3px; font:700 18px/1.1 Georgia,serif; color:#f8e8c4; }
+#deckScreen .c3-deck-summary p{ grid-column:1/-1; margin:2px 0 0; font:12px/1.4 Georgia,serif; color:#a8987c; }

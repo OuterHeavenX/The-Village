@@ -35,6 +35,14 @@ export const EARLY_STAGE_DIFFICULTY = Object.freeze({
   5: { enemyHealth: .95, bossHealth: .94, gateHealth: 3, label: 'First progression check' }
 });
 
+// V37.9.2 — per-road enemy health trim from a full campaign simulation on a
+// fresh save (cards levelled with copies + Gold as a player would). Most roads
+// were won with the gate untouched; roads 5, 7, 15 and 17 were the hard ones,
+// so they keep their health and the easy roads get tougher.
+export const STAGE_ENEMY_HEALTH = Object.freeze({
+  6: 1.2, 8: 1.25, 9: 1.25, 10: 1.25, 11: 1.2, 12: 1.25, 13: 1.25, 14: 1.25, 16: 1.25, 18: 1.25, 19: 1.25, 20: 1.25
+});
+
 export const TACTICAL_CHOICE_REGISTRY = Object.freeze([
   { id: 'fieldRepair', type: 'booster', tactical: true, icon: '🛡️', name: 'Field Repair', desc: 'Restore 20% of the Cathedral gate.' },
   { id: 'battleInsight', type: 'booster', tactical: true, icon: '📖', name: 'Battle Insight', desc: 'Draw an extra card pick straight away.' },
@@ -53,8 +61,8 @@ export const RARITY_PROGRESSION = Object.freeze([
 
 export const STAGE_REWARD_TABLE = Object.freeze({
   // V37.8: copies level cards (with Gold), so they come in handfuls now.
-  firstClear: { copies: 8, fragments: 4 },
-  firstBossClear: { copies: 8, fragments: 7 },
+  firstClear: { copies: 6, fragments: 4 },
+  firstBossClear: { copies: 6, fragments: 7 },
   defeat: { copies: 2, fragments: 2 },
   replayCopies: 5,
   replayCopyChances: [1, 1, 1],

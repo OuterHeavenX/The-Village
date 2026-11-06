@@ -8,6 +8,34 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.9.2 CARD UPGRADES AND CAMPAIGN TUNING
+
+**Bug fix**
+- Levelling a card could spend its last copy, and a card with no copies
+  counted as not owned: it dropped out of your deck and collection until the
+  game was reloaded. One copy now always stays with the card; upgrades spend
+  only *spare* copies. Fusing follows the same rule.
+
+**Card upgrades**
+- Card details now open with an **Upgrade** section: the next level's cost
+  in spare copies and Gold with a progress bar and a Level up button, and
+  the rarity fuse — what it needs, and that it raises the level cap — with
+  the reason when either isn't possible yet. The duplicate Level / Rarity /
+  Copies / Gold tiles are gone.
+- **Fusing now happens at the level cap**: level a card to its rarity's cap,
+  then fuse to raise the rarity and the cap (Raid Rush's ladder).
+- **Level up deck** button levels every card in your deck that is ready,
+  cheapest first. "Rarity upgrades" is now **Fuse ready**.
+- On iPad the loadout column shows the deck's average level, card power,
+  Gold and how many cards are ready; deck slots get a green ▲ when ready.
+
+**Campaign tuning** (from a full 20-road simulation on a fresh save)
+- The bot won all 20 roads on the first try, most with the gate untouched
+  and bosses down in under a minute. Roads 6, 8–14, 16 and 18–20 now have
+  20–25% more enemy health; the roads that already pushed back (5, 7, 15,
+  17) are unchanged.
+- First-clear chests carry 6 copies (was 8).
+
 ## V37.9.1 MERGE LABELS
 
 - "MERGE ★2→★3" tags on towers standing next to each other no longer

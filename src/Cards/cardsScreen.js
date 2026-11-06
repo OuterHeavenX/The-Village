@@ -41,7 +41,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp
 
 export function installCardsScreen(deps) {
   const { root, card, inv, rarityDef, cardPower, cardHTML, miniCardHTML, cardIconHTML, CARD_POOL, HERO_GROUND_DEFENSES, groundCardById,
-    toggleFavorite, mergeCard, canPayRarityUpgrade, deckRuleProblem, levelUpCard, cardLevelStatus, goldBalance, requestMergeAllDuplicates, sortCards, shortType, unlockChapterForCard, cardMetrics, attackPattern,
+    toggleFavorite, mergeCard, canPayRarityUpgrade, deckRuleProblem, fuseStatus, levelUpCard, cardLevelStatus, goldBalance, requestMergeAllDuplicates, sortCards, shortType, unlockChapterForCard, cardMetrics, attackPattern,
     ascensionGemDef, renderAscensionInventory, renderHeroJPPanel, HEROES, currentShadowLevel, shadowPortraitHTML, ascensionEquipmentStats,
     EQUIPMENT_SLOTS, equipmentById, saveProgress, showToast, openScreen, screens, renderHeroes, ensureVisibleCardCollection, reconcileCardUnlocks } = deps;
 
@@ -65,7 +65,8 @@ export function installCardsScreen(deps) {
       <div class="c3-tools">
         <select id="c3Sort" class="c3-select" aria-label="Sort collection">${SORTS.map(([v, l]) => `<option value="${v}">Sort: ${l}</option>`).join('')}</select>
         <label class="c3-toggle"><input id="c3MergeOnly" type="checkbox"><span>Upgrade ready</span></label>
-        <button id="c3MergeAll" class="c3-merge" type="button" disabled>Rarity upgrades</button>
+        <button id="c3LevelAll" class="c3-merge c3-levelall" type="button" disabled>Level up deck</button>
+        <button id="c3MergeAll" class="c3-merge" type="button" disabled>Fuse ready</button>
       </div>
     </header>
     <div class="c3-body">
@@ -189,7 +190,7 @@ export function installCardsScreen(deps) {
       if (c) {
         slot.className = `c3-slot is-filled rarity-${inv(id).rarity}`;
         slot.dataset.cardId = id;
-        slot.innerHTML = isolate(miniCardHTML(c)) + `<span class="c3-slot-index">${i + 1}</span>`;
+        slot.innerHTML = isolate(miniCardHTML(c)) + `<span class="c3-slot-index">${i + 1}</span>` + (cardLevelStatus && cardLevelStatus(id).ok ? '<span class="c3-slot-ready" title="Ready to level up">▲</span>' : '');
         slot.setAttribute('aria-label', `Slot ${i + 1}: ${c.name}`);
       } else {
         slot.className = 'c3-slot is-empty';
@@ -198,6 +199,9 @@ export function installCardsScreen(deps) {
       }
       el.slots.append(slot);
     }
+    { let sum = el.deck.querySelector('.c3-deck-summary'); if (!sum) { sum = document.createElement('div'); sum.className = 'c3-deck-summary'; el.deck.append(sum); }
+      const ids = save.deck.filter(Boolean), avg = ids.length ? ids.reduce((a, id) => a + (inv(id).level || 1), 0) / ids.length : 0, power = ids.length ? ids.reduce((a, id) => a + cardPower(id), 0) / ids.length : 0, ready = cardLevelStatus ? ids.filter(id => cardLevelStatus(id).ok).length : 0;
+      sum.innerHTML = `<div><small>Average level</small><b>${avg.toFixed(1)}</b></div><div><small>Card power</small><b>${Math.round(power * 100)}%</b></div><div><small>Gold</small><b>${goldBalance ? goldBalance().toLocaleString() : '—'}</b></div><div><small>Ready to level</small><b>${ready}</b></div><p>Chests drop copies of the cards in your deck. Level cards with spare copies + Gold; fuse at the level cap to raise rarity.</p>`; }
     el.deck.classList.toggle('is-swapping', !!state.swapFor);
     el.counter.textContent = `${save.deck.length} / ${DECK_SIZE}`;
     el.counter.classList.toggle('is-full', save.deck.length === DECK_SIZE);
@@ -232,9 +236,10 @@ export function installCardsScreen(deps) {
     el.chips.querySelectorAll('.c3-chip').forEach(chip => { const on = chip.dataset.filter === f; chip.classList.toggle('is-active', on); chip.setAttribute('aria-selected', String(on)); if (on) chip.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); });
     el.sort.value = sort();
     el.mergeOnly.checked = state.mergeOnly;
+    { const lv = root.querySelector('#c3LevelAll'), n = levelUpCard ? save.deck.filter(id => cardLevelStatus(id).ok).length : 0; if (lv) { lv.disabled = !n; lv.textContent = n ? `Level up deck (${n})` : 'Level up deck'; } }
     const ready = CARD_POOL.filter(c => canPayRarityUpgrade(inv(c.id), c.id)).length;
     el.mergeAll.disabled = !ready;
-    el.mergeAll.textContent = ready ? `Rarity upgrades (${ready})` : 'Rarity upgrades';
+    el.mergeAll.textContent = ready ? `Fuse ready (${ready})` : 'Fuse ready';
     const grid = !ASCENSION_FILTERS.includes(f) && f !== 'heroProfile' && f !== 'ground';
     el.sort.hidden = !grid; el.mergeOnly.parentElement.hidden = !grid;
   }
@@ -256,13 +261,14 @@ export function installCardsScreen(deps) {
     const owned = ground ? groundOwned(c.id) : isOwned(c.id), equipped = ground ? save.groundDefenseSlots.includes(c.id) : inDeck(c.id);
     const fav = !ground && save.favorites.includes(c.id), unlockAt = unlockChapterForCard(c.id);
     const compat = ground ? 'Equips to one of Shadow’s two Passive Card slots.' : c.type === 'support' ? 'Whip, Dagger, Axe, Cross, Clock, Bone, Familiar, Cannon, Rosary, Garlic, Living Word' : c.type === 'tower' ? 'Holy Water Infusion · Chrono Sigil · Guardian Ward' : '—';
-    const metrics = [...cardMetrics(c), ['Level', item.level], ['Rarity', r.name], ['Copies', item.copies], ['Gold', goldBalance ? goldBalance() : '—'], [ground ? 'Shadow' : 'Deck', equipped ? 'Equipped' : owned ? 'Reserve' : 'Locked'], ['Unlock', owned ? 'Unlocked' : unlockAt ? `Chapter ${unlockAt.number}: ${unlockAt.name}` : 'Campaign reward']];
+    const metrics = [...cardMetrics(c), ...(owned ? [] : [['Unlock', unlockAt ? `Chapter ${unlockAt.number}: ${unlockAt.name}` : 'Campaign reward']])];
     const gems = c.type === 'tower' ? `<section class="c3-gems"><h3>Permanent gem slots</h3>${item.gemSlots.map((id, index) => { const gem = ascensionGemDef(id); return `<div class="c3-gem"><span>${gem ? gem.icon : '○'}</span><div><b>${gem ? esc(gem.name) : `Gem slot ${index + 1}`}</b><small>${gem ? esc(Object.entries(gem.passiveEffects || gem.effects || {}).map(([k, v]) => `${k} +${Math.round(v * 100)}%`).join(' · ')) : 'Empty — socket one from the Gems tab.'}</small></div>${gem ? `<button type="button" data-act="remove-gem" data-index="${index}">Remove</button>` : ''}</div>`; }).join('')}</section>` : '';
     el.sheetBody.innerHTML = `
       <div class="c3-detail">
         <article class="c3-card c3-detail-card rarity-${item.rarity}">${isolate(cardHTML(c, true))}</article>
         <div class="c3-detail-copy">
           <div class="c3-detail-head"><span class="c3-kicker">${esc(r.name)} · Level ${item.level} · ${esc(shortType(c.type))}</span><h2>${cardIconHTML(c, item.level)} ${esc(c.name)}</h2><p>${esc(c.desc)}</p></div>
+          ${owned && cardLevelStatus ? upgradeSection(c, item) : ''}
           <div class="c3-metrics">${metrics.map(([a, b]) => `<div><small>${esc(a)}</small><b>${esc(b)}</b></div>`).join('')}</div>
           <section class="c3-pattern"><h3>${esc(ground ? 'Passive effects' : pattern.title)}</h3>${ground ? '' : pattern.html}<p>${esc(pattern.text)}</p></section>
           <section class="c3-compat"><h3>${ground ? 'Upgrade' : 'Support compatibility'}</h3><p>${ground ? `Level ${item.level} · ${Math.round(cardPower(c.id) * 100)}% card power. Fuse matching copies to improve this passive.` : esc(compat)}</p></section>
@@ -271,11 +277,22 @@ export function installCardsScreen(deps) {
       </div>
       <div class="c3-detail-actions">
         <button type="button" class="c3-btn primary" data-act="${ground ? (equipped ? 'ground-remove' : 'ground-equip') : (equipped ? 'remove' : 'equip')}" ${owned ? '' : 'disabled'}>${owned ? (equipped ? (ground ? 'Remove from Shadow' : 'Remove from deck') : (ground ? 'Add to Shadow' : 'Add to deck')) : 'Locked'}</button>
-        ${owned && levelUpCard ? (() => { const st = cardLevelStatus(c.id); return st.cost && item.level < st.cap ? `<button type="button" class="c3-btn gold c3-levelup" data-act="levelup" ${st.ok ? '' : 'aria-disabled="true"'} title="${esc(st.ok ? `Spend ${st.cost.copies} copies and ${st.cost.gold} Gold` : st.reason)}">Level ${item.level + 1} · ${st.cost.copies} copies · ${st.cost.gold} Gold</button>` : `<button type="button" class="c3-btn" disabled>Level cap ${st.cap} — fuse to raise it</button>`; })() : ''}
-        ${!ground && item.copies >= 3 ? `<button type="button" class="c3-btn" data-act="merge">Fuse copies · raise rarity</button>` : ''}
+
         ${ground ? '' : `<button type="button" class="c3-btn ${fav ? 'is-on' : ''}" data-act="favorite">★ ${fav ? 'Favorited' : 'Favorite'}</button>`}
       </div>`;
     el.sheetBody.dataset.cardId = c.id;
+  }
+  // V37.9.2 — one place that explains a card's progression: level (spare
+  // copies + Gold, up to the rarity's cap) and fusing (raises rarity and cap).
+  function upgradeSection(c, item) {
+    const st = cardLevelStatus(c.id), fs = fuseStatus ? fuseStatus(c.id) : null, spare = Math.max(0, item.copies - 1), capped = item.level >= st.cap;
+    const pct = capped ? 100 : Math.min(100, spare / st.cost.copies * 100);
+    const gold = goldBalance ? goldBalance() : 0;
+    const levelRow = capped
+      ? `<div class="c3u-row"><div><b>Level ${item.level} / ${st.cap}</b><small>At the ${esc(rarityDef(item.rarity).name)} cap — fuse to go higher.</small></div></div>`
+      : `<div class="c3u-row"><div><b>Level ${item.level} → ${item.level + 1}</b><small>${spare}/${st.cost.copies} spare copies · ${st.cost.gold} Gold (you have ${gold})</small><i class="c3u-bar"><em style="width:${pct}%"></em></i></div><button type="button" class="c3-btn gold" data-act="levelup" ${st.ok ? '' : 'aria-disabled="true"'} title="${esc(st.ok ? 'Level up' : st.reason)}">${st.ok ? 'Level up' : 'Not yet'}</button></div>${st.ok ? '' : `<p class="c3u-why">${esc(st.reason)}</p>`}`;
+    const fuseRow = !fs || !fs.rule ? '' : `<div class="c3u-row"><div><b>Fuse → <span style="color:${fs.toColor}">${esc(fs.toName)}</span></b><small>${esc(fs.needs)} · cap rises to ${fs.newCap}</small></div><button type="button" class="c3-btn" data-act="merge" ${fs.ok ? '' : 'aria-disabled="true"'} title="${esc(fs.ok ? 'Fuse' : fs.reason)}">${fs.ok ? 'Fuse' : 'Locked'}</button></div>${fs.ok ? '' : `<p class="c3u-why">${esc(fs.reason)}</p>`}`;
+    return `<section class="c3-upgrade"><h3>Upgrade</h3>${levelRow}${fuseRow}<p class="c3u-note">One copy always stays with the card; the rest are spare copies for upgrades.</p></section>`;
   }
   function openDetail(c) {
     if (!c) return;
@@ -320,6 +337,7 @@ export function installCardsScreen(deps) {
     const chip = hit('.c3-chip'); if (chip) { ui().cardFilter = chip.dataset.filter; saveProgress(); render(); el.body.scrollTop = 0; return true; }
     if (hit('#c3Back')) { closeDetail(); openScreen(screens.menu); return true; }
     if (hit('#c3Save')) { if (save.deck.length !== DECK_SIZE) showToast('Choose exactly six cards'); else if (deckRuleProblem && deckRuleProblem()) showToast(deckRuleProblem()); else { saveProgress(); showToast('Deck saved'); } return true; }
+    if (hit('#c3LevelAll')) { let done = 0; for (let guard = 0; guard < 60; guard++) { const ready = save.deck.filter(id => cardLevelStatus(id).ok).sort((x, y) => cardLevelStatus(x).cost.gold - cardLevelStatus(y).cost.gold); if (!ready.length) break; if (levelUpCard(ready[0])) done++; else break; } if (done) showToast(`${done} level-up${done > 1 ? 's' : ''} across your deck`); render(); return true; }
     if (hit('#c3MergeAll')) { requestMergeAllDuplicates(); return true; }
     if (hit('.c3-sheet-close') || hit('.c3-scrim')) { closeDetail(); return true; }
     const sheetAct = hit('.c3-sheet [data-act]'); if (sheetAct) { act(sheetAct.dataset.act, el.sheetBody.dataset.cardId, { index: Number(sheetAct.dataset.index) }); return true; }

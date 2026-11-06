@@ -15,6 +15,6 @@ const draftState=state(6,8);registerCompletedDraft(draftState);assert.equal(draf
 assert.deepEqual(RARITY_PROGRESSION.map(row=>row.copies),[3,5,8,12,18,30,50]);
 // V37.8: copies level cards, so every chest carries some.
 assert.equal(rewardForStage({victory:false}).copies,2);
-assert.equal(rewardForStage({victory:true,firstClear:true,boss:true}).copies,8);
+assert.equal(rewardForStage({victory:true,firstClear:true,boss:true}).copies,6);
 assert.equal(rewardForStage({victory:true,replayCount:3}).copies,5);
 console.log('Battle economy policy tests passed.');
