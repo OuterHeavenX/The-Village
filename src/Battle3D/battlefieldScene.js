@@ -21,6 +21,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { battleMood } from './moods.js';
 import { createTowerFactory } from './towerModels.js';
 import { createBossFactory } from './bossModels.js';
+import { createProjectileFactory, projectileKind } from './projectileModels.js';
 import { KEEP_CENTER, KEEP_LAYOUT, KEEP_ROAD_ORDER, groundHeight } from './layout.js';
 
 export const BATTLE_VIEW_SHAPE = `
@@ -602,6 +603,15 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   const shotPool = [];
   const shotGroup = new THREE.Group();
   scene.add(shotGroup);
+  // V37.7: 3D projectiles, pooled per kind; the glow sprite stays as a small halo.
+  const projectileFactory = LOOK_OFF.has('nomodels') ? null : createProjectileFactory();
+  const projectilePools = new Map(), projectileUsed = new Map();
+  function projectile(kind) {
+    let pool = projectilePools.get(kind); if (!pool) { pool = []; projectilePools.set(kind, pool); }
+    const i = projectileUsed.get(kind) || 0; projectileUsed.set(kind, i + 1);
+    let m = pool[i]; if (!m) { m = projectileFactory.create(kind); shotGroup.add(m); pool[i] = m; }
+    m.visible = true; return m;
+  }
   function shotSprite(i) {
     let sprite = shotPool[i];
     if (!sprite) {
@@ -951,12 +961,21 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
     for (let i = blobs; i < blobPool.length; i++) blobPool[i].visible = false;
 
     n = 0;
+    projectileUsed.clear();
     for (const shot of view.shots || []) {
       const sprite = shotSprite(n++);
       sprite.material.color.copy(cssColor(shot.color, '#fff2c5'));
-      sprite.scale.setScalar(shot.size || .38);
-      sprite.position.set(shot.x, groundHeight(shot.x, shot.y) + .55, shot.y);
+      if (projectileFactory && shot.kind) {
+        const m = projectile(projectileKind(shot.kind));
+        projectileFactory.pose(m, shot, view.time || 0, groundHeight);
+        sprite.scale.setScalar((shot.size || .38) * .55); sprite.material.opacity = .55;
+        sprite.position.copy(m.position);
+      } else {
+        sprite.scale.setScalar(shot.size || .38); sprite.material.opacity = 1;
+        sprite.position.set(shot.x, groundHeight(shot.x, shot.y) + .55, shot.y);
+      }
     }
+    for (const [kind, pool] of projectilePools) for (let i = projectileUsed.get(kind) || 0; i < pool.length; i++) pool[i].visible = false;
     for (let i = n; i < shotPool.length; i++) shotPool[i].visible = false;
 
     n = 0;
@@ -1021,7 +1040,7 @@ export function createBattlefieldScene({ host, quality = detectQuality(), onCont
   canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); lost = true; onContextLost?.(); }, false);
 
   function dispose() {
-    for (const entry of bossModels.values()) entry.model.dispose(); bossModels.clear(); bossFactory?.dispose(); for (const m of elitePool) m.material.dispose(); eliteGeometry.dispose();
+    projectileFactory?.dispose(); for (const entry of bossModels.values()) entry.model.dispose(); bossModels.clear(); bossFactory?.dispose(); for (const m of elitePool) m.material.dispose(); eliteGeometry.dispose();
     for (const entry of towerModels.values()) entry.model.dispose(); towerModels.clear(); levelUpPillar.dispose(); levelUpRing.dispose(); pillarFade.dispose(); towerFactory?.dispose();
     spritePool.dispose(); towerPool.dispose(); linkPool.dispose(); lanePool.dispose();
     for (const s of shotPool) s.material.dispose();

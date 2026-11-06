@@ -41,11 +41,15 @@ export function breachWavesForStage(stage = 1) {
   // Second and third roads now arrive progressively earlier through ch5-8.
   if (n === 5) return [6, 11];
   if (n === 6) return [5, 10];
-  if (n === 7) return [5, 10];
-  if (n <= 10) return [4, 8];
-  // V37.6: Chapter 11's third breach at wave 2 came with the heavy deep roster; 11-14 open a wave later.
-  if (n <= 14) return [3, 6, 9];
-  return [2, 5, 8];
+  // V37.7: chapters get longer (17 waves at ch7, 21 at ch11, 30 at ch20) but
+  // the breaches stayed bunched in the first third, so a deck was fighting on
+  // three fronts by wave 7 with two or three towers down. Breaches now spread
+  // across each chapter; the third road still arrives earlier the deeper you go.
+  if (n === 7) return [6, 11];
+  if (n <= 9) return [5, 10];
+  if (n === 10) return [4, 9];
+  if (n <= 14) return [4, 8, 13];
+  return [3, 7, 12];
 }
 
 // Same return shape as authoredRoadPlans() in roadRegistry.js so game.js can

@@ -1380,7 +1380,7 @@ ready(() => {
     const banner=document.getElementById('villageEventBanner'); if(!banner)return;
     const active=event&&Date.now()-event.started<event.duration;
     banner.classList.toggle('hidden',!active); world.classList.toggle(`event-${event?.id||'none'}`,active);
-    if(active){banner.innerHTML=`<b>✦ ${event.name}</b><span>${event.copy}</span>`; if(announce)toast(`${event.name} begins in the Village`)}
+    if(active){banner.innerHTML=`<b>✦ ${event.name}</b><span>${event.copy}</span>`; if(announce&&!document.body.classList.contains('battle-mode'))toast(`${event.name} begins in the Village`)}
   }
   let lastJuiceRender=0;
   function animateVillageJuice(now){

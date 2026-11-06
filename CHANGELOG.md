@@ -8,6 +8,69 @@ short snapshot of the game as it stands today.
 Entries from V36.0.0 downwards are the original release notes, unedited. The
 per-release patch notes they summarise are in `docs/patch_notes/`.
 
+## V37.7.0 CAMPAIGN POLISH
+
+**Messages that would not go away**
+
+- Damage numbers and other floating text froze in place whenever the game
+  paused (every draft, upgrade menu and wave break) and sat there until play
+  resumed. They now keep fading while paused, and so does the yellow "!" alert.
+- The "Local play — progress is saved in this browser" pill no longer stays on
+  screen for good; it fades after a few seconds (errors and syncs still show).
+- Village event toasts ("Lantern Festival begins in the Village") no longer pop
+  up in the middle of a battle.
+
+**Tower projectiles**
+
+- Tower shots were flat glowing dots hovering at one height. Each tower now
+  fires a 3D object that matches it — daggers, tumbling axes, crossbow bolts,
+  ballista bolts, lances of light, arcane orbs, spinning crosses, cannonballs,
+  bones, a spiked chain, clock gears, bats, rosary beads, garlic, scripture
+  pages and the keep's arrows. They fly in an arc from the tower top to the
+  enemy, point where they are going, and spin the way they should.
+
+**Power curve**
+
+- **Card levels were not growing.** A full campaign simulation finished
+  Chapter 5 with every deck card still at level 1 (first clears gave 13–22 XP
+  against 100 per level). XP is now paced so a deck that clears each road once
+  reaches its tier's level cap: level 2 by road 5, 4 by road 10, 8 by road 20.
+  Cards two or more levels behind the cap earn double (so a card added late
+  catches up), and a defeat from wave 3 on still pays a little card XP.
+- **Murder holes.** An enemy that reached a door stood there hitting it until
+  the run ended — one playtest lost a full 25-point gate to a single elite
+  ghost that only holy damage could hurt. The keep now pours oil on anything
+  hammering a door: ordinary enemies die in a few seconds, elites in about
+  seven, bosses barely notice. One leak costs a few gate points; a crowd at
+  the door is still a disaster.
+- **New roads send scouts first.** Most chapter 7 and 11 losses happened on the
+  exact wave a new road opened. A road's first wave now carries a third of its
+  usual share of enemies, so there is time to build on it.
+- **Breaches spread out.** Chapters grow from 17 waves (ch7) to 30 (ch20), but
+  the extra roads all opened in the first third. They now spread across each
+  chapter: ch7 at waves 6/11, ch8–9 at 5/10, ch10 at 4/9, ch11–14 at 4/8/13,
+  ch15+ at 3/7/12.
+- **Late bosses were walls.** Past road 11, boss HP stacked three curves at
+  once (authored HP, the per-chapter step and the ever-longer wave count): the
+  road-20 boss had about 312,000 HP against 47,000 at road 11. Bots reached the
+  boss on roads 15 and 20 with gate to spare and could not dent it. Bosses now
+  grow 11% per road from the road-11 figure (road 15 ≈ 67k, road 20 ≈ 93k).
+- Bot playtests (three runs each, no Village bonuses): chapter 7 went from
+  1 win in 3 to 2 in 3; chapter 11 from 0 in 3 to 2 in 3. Chapter 15 went
+  from two boss-wave losses to a win (boss down in 49 s). The bot still loses
+  the road-20 finale at the boss — it arrives with a third of its gate.
+
+**Unlockables**
+
+- Every card is unlocked by Chapter 8, so roads 9–20 only gave a relic. Each of
+  them now also grants a permanent **Chapter Boon**, active in every hunt:
+  reserve Essence, gate health, tower damage, starting Battle Points or bonus
+  card XP (12 boons; all of them together add +21% tower damage, +8 gate
+  health, +24 reserve Essence, 2 Battle Points and +50% card XP).
+- The campaign map now shows what each road gives — its cards and its boon —
+  and a boons bar at the top lights up as you earn them. The victory screen
+  announces a new boon and how many card levels your deck gained.
+
 ## V37.6.1 TEST MODE SWITCH
 
 - Test mode now has an in-game switch: **More → Test Mode**. It asks once,

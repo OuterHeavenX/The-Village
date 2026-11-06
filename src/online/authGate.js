@@ -144,6 +144,11 @@ function updateAccountPanel() {
     indicator.textContent = cloud.message;
     indicator.dataset.state = cloud.state;
     indicator.classList.toggle('hidden', cloud.state === 'idle');
+    // V37.7: a settled status ("Local play — …", "Saved") is shown for a few
+    // seconds and then fades; it used to sit over the battlefield all game.
+    clearTimeout(updateAccountPanel.fade);
+    indicator.classList.remove('is-faded');
+    if (cloud.state !== 'error' && cloud.state !== 'loading' && cloud.state !== 'syncing') updateAccountPanel.fade = setTimeout(() => indicator.classList.add('is-faded'), 5000);
   }
 }
 

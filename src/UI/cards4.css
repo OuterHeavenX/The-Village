@@ -194,3 +194,20 @@ body #towerInspector{
 .battle-upgrade-name .bu-portrait{ position:relative; flex:0 0 52px; width:52px; aspect-ratio:4/5; border-radius:7px; overflow:hidden; container-type:inline-size; font-size:22px !important; display:grid; place-items:center; border:1px solid #000; box-shadow:0 0 0 1px rgba(243,220,156,.4), inset 0 0 8px #000; background:radial-gradient(80% 70% at 50% 40%,#2a2030,#060508); }
 .battle-upgrade-row button{ border:1px solid rgba(243,220,156,.45) !important; background:linear-gradient(180deg,#2c1f22,#120d10) !important; color:#ffe7b0 !important; }
 .battle-upgrade-close{ border:1px solid rgba(243,220,156,.55) !important; background:rgba(8,6,10,.85) !important; color:var(--rq-gold-hi) !important; }
+
+/* V37.7: transient status pills fade instead of sitting over the board */
+#cloudSaveIndicator{ transition:opacity .6s ease; }
+#cloudSaveIndicator.is-faded{ opacity:0 !important; pointer-events:none; }
+
+/* V37.7 — campaign rewards row and chapter boons summary */
+.chapter-rewards{ display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin:8px 0 2px; }
+.chapter-rewards b{ font:800 .62rem/1 system-ui,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#d9b56a; margin-right:2px; }
+.chapter-rewards span{ padding:4px 8px; border-radius:999px; font-size:.74rem; background:#2a1d0c99; border:1px solid #d9b56a55; color:#f3e3bd; }
+.chapter-rewards span.is-boon{ background:linear-gradient(90deg,#3b2a0e,#2a1d0c); border-color:#f3d47a99; color:#ffe9a8; }
+.chapter-rewards.is-claimed span{ opacity:.6; }
+.campaign-boons{ position:relative; z-index:1; margin:0 auto 14px; max-width:560px; padding:10px 14px; border-radius:14px; text-align:center; background:#120c06cc; border:1px solid #d9b56a44; }
+.campaign-boon-row{ display:flex; justify-content:center; flex-wrap:wrap; gap:6px; margin:7px 0 6px; }
+.campaign-boon-row i{ font-style:normal; width:30px; height:30px; display:grid; place-items:center; border-radius:50%; background:#0008; border:1px solid #fff2; filter:grayscale(1); opacity:.45; font-size:15px; }
+.campaign-boon-row i.on{ filter:none; opacity:1; border-color:#f3d47a; box-shadow:0 0 10px #f3d47a55; }
+.campaign-boons small{ color:#d8c8a8; font-size:.74rem; }
+@media (max-width:700px){ .chapter-rewards span{ font-size:.68rem; padding:3px 7px; } .campaign-boon-row i{ width:26px; height:26px; font-size:13px; } }
